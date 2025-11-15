@@ -1,0 +1,156 @@
+# GitHub Actions CI/CD
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # ==========================================
+  # Backend Python Tests
+  # ==========================================
+  backend-tests:
+    name: Backend Tests
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+    
+    - name: Lint with ruff
+      run: |
+        cd backend
+        ruff check app/
+    
+    - name: Format check with black
+      run: |
+        cd backend
+        black --check app/
+    
+    - name: Type check with mypy
+      run: |
+        cd backend
+        mypy app/
+      continue-on-error: true
+    
+    - name: Run tests
+      run: |
+        cd backend
+        pytest --cov=app --cov-report=xml
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+
+  # ==========================================
+  # Frontend Tests
+  # ==========================================
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+    
+    - name: Lint
+      run: |
+        cd frontend
+        npm run lint
+    
+    - name: Format check
+      run: |
+        cd frontend
+        npm run format:check
+    
+    - name: Type check
+      run: |
+        cd frontend
+        npm run type-check
+    
+    - name: Run tests
+      run: |
+        cd frontend
+        npm test
+
+  # ==========================================
+  # Security Scan
+  # ==========================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Bandit (Python security)
+      run: |
+        pip install bandit
+        bandit -r backend/app -f json -o bandit-report.json
+      continue-on-error: true
+    
+    - name: Run npm audit (Node security)
+      run: |
+        cd frontend
+        npm audit --audit-level=moderate
+      continue-on-error: true
+
+  # ==========================================
+  # Build Test (ne pas publier)
+  # ==========================================
+  build-test:
+    name: Test Build
+    runs-on: windows-latest
+    needs: [backend-tests, frontend-tests]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm ci
+        npm run build
+    
+    - name: Test backend packaging
+      run: |
+        cd backend
+        pip install -r requirements.txt
+        pip install pyinstaller
+        python -c "import PyInstaller; print('PyInstaller OK')"
