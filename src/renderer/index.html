@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Déclaration des Droits de Douanes - Zone CEMAC</title>
+    <link rel="stylesheet" href="../../public/assets/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏛️ Système de Déclaration Douanière CEMAC</h1>
+            <p class="subtitle">Application professionnelle hors-ligne pour la zone CEMAC</p>
+        </header>
+
+        <main>
+            <!-- Section de chargement des documents -->
+            <section class="card">
+                <h2>📄 Importation des Documents</h2>
+                <div class="upload-section">
+                    <div class="upload-item">
+                        <label>Facture Commerciale (Obligatoire)</label>
+                        <button id="btn-upload-invoice" class="btn btn-primary">
+                            📤 Charger la Facture
+                        </button>
+                        <span id="invoice-status" class="status"></span>
+                    </div>
+                    <div class="upload-item">
+                        <label>Facture de Transport (Optionnel)</label>
+                        <button id="btn-upload-transport" class="btn btn-secondary">
+                            📤 Charger Transport
+                        </button>
+                        <span id="transport-status" class="status"></span>
+                    </div>
+                    <div class="upload-item">
+                        <label>Facture d'Assurance (Optionnel)</label>
+                        <button id="btn-upload-insurance" class="btn btn-secondary">
+                            📤 Charger Assurance
+                        </button>
+                        <span id="insurance-status" class="status"></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section de données extraites -->
+            <section class="card">
+                <h2>📊 Données Extraites</h2>
+                <div id="extracted-data">
+                    <div class="data-preview">
+                        <p class="placeholder">Les données apparaîtront ici après le chargement des documents...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section de calcul des taxes -->
+            <section class="card">
+                <h2>💰 Calcul des Droits et Taxes</h2>
+                <div id="tax-calculation">
+                    <div class="tax-summary">
+                        <div class="tax-item">
+                            <label>Valeur en Douane (CIF):</label>
+                            <span id="cif-value">0.00 XAF</span>
+                        </div>
+                        <div class="tax-item">
+                            <label>Droits de Douane (DD):</label>
+                            <span id="customs-duty">0.00 XAF</span>
+                        </div>
+                        <div class="tax-item">
+                            <label>TVA:</label>
+                            <span id="vat">0.00 XAF</span>
+                        </div>
+                        <div class="tax-item">
+                            <label>Taxe Communautaire d'Intégration (TCI):</label>
+                            <span id="tci">0.00 XAF</span>
+                        </div>
+                        <div class="tax-item">
+                            <label>Redevance Statistique:</label>
+                            <span id="statistical-fee">0.00 XAF</span>
+                        </div>
+                        <div class="tax-item total">
+                            <label>Total à Payer:</label>
+                            <span id="total-amount">0.00 XAF</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Boutons d'action -->
+            <section class="actions">
+                <button id="btn-calculate" class="btn btn-success" disabled>
+                    🧮 Calculer les Taxes
+                </button>
+                <button id="btn-generate" class="btn btn-primary" disabled>
+                    📑 Générer la Déclaration
+                </button>
+                <button id="btn-export" class="btn btn-info" disabled>
+                    💾 Exporter le Dossier
+                </button>
+                <button id="btn-reset" class="btn btn-danger">
+                    🔄 Nouveau Calcul
+                </button>
+            </section>
+
+            <!-- Section d'aperçu de la déclaration -->
+            <section class="card" id="declaration-preview" style="display: none;">
+                <h2>📋 Aperçu de la Déclaration</h2>
+                <div id="declaration-content"></div>
+            </section>
+        </main>
+
+        <footer>
+            <p>© 2024 - Système de Déclaration Douanière CEMAC - Version 1.0.0</p>
+            <p>Application fonctionnant entièrement hors-ligne</p>
+        </footer>
+    </div>
+
+    <script src="../../public/assets/js/renderer.js"></script>
+</body>
+</html>

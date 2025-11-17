@@ -1,0 +1,54 @@
+{
+  "name": "d-clarations-des-droits-de-douanes-en-zone-cemac",
+  "version": "1.0.0",
+  "description": "Le projet consiste à développer une application desktop professionnelle, fonctionnant entièrement hors-ligne, capable d’automatiser l’extraction de données de factures et le calcul des droits et taxes selon la réglementation CEMAC.",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --no-sandbox",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "keywords": [
+    "douanes",
+    "CEMAC",
+    "declaration",
+    "taxes",
+    "customs",
+    "desktop",
+    "offline"
+  ],
+  "author": "BlackGhost99",
+  "license": "MIT",
+  "build": {
+    "appId": "com.cemac.declarations-douanes",
+    "productName": "Déclarations Douanières CEMAC",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "public/**/*",
+      "templates/**/*",
+      "samples/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Office"
+    }
+  },
+  "devDependencies": {
+    "electron": "^39.2.1",
+    "electron-builder": "^26.0.12"
+  }
+}

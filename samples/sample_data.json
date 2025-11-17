@@ -1,0 +1,136 @@
+{
+  "sample_invoice": {
+    "numeroFacture": "FAC-2024-00123",
+    "dateFacture": "2024-01-15",
+    "fournisseur": {
+      "nom": "Société Exportatrice International S.A.",
+      "adresse": "123 Rue du Commerce, 75001 Paris, France",
+      "telephone": "+33 1 23 45 67 89",
+      "email": "contact@exportateur.fr",
+      "siret": "123 456 789 00012"
+    },
+    "destinataire": {
+      "nom": "Entreprise Importatrice CEMAC SARL",
+      "adresse": "BP 456, Avenue de l'Indépendance, Yaoundé, Cameroun",
+      "telephone": "+237 222 33 44 55",
+      "email": "import@entreprise.cm",
+      "nif": "M012345678901C"
+    },
+    "articles": [
+      {
+        "numero": 1,
+        "description": "Ordinateurs portables professionnels - HP EliteBook 840 G9",
+        "quantite": 50,
+        "unite": "pièces",
+        "prixUnitaire": 800000,
+        "montantTotal": 40000000,
+        "origine": "France",
+        "codeHS": "8471.30.00",
+        "poidsBrut": 1.5,
+        "poidsNet": 1.2
+      },
+      {
+        "numero": 2,
+        "description": "Bureaux professionnels en bois - Modèle Executive",
+        "quantite": 100,
+        "unite": "pièces",
+        "prixUnitaire": 150000,
+        "montantTotal": 15000000,
+        "origine": "France",
+        "codeHS": "9403.30.00",
+        "poidsBrut": 50,
+        "poidsNet": 45
+      }
+    ],
+    "montantTotal": 55000000,
+    "devise": "XAF",
+    "incoterm": "CIF",
+    "conditions": "Paiement à 30 jours",
+    "fichierSource": "facture_commerciale_exemple.pdf"
+  },
+  
+  "sample_transport": {
+    "numeroConnaissement": "BL-2024-MSL-DLA-001234",
+    "dateEmission": "2024-01-16",
+    "transporteur": {
+      "nom": "Compagnie Maritime International SA",
+      "adresse": "Port de Marseille, Quai d'Arenc, 13002 Marseille, France",
+      "telephone": "+33 4 91 00 00 00",
+      "email": "booking@cmi-shipping.fr"
+    },
+    "modeTransport": "MARITIME",
+    "typeNavire": "Porte-conteneurs",
+    "nomNavire": "MSC Mediterranean",
+    "voyage": "MSL-DLA-2024-W03",
+    "portDepart": "Marseille, France",
+    "portArrivee": "Douala, Cameroun",
+    "dateDepart": "2024-01-20",
+    "dateArrivee": "2024-02-10",
+    "details": {
+      "coutTransport": 3500000,
+      "fraisManutention": 750000,
+      "fraisDocumentaires": 150000,
+      "autresFrais": 100000
+    },
+    "montantTotal": 4500000,
+    "devise": "XAF",
+    "nombreConteneurs": 2,
+    "typeConteneurs": "20' Standard",
+    "poids": 2500,
+    "volume": 15,
+    "fichierSource": "connaissement_exemple.pdf"
+  },
+  
+  "sample_insurance": {
+    "numeroPolice": "POL-2024-MAR-00456",
+    "dateEmission": "2024-01-16",
+    "assureur": {
+      "nom": "Compagnie d'Assurance Transport International",
+      "adresse": "456 Avenue de l'Assurance, 75008 Paris, France",
+      "telephone": "+33 1 45 67 89 01",
+      "email": "marine@assurance-transport.fr",
+      "numeroAgrement": "AGR-FR-2020-123"
+    },
+    "typeAssurance": "TOUS_RISQUES",
+    "couverture": "Assurance tous risques transport maritime de marchandises",
+    "valeurAssuree": 56000000,
+    "tauxPrime": 0.5,
+    "primeAssurance": 280000,
+    "franchise": 100000,
+    "dateDebut": "2024-01-20",
+    "dateFin": "2024-02-28",
+    "risquesCouvert": [
+      "Avarie commune",
+      "Échouement, naufrage, collision",
+      "Incendie, explosion",
+      "Vol et pillage",
+      "Mouillage eau de mer",
+      "Tremblement de terre, foudre"
+    ],
+    "exclusions": [
+      "Vice propre de la marchandise",
+      "Emballage défectueux",
+      "Retard de livraison"
+    ],
+    "devise": "XAF",
+    "fichierSource": "police_assurance_exemple.pdf"
+  },
+  
+  "sample_calculation": {
+    "fobValue": 55000000,
+    "freight": 4500000,
+    "insurance": 280000,
+    "cifValue": 59780000,
+    "customsDuty": 11956000,
+    "customsDutyRate": 20,
+    "vat": 13814035,
+    "vatRate": 19.25,
+    "tci": 597800,
+    "tciRate": 1,
+    "statisticalFee": 597800,
+    "statisticalFeeRate": 1,
+    "total": 26965635,
+    "currency": "XAF",
+    "calculationDate": "2024-01-16T10:30:00.000Z"
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "declaration": {
+    "numero": "CEMAC-202401-12345",
+    "dateCreation": "2024-01-16T10:30:00.000Z",
+    "type": "DECLARATION_IMPORTATION",
+    "regime": "MISE_A_LA_CONSOMMATION",
+    "bureau": "CEMAC-DOUALA-PORT",
+    "statut": "VALIDEE",
+    "systeme": {
+      "nom": "Système de Déclaration Douanière CEMAC",
+      "version": "1.0.0"
+    }
+  },
+  "importateur": {
+    "nom": "Entreprise Importatrice CEMAC SARL",
+    "adresse": "BP 456, Avenue de l'Indépendance, Yaoundé, Cameroun",
+    "telephone": "+237 222 33 44 55",
+    "email": "import@entreprise.cm",
+    "nif": "M012345678901C"
+  },
+  "exportateur": {
+    "nom": "Société Exportatrice International S.A.",
+    "adresse": "123 Rue du Commerce, 75001 Paris, France",
+    "telephone": "+33 1 23 45 67 89",
+    "email": "contact@exportateur.fr",
+    "siret": "123 456 789 00012"
+  },
+  "marchandises": [
+    {
+      "numero": 1,
+      "codeHS": "8471.30.00",
+      "description": "Ordinateurs portables professionnels - HP EliteBook 840 G9",
+      "origine": "France",
+      "quantite": 50,
+      "prixUnitaire": 800000,
+      "montantTotal": 40000000,
+      "devise": "XAF"
+    },
+    {
+      "numero": 2,
+      "codeHS": "9403.30.00",
+      "description": "Bureaux professionnels en bois - Modèle Executive",
+      "origine": "France",
+      "quantite": 100,
+      "prixUnitaire": 150000,
+      "montantTotal": 15000000,
+      "devise": "XAF"
+    }
+  ],
+  "transport": {
+    "mode": "MARITIME",
+    "numeroConnaissement": "BL-2024-MSL-DLA-001234",
+    "transporteur": "Compagnie Maritime International SA",
+    "portDepart": "Marseille, France",
+    "portArrivee": "Douala, Cameroun",
+    "dateArrivee": "2024-02-10",
+    "coutTotal": 4500000
+  },
+  "assurance": {
+    "numeroPolice": "POL-2024-MAR-00456",
+    "assureur": "Compagnie d'Assurance Transport International",
+    "typeAssurance": "TOUS_RISQUES",
+    "montantPrime": 280000
+  },
+  "valorisation": {
+    "valeurFOB": 55000000,
+    "fret": 4500000,
+    "assurance": 280000,
+    "valeurCIF": 59780000,
+    "devise": "XAF"
+  },
+  "liquidation": {
+    "droitsDeDouane": {
+      "base": 59780000,
+      "taux": 20,
+      "montant": 11956000
+    },
+    "tva": {
+      "base": 71736000,
+      "taux": 19.25,
+      "montant": 13814035
+    },
+    "tci": {
+      "base": 59780000,
+      "taux": 1,
+      "montant": 597800
+    },
+    "redevanceStatistique": {
+      "base": 59780000,
+      "taux": 1,
+      "montant": 597800
+    },
+    "totalAPayer": 26965635
+  },
+  "detailCalcul": [
+    {
+      "label": "Valeur CIF",
+      "amount": 59780000,
+      "percentage": 100
+    },
+    {
+      "label": "Droits de Douane",
+      "amount": 11956000,
+      "percentage": 20
+    },
+    {
+      "label": "TVA",
+      "amount": 13814035,
+      "percentage": 23.11
+    },
+    {
+      "label": "TCI",
+      "amount": 597800,
+      "percentage": 1
+    },
+    {
+      "label": "Redevance Statistique",
+      "amount": 597800,
+      "percentage": 1
+    },
+    {
+      "label": "Total des Taxes",
+      "amount": 26965635,
+      "percentage": 45.11
+    }
+  ],
+  "documentsJoints": [
+    {
+      "type": "FACTURE_COMMERCIALE",
+      "obligatoire": true,
+      "fichier": "facture_commerciale_exemple.pdf",
+      "statut": "PRESENTE"
+    },
+    {
+      "type": "CONNAISSEMENT",
+      "obligatoire": false,
+      "fichier": "connaissement_exemple.pdf",
+      "statut": "PRESENTE"
+    },
+    {
+      "type": "POLICE_ASSURANCE",
+      "obligatoire": false,
+      "fichier": "police_assurance_exemple.pdf",
+      "statut": "PRESENTE"
+    },
+    {
+      "type": "CERTIFICAT_ORIGINE",
+      "obligatoire": true,
+      "statut": "NON_PRESENTE"
+    },
+    {
+      "type": "LISTE_COLISAGE",
+      "obligatoire": true,
+      "statut": "NON_PRESENTE"
+    },
+    {
+      "type": "AUTORISATION_IMPORTATION",
+      "obligatoire": false,
+      "statut": "NON_PRESENTE"
+    }
+  ],
+  "resume": {
+    "nombreArticles": 2,
+    "valeurTotaleCIF": 59780000,
+    "totalDroitsEtTaxes": 26965635,
+    "montantTotal": 86745635,
+    "devise": "XAF"
+  },
+  "metadata": {
+    "dateGeneration": "2024-01-16T10:30:00.000Z",
+    "genereParSysteme": "Système de Déclaration Douanière CEMAC",
+    "modeHorsLigne": true,
+    "version": "1.0.0"
+  }
+}

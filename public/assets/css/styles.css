@@ -1,0 +1,275 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #333;
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+    color: #667eea;
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 1.1em;
+}
+
+main {
+    display: grid;
+    gap: 20px;
+}
+
+.card {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card h2 {
+    color: #667eea;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+
+.upload-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.upload-item {
+    padding: 20px;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.upload-item:hover {
+    border-color: #667eea;
+    background: #f8f9ff;
+}
+
+.upload-item label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    margin: 5px;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-success {
+    background: #28a745;
+    color: white;
+}
+
+.btn-info {
+    background: #17a2b8;
+    color: white;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.status {
+    display: block;
+    margin-top: 10px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.status.success {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.status.error {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.data-preview {
+    min-height: 150px;
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.placeholder {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.data-table th,
+.data-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.data-table th {
+    background: #667eea;
+    color: white;
+    font-weight: bold;
+}
+
+.data-table tr:hover {
+    background: #f8f9ff;
+}
+
+.tax-summary {
+    display: grid;
+    gap: 15px;
+}
+
+.tax-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    font-size: 1.1em;
+}
+
+.tax-item.total {
+    background: #667eea;
+    color: white;
+    font-weight: bold;
+    font-size: 1.3em;
+}
+
+.tax-item label {
+    font-weight: 600;
+}
+
+.actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#declaration-content {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    font-family: monospace;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+footer {
+    text-align: center;
+    color: white;
+    padding: 20px;
+    margin-top: 30px;
+}
+
+footer p {
+    margin: 5px 0;
+}
+
+/* Animation pour le chargement */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.loading {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 1.8em;
+    }
+
+    .upload-section {
+        grid-template-columns: 1fr;
+    }
+
+    .actions {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+}
