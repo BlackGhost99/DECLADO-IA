@@ -1,0 +1,87 @@
+# Taux de change pour calculs douaniers
+# Les valeurs douanières doivent être converties en FCFA (XAF)
+#
+# NOTE: Ces taux sont indicatifs pour démonstration.
+# En production, utiliser les taux officiels de la BEAC mis à jour quotidiennement.
+
+rates:
+  # Franc CFA (XAF) - monnaie de référence
+  XAF: 1.0
+  
+  # Euro (monnaie d'ancrage du FCFA)
+  EUR: 655.957  # Taux fixe: 1 EUR = 655.957 FCFA (parité fixe depuis 1999)
+  
+  # Dollar américain (monnaie la plus utilisée dans le commerce international)
+  USD: 600.0    # Taux indicatif: ~600 FCFA/USD (varie selon marché)
+  
+  # Livre sterling
+  GBP: 780.0    # Taux indicatif
+  
+  # Franc suisse
+  CHF: 690.0    # Taux indicatif
+  
+  # Yuan chinois
+  CNY: 85.0     # Taux indicatif: ~85 FCFA/CNY
+  
+  # Yen japonais
+  JPY: 4.2      # Taux indicatif: ~4.2 FCFA/JPY
+  
+  # Autres devises africaines
+  NGN: 0.75     # Naira nigérian
+  GHS: 50.0     # Cedi ghanéen
+  ZAR: 35.0     # Rand sud-africain
+  MAD: 60.0     # Dirham marocain
+  
+  # Devise par défaut (si non trouvée)
+  default: 600.0  # Assumer USD par défaut
+
+# Source officielle des taux
+official_source:
+  institution: "BEAC (Banque des États de l'Afrique Centrale)"
+  url: "https://www.beac.int/taux-de-change/"
+  update_frequency: "daily"
+  reference_time: "14:00 GMT"
+
+# Règles de conversion
+conversion_rules:
+  # Le taux applicable est celui du jour de l'enregistrement de la déclaration
+  applicable_date: "declaration_date"
+  
+  # En l'absence de taux BEAC pour une devise, utiliser taux de marché
+  fallback: "market_rate"
+  
+  # Arrondi: au centième de franc CFA le plus proche
+  rounding: "round_half_up"
+  precision: 2
+
+# Taux EUR/XAF (historique de référence)
+eur_xaf_parity:
+  fixed_rate: 655.957
+  established: "1999-01-01"
+  note: "Parité fixe depuis l'adoption de l'euro. 1 EUR = 655.957 FCFA."
+
+# Dates de mise à jour (exemple)
+# En production, ces taux doivent être mis à jour quotidiennement depuis l'API BEAC
+last_update:
+  date: "2024-11-15"
+  source: "BEAC"
+  rates_valid_for: "2024-11-15"
+
+# Notes importantes
+notes: |
+  - Le FCFA (XAF) a une parité fixe avec l'euro depuis 1999
+  - 1 EUR = 655.957 FCFA (taux intangible)
+  - Pour les autres devises, utiliser les taux de change BEAC du jour
+  - En l'absence de taux BEAC, utiliser le cours de change de la devise contre EUR, puis convertir en FCFA
+  - Les taux de change sont publiés quotidiennement par la BEAC à 14h GMT
+  - Pour les déclarations douanières, utiliser le taux du jour d'enregistrement
+  - Arrondi: au centième de FCFA le plus proche (règle ROUND_HALF_UP)
+  
+  Exemples de conversion:
+    - Valeur facture: 1000 USD
+    - Taux USD/XAF: 600
+    - Valeur en FCFA: 1000 × 600 = 600,000 FCFA
+    
+    - Valeur facture: 1000 EUR  
+    - Taux EUR/XAF: 655.957 (fixe)
+    - Valeur en FCFA: 1000 × 655.957 = 655,957 FCFA

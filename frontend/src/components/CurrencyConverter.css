@@ -1,0 +1,87 @@
+/* ============================================
+   DECLADO-IA - Currency Converter Component
+   ============================================ */
+
+.currency-converter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: linear-gradient(135deg, var(--black-200) 0%, var(--grey-800) 100%);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--grey-700);
+}
+
+.currency-input-group {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.currency-input {
+  flex: 1;
+  padding: var(--spacing-md);
+  border: 2px solid var(--grey-700);
+  border-radius: var(--radius-md);
+  background: var(--black-200);
+  color: var(--white);
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all var(--transition-base);
+}
+
+.currency-input:focus {
+  outline: none;
+  border-color: var(--red-600);
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+}
+
+.currency-select {
+  padding: var(--spacing-md);
+  border: 2px solid var(--grey-700);
+  border-radius: var(--radius-md);
+  background: var(--black-200);
+  color: var(--white);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  min-width: 100px;
+}
+
+.currency-select:focus {
+  outline: none;
+  border-color: var(--red-600);
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+}
+
+.currency-conversion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md);
+  background: var(--grey-800);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--red-600);
+  margin-top: var(--spacing-sm);
+}
+
+.conversion-label {
+  color: var(--grey-400);
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: none;
+}
+
+.conversion-amount {
+  color: var(--red-500);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.conversion-note {
+  color: var(--grey-500);
+  font-size: 0.75rem;
+  font-style: italic;
+  font-family: 'Courier New', monospace;
+}
+

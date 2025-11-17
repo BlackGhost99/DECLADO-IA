@@ -1,0 +1,256 @@
+# Jeu de tests "golden set" pour validation du moteur de règles douanières
+# 
+# Chaque cas de test contient:
+#   - input: données d'entrée (facture normalisée)
+#   - expected: résultats attendus (calculés manuellement)
+#   - tolerance: tolérance acceptable pour les arrondis (±1 FCFA par défaut)
+#
+# Ces tests servent de référence pour valider la reproductibilité des calculs.
+
+test_cases:
+  # Cas 1: Import simple de riz (FOB, origine Thaïlande, taux 5%)
+  - name: "Riz importé de Thaïlande (FOB → CIF)"
+    description: "Import de 1000 kg de riz à 500 USD/tonne en FOB"
+    input:
+      invoice_number: "INV-2024-001"
+      hs_code: "1006"
+      description: "Riz blanchi, qualité A"
+      quantity: "1"
+      unit_price: "500"
+      currency: "USD"
+      incoterm: "FOB"
+      origin_country: "TH"
+      destination_country: "CM"
+      freight_cost: null
+      insurance_cost: null
+      exchange_rate: "600"
+      exemption_code: null
+    
+    expected:
+      # Étape 1: Conversion devise
+      total_value_fcfa: 300000  # 500 USD × 600
+      
+      # Étape 2: Incoterms FOB → CIF
+      freight_cost: 30000       # 10% de FOB = 30,000 FCFA
+      cfr_value: 330000         # FOB + Fret = 330,000 FCFA
+      insurance_cost: 5000      # max(330,000 × 0.5%, 5000) = 5,000 FCFA
+      cif_value: 335000         # CFR + Assurance = 335,000 FCFA
+      
+      # Étape 3: Valeur en douane
+      taxable_base: 335000      # = CIF
+      
+      # Étape 4: Droits de douane (DD)
+      dd_rate: "5"              # Taux TEC pour riz: 5%
+      dd_amount: 16750          # 335,000 × 5% = 16,750 FCFA
+      
+      # Étape 5: Autres taxes
+      redevance_informatique: 3350    # 335,000 × 1% = 3,350 FCFA
+      taxe_statistique: 3350          # 335,000 × 1% = 3,350 FCFA
+      prelevements_communautaires: 3350  # 335,000 × 1% = 3,350 FCFA
+      other_taxes_total: 10050        # 3,350 + 3,350 + 3,350 = 10,050 FCFA
+      
+      # Étape 6: Base TVA
+      vat_base: 361800          # 335,000 + 16,750 + 10,050 = 361,800 FCFA
+      
+      # Étape 7: TVA
+      vat_rate: "19.25"         # Taux TVA Cameroun: 19.25%
+      vat_amount: 69647         # 361,800 × 19.25% = 69,646.5 → 69,647 FCFA (arrondi)
+      
+      # Étape 8: Totaux
+      total_taxes: 96447        # 16,750 + 10,050 + 69,647 = 96,447 FCFA
+      total_amount: 431447      # 335,000 + 96,447 = 431,447 FCFA
+    
+    tolerance: 1  # ±1 FCFA pour arrondis
+
+  # Cas 2: Import textile (CIF déjà inclus, origine Chine, taux 20%)
+  - name: "T-shirts en coton de Chine (CIF)"
+    description: "Import de 500 t-shirts à 5 EUR/pièce en CIF"
+    input:
+      invoice_number: "INV-2024-002"
+      hs_code: "6109"
+      description: "T-shirts en coton, taille M"
+      quantity: "500"
+      unit_price: "5"
+      currency: "EUR"
+      incoterm: "CIF"
+      origin_country: "CN"
+      destination_country: "CM"
+      freight_cost: null
+      insurance_cost: null
+      exchange_rate: "655.957"
+      exemption_code: null
+    
+    expected:
+      total_value_fcfa: 1639893   # 500 × 5 × 655.957 = 1,639,892.5 → 1,639,893 FCFA
+      cif_value: 1639893          # Déjà en CIF
+      taxable_base: 1639893
+      dd_rate: "20"               # Taux TEC textile: 20%
+      dd_amount: 327979           # 1,639,893 × 20% = 327,978.6 → 327,979 FCFA
+      other_taxes_total: 49197    # (16,399 + 16,399 + 16,399) = 49,197 FCFA
+      vat_base: 2017069           # 1,639,893 + 327,979 + 49,197 = 2,017,069 FCFA
+      vat_rate: "19.25"
+      vat_amount: 388286          # 2,017,069 × 19.25% = 388,285.78 → 388,286 FCFA
+      total_taxes: 765462         # 327,979 + 49,197 + 388,286 = 765,462 FCFA
+      total_amount: 2405355       # 1,639,893 + 765,462 = 2,405,355 FCFA
+    
+    tolerance: 2
+
+  # Cas 3: Bijoux de luxe (taux 30%, valeur élevée)
+  - name: "Bijoux en or (France, APE UE)"
+    description: "Import bijoux en or avec préférence tarifaire UE (réduction 80%)"
+    input:
+      invoice_number: "INV-2024-003"
+      hs_code: "7113"
+      description: "Collier en or 18 carats"
+      quantity: "1"
+      unit_price: "3000"
+      currency: "EUR"
+      incoterm: "FOB"
+      origin_country: "FR"
+      destination_country: "CM"
+      freight_cost: null
+      insurance_cost: null
+      exchange_rate: "655.957"
+      exemption_code: null
+    
+    expected:
+      total_value_fcfa: 1967871   # 3000 × 655.957 = 1,967,871 FCFA
+      freight_cost: 196787        # 10% FOB = 196,787 FCFA
+      cfr_value: 2164658          # FOB + Fret = 2,164,658 FCFA
+      insurance_cost: 10823       # max(2,164,658 × 0.5%, 5000) = 10,823 FCFA
+      cif_value: 2175481          # CFR + Assurance = 2,175,481 FCFA
+      taxable_base: 2175481
+      dd_rate: "6"                # Taux de base 30%, réduction APE 80% = 6% effectif
+      dd_amount: 130529           # 2,175,481 × 6% = 130,528.86 → 130,529 FCFA
+      other_taxes_total: 65265    # (21,755 + 21,755 + 21,755) = 65,265 FCFA
+      vat_base: 2371275           # 2,175,481 + 130,529 + 65,265 = 2,371,275 FCFA
+      vat_rate: "19.25"
+      vat_amount: 456471          # 2,371,275 × 19.25% = 456,470.44 → 456,471 FCFA (arrondi)
+      total_taxes: 652265         # 130,529 + 65,265 + 456,471 = 652,265 FCFA
+      total_amount: 2827746       # 2,175,481 + 652,265 = 2,827,746 FCFA
+    
+    tolerance: 2
+
+  # Cas 4: Médicaments (exonération totale)
+  - name: "Médicaments essentiels (exonération)"
+    description: "Import médicaments de la liste OMS avec exonération totale"
+    input:
+      invoice_number: "INV-2024-004"
+      hs_code: "3004"
+      description: "Paracétamol 500mg, boîtes de 1000 comprimés"
+      quantity: "100"
+      unit_price: "50"
+      currency: "USD"
+      incoterm: "CIF"
+      origin_country: "IN"
+      destination_country: "CM"
+      freight_cost: null
+      insurance_cost: null
+      exchange_rate: "600"
+      exemption_code: "EXO_MEDICAL"
+    
+    expected:
+      total_value_fcfa: 3000000   # 100 × 50 × 600 = 3,000,000 FCFA
+      cif_value: 3000000          # Déjà en CIF
+      taxable_base: 3000000
+      dd_rate: "0"                # Exonération DD
+      dd_amount: 0                # Exonéré
+      other_taxes_total: 90000    # Autres taxes s'appliquent: 3% de 3M = 90,000 FCFA
+      vat_base: 3090000           # 3,000,000 + 0 + 90,000 = 3,090,000 FCFA
+      vat_rate: "0"               # Exonération TVA
+      vat_amount: 0               # Exonéré
+      total_taxes: 90000          # Seulement autres taxes: 90,000 FCFA
+      total_amount: 3090000       # 3,000,000 + 90,000 = 3,090,000 FCFA
+    
+    tolerance: 1
+
+  # Cas 5: Import CEMAC (exonération totale DD)
+  - name: "Produits d'origine CEMAC (Gabon)"
+    description: "Produits manufacturés d'origine gabonaise (libre circulation CEMAC)"
+    input:
+      invoice_number: "INV-2024-005"
+      hs_code: "8517"
+      description: "Équipements télécoms fabriqués au Gabon"
+      quantity: "10"
+      unit_price: "200000"
+      currency: "XAF"
+      incoterm: "FOB"
+      origin_country: "GA"
+      destination_country: "CM"
+      freight_cost: "50000"
+      insurance_cost: "10000"
+      exchange_rate: "1"
+      exemption_code: null
+    
+    expected:
+      total_value_fcfa: 2000000   # 10 × 200,000 × 1 = 2,000,000 FCFA
+      freight_cost: 50000         # Fourni
+      cfr_value: 2050000          # FOB + Fret = 2,050,000 FCFA
+      insurance_cost: 10000       # Fourni
+      cif_value: 2060000          # CFR + Assurance = 2,060,000 FCFA
+      taxable_base: 2060000
+      dd_rate: "0"                # Préférence CEMAC: exonération totale DD
+      dd_amount: 0                # Exonéré (origine CEMAC)
+      other_taxes_total: 61800    # 3% de 2,060,000 = 61,800 FCFA
+      vat_base: 2121800           # 2,060,000 + 0 + 61,800 = 2,121,800 FCFA
+      vat_rate: "19.25"           # TVA s'applique normalement
+      vat_amount: 408447          # 2,121,800 × 19.25% = 408,446.5 → 408,447 FCFA
+      total_taxes: 470247         # 0 + 61,800 + 408,447 = 470,247 FCFA
+      total_amount: 2530247       # 2,060,000 + 470,247 = 2,530,247 FCFA
+    
+    tolerance: 1
+
+  # Cas 6: Outils électroportatifs (taux 10%, CFR)
+  - name: "Perceuses électriques (CFR)"
+    description: "Import d'outils électroportatifs en CFR"
+    input:
+      invoice_number: "INV-2024-006"
+      hs_code: "8467"
+      description: "Perceuses électriques sans fil"
+      quantity: "50"
+      unit_price: "80"
+      currency: "USD"
+      incoterm: "CFR"
+      origin_country: "CN"
+      destination_country: "CM"
+      freight_cost: null
+      insurance_cost: null
+      exchange_rate: "600"
+      exemption_code: null
+    
+    expected:
+      total_value_fcfa: 2400000   # 50 × 80 × 600 = 2,400,000 FCFA
+      cfr_value: 2400000          # Déjà en CFR
+      insurance_cost: 12000       # max(2,400,000 × 0.5%, 5000) = 12,000 FCFA
+      cif_value: 2412000          # CFR + Assurance = 2,412,000 FCFA
+      taxable_base: 2412000
+      dd_rate: "10"               # Taux TEC outils électriques: 10%
+      dd_amount: 241200           # 2,412,000 × 10% = 241,200 FCFA
+      other_taxes_total: 72360    # 3% de 2,412,000 = 72,360 FCFA
+      vat_base: 2725560           # 2,412,000 + 241,200 + 72,360 = 2,725,560 FCFA
+      vat_rate: "19.25"
+      vat_amount: 524670          # 2,725,560 × 19.25% = 524,670.3 → 524,670 FCFA
+      total_taxes: 838230         # 241,200 + 72,360 + 524,670 = 838,230 FCFA
+      total_amount: 3250230       # 2,412,000 + 838,230 = 3,250,230 FCFA
+    
+    tolerance: 1
+
+notes: |
+  Ces cas de test ont été calculés manuellement pour servir de référence.
+  
+  Formules appliquées:
+    1. Conversion devise: Valeur FCFA = Quantité × Prix unitaire × Taux de change
+    2. Incoterms:
+       - FOB → CFR: CFR = FOB + Fret (fret = 10% FOB si non fourni)
+       - CFR → CIF: CIF = CFR + Assurance (assurance = max(CFR × 0.5%, 5000 FCFA))
+    3. Valeur en douane = CIF
+    4. Droits de douane (DD): DD = Valeur en douane × Taux TEC effectif
+    5. Autres taxes: 3% valeur en douane (RI 1% + TS 1% + PC 1%)
+    6. Base TVA = Valeur en douane + DD + Autres taxes
+    7. TVA = Base TVA × 19.25%
+    8. Total taxes = DD + Autres taxes + TVA
+    9. Total à payer = Valeur en douane + Total taxes
+  
+  Arrondis: tous les montants sont arrondis au franc CFA le plus proche (ROUND_HALF_UP).
+  
+  Tolérance: ±1 ou ±2 FCFA selon la complexité des calculs (cumul d'arrondis).

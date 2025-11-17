@@ -1,0 +1,86 @@
+# Configuration des taux de TVA par pays CEMAC
+# Source: Directives CEMAC sur la TVA
+
+rates:
+  # Pays CEMAC
+  CM: 19.25   # Cameroun: 19.25% (taux standard depuis 2022)
+  GA: 18.00   # Gabon: 18%
+  CG: 18.90   # Congo-Brazzaville: 18.9%
+  CF: 19.00   # République Centrafricaine: 19%
+  TD: 18.00   # Tchad: 18%
+  GQ: 15.00   # Guinée Équatoriale: 15%
+  
+  # Taux CEMAC par défaut (si pays non spécifié)
+  CEMAC: 19.25  # Taux moyen harmonisé
+  
+  # Pour référence: autres pays africains
+  SN: 18.00   # Sénégal
+  CI: 18.00   # Côte d'Ivoire
+  BF: 18.00   # Burkina Faso
+  ML: 18.00   # Mali
+  BJ: 18.00   # Bénin
+  NE: 19.00   # Niger
+  TG: 18.00   # Togo
+
+# Taux réduits de TVA (produits spécifiques)
+reduced_rates:
+  CM:
+    essential_goods: 0     # Produits de première nécessité exonérés
+    medical: 0             # Médicaments essentiels
+    agriculture: 5.5       # Produits agricoles (certains)
+  
+  GA:
+    essential_goods: 0
+    medical: 0
+  
+  CG:
+    essential_goods: 0
+    medical: 0
+
+# Base de calcul de la TVA
+# TVA = (Valeur en douane + DD + autres taxes) × Taux TVA
+base_calculation:
+  formula: "(CIF + DD + autres_taxes) × taux_tva"
+  components:
+    - "CIF: Valeur CIF (coût, assurance, fret)"
+    - "DD: Droits de douane (TEC)"
+    - "autres_taxes: Redevance informatique, taxe statistique, etc."
+  rounding: "Arrondi au franc supérieur"
+
+# Exemptions de TVA
+exemptions:
+  - code: "EXO_DIPLO"
+    description: "Missions diplomatiques"
+    rate_override: 0
+  
+  - code: "EXO_ONG"
+    description: "Organisations internationales et ONG agréées"
+    rate_override: 0
+  
+  - code: "EXO_INV"
+    description: "Investissements sous régime privilégié"
+    rate_override: 0
+
+# Autres taxes parafiscales (incluses dans la base TVA)
+other_taxes:
+  redevance_informatique:
+    rate: 1.0  # 1% sur valeur en douane
+    base: "CIF"
+    description: "Redevance pour système informatique douanier (SYDONIA)"
+  
+  taxe_statistique:
+    rate: 1.0  # 1% sur valeur en douane
+    base: "CIF"
+    description: "Taxe pour établissement des statistiques du commerce extérieur"
+  
+  prelevements_communautaires:
+    rate: 1.0  # 1% sur valeur en douane
+    base: "CIF"
+    description: "Prélèvements communautaires CEMAC"
+
+notes: |
+  - Taux TVA Cameroun: 19.25% depuis janvier 2022 (avant: 17.5%)
+  - Base de calcul TVA = Valeur en douane + DD + autres taxes
+  - Certains produits bénéficient d'exonération totale de TVA
+  - Les taux réduits s'appliquent selon liste définie par pays
+  - Arrondi: au franc CFA supérieur (règle CEMAC)

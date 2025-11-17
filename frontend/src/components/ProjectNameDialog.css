@@ -1,0 +1,137 @@
+/* ============================================
+   DECLADO-IA - Project Name Dialog Component
+   ============================================ */
+
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn var(--transition-base);
+}
+
+.dialog-content {
+  background: linear-gradient(135deg, var(--black-200) 0%, var(--grey-900) 100%);
+  padding: var(--spacing-2xl);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  min-width: 400px;
+  max-width: 90vw;
+  animation: slideUp var(--transition-base);
+  border: 2px solid var(--grey-700);
+  position: relative;
+}
+
+.dialog-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--red-600), transparent);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.dialog-content h2 {
+  margin: 0 0 var(--spacing-xl) 0;
+  font-size: 1.5rem;
+  color: var(--white);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.dialog-content h2::before {
+  content: '📁';
+  font-size: 1.3rem;
+}
+
+.dialog-input {
+  width: 100%;
+  padding: var(--spacing-md);
+  font-size: 1rem;
+  border: 2px solid var(--grey-700);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  margin-bottom: var(--spacing-xl);
+  transition: all var(--transition-base);
+  background: var(--black-200);
+  color: var(--white);
+  font-weight: 500;
+}
+
+.dialog-input:focus {
+  outline: none;
+  border-color: var(--red-600);
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2);
+}
+
+.dialog-input::placeholder {
+  color: var(--grey-600);
+}
+
+.dialog-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+}
+
+.btn-cancel,
+.btn-confirm {
+  padding: var(--spacing-md) var(--spacing-xl);
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-cancel {
+  background: linear-gradient(135deg, var(--grey-600) 0%, var(--grey-700) 100%);
+  color: var(--white);
+}
+
+.btn-cancel:hover {
+  background: linear-gradient(135deg, var(--grey-700) 0%, var(--grey-800) 100%);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-confirm {
+  background: linear-gradient(135deg, var(--red-600) 0%, var(--red-700) 100%);
+  color: var(--white);
+}
+
+.btn-confirm:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--red-700) 0%, var(--red-800) 100%);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-confirm:disabled {
+  background: var(--grey-700);
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none !important;
+}

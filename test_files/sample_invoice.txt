@@ -1,0 +1,20 @@
+This is a clean test document for DECLADO-IA OCR testing.
+
+It contains sample text that should be recognized by Tesseract OCR.
+
+Invoice Number: INV-2025-001
+Date: 2025-11-16
+Amount: €1,234.56
+
+Item 1: Product A - 100 units x €5.00 = €500.00
+Item 2: Product B - 50 units x €8.00 = €400.00
+Item 3: Product C - 25 units x €33.44 = €334.56
+
+Subtotal: €1,234.56
+Tax (20%): €246.91
+Total: €1,481.47
+
+Payment Terms: Net 30 days
+Delivery Address: 123 Main Street, City, Country
+
+End of document.

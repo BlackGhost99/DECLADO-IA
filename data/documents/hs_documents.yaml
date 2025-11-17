@@ -1,0 +1,64 @@
+# HS code → required documents mapping (prefix-based)
+# Longest-prefix match applies. Use broad groups then refine as needed.
+
+# Defaults for all declarations
+_defaults:
+  - Facture commerciale originale
+  - Liste de colisage (Packing List)
+  - Connaissement (Bill of Lading) ou LTA (Lettre de Transport Aérien)
+  - Déclaration en douane (DAU - Document Administratif Unique)
+
+# Apparel (e.g., HS 61/62)
+"61":
+  - Certificat d'origine
+  - Certificat de conformité textile (si applicable)
+"6109":
+  - Certificat d'origine
+  - Certificat de conformité textile (si applicable)
+
+# Jewelry / Precious metals
+"71":
+  - Certificat d'origine
+  - Déclaration de valeur
+  - Agrément/autorisation (si métaux précieux)
+
+# Pharmaceuticals
+"30":
+  - Certificat d'analyse
+  - Autorisation pharmaceutique d'importation
+  - Certificat d'origine (si préférences)
+"3004":
+  - Certificat d'analyse
+  - Autorisation pharmaceutique d'importation
+  - Procès-verbal d'inspection (si exigé)
+
+# Electronics / Telecom
+"85":
+  - Certificat de conformité (CE/FCC)
+  - Agrément ARP/ARCEP/ART (si équipements radio/télécom)
+  - Certificat d'origine (si préférences)
+"8517":
+  - Certificat de conformité (CE/FCC)
+  - Agrément ARP/ARCEP/ART (si équipements radio/télécom)
+
+# Vehicles
+"87":
+  - Carte grise (si occasion)
+  - Certificat de conformité constructeur
+  - Certificat d'origine
+
+# Food / Agriculture
+"10":
+  - Certificat phytosanitaire
+  - Certificat d'origine
+  - Fumigation (si requis)
+"1006":
+  - Certificat phytosanitaire
+  - Certificat d'origine
+
+# Medical devices
+"90":
+  - Certificat d'enregistrement dispositif médical
+  - Certificat d'analyse
+
+# Fallback for unknown HS prefixes is only _defaults
