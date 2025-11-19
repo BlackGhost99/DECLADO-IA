@@ -13,8 +13,10 @@ from app.api import (
     customs_calculation,
     declaration_auto,
     exchange_rates,
+    export_sydonia,
     health,
     hs_classification,
+    hs_search,
     ocr,
 )
 from app.api import export as export_api
@@ -92,8 +94,10 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api")
 app.include_router(ocr.router, prefix="/api")
 app.include_router(hs_classification.router, prefix="/api")
+app.include_router(hs_search.router)
 app.include_router(customs_calculation.router)
 app.include_router(export_api.router)
+app.include_router(export_sydonia.router)
 app.include_router(exchange_rates.router, prefix="/api")
 app.include_router(declaration_auto.router)
 

@@ -1,0 +1,368 @@
+.sydonia-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.sydonia-form {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 1200px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.sydonia-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  border-bottom: 2px solid #e0e0e0;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.sydonia-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.btn-close-sydonia {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.btn-close-sydonia:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.sydonia-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px;
+}
+
+.form-section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.form-section.highlight {
+  background: #fff8e1;
+  border-color: #ffd54f;
+}
+
+.form-section.taxes-section {
+  background: #e8f5e9;
+  border-color: #4caf50;
+}
+
+.form-section h3 {
+  margin: 0 0 20px 0;
+  color: #1e3c72;
+  font-size: 18px;
+  font-weight: 600;
+  border-bottom: 2px solid #1e3c72;
+  padding-bottom: 10px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-field label {
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #333;
+  font-size: 14px;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  outline: none;
+  border-color: #1e3c72;
+  box-shadow: 0 0 0 3px rgba(30, 60, 114, 0.1);
+}
+
+.form-field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.code-sh-input {
+  font-weight: 600;
+  font-size: 16px;
+  background: #fff3cd;
+  color: #856404;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.value-input {
+  font-weight: 600;
+  font-size: 16px;
+  text-align: right;
+  color: #2a5298;
+}
+
+.taxes-table {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tax-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tax-row:last-child {
+  border-bottom: none;
+}
+
+.tax-row.total {
+  margin-top: 10px;
+  padding-top: 15px;
+  border-top: 2px solid #ffd54f;
+  font-weight: 600;
+  font-size: 16px;
+  color: #f57c00;
+}
+
+.tax-row.grand-total {
+  margin-top: 10px;
+  padding: 15px;
+  background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+  color: white;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 18px;
+  border: none;
+}
+
+.tax-label {
+  font-weight: 500;
+}
+
+.tax-value {
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  font-size: 15px;
+}
+
+.sydonia-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  padding: 20px 30px;
+  border-top: 2px solid #e0e0e0;
+  background: #f8f9fa;
+  border-radius: 0 0 12px 12px;
+}
+
+.export-options {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.export-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  color: white;
+}
+
+.export-btn:hover {
+  transform: translateY(-2px);
+}
+
+.export-btn.pdf {
+  background: linear-gradient(135deg, #e53935 0%, #ef5350 100%);
+  box-shadow: 0 4px 12px rgba(229, 57, 53, 0.3);
+}
+
+.export-btn.pdf:hover {
+  box-shadow: 0 6px 16px rgba(229, 57, 53, 0.4);
+}
+
+.export-btn.csv {
+  background: linear-gradient(135deg, #43a047 0%, #66bb6a 100%);
+  box-shadow: 0 4px 12px rgba(67, 160, 71, 0.3);
+}
+
+.export-btn.csv:hover {
+  box-shadow: 0 6px 16px rgba(67, 160, 71, 0.4);
+}
+
+.export-btn.xml {
+  background: linear-gradient(135deg, #1e88e5 0%, #42a5f5 100%);
+  box-shadow: 0 4px 12px rgba(30, 136, 229, 0.3);
+}
+
+.export-btn.xml:hover {
+  box-shadow: 0 6px 16px rgba(30, 136, 229, 0.4);
+}
+
+.export-btn.image {
+  background: linear-gradient(135deg, #fb8c00 0%, #ffa726 100%);
+  box-shadow: 0 4px 12px rgba(251, 140, 0, 0.3);
+}
+
+.export-btn.image:hover {
+  box-shadow: 0 6px 16px rgba(251, 140, 0, 0.4);
+}
+
+.export-btn.cancel-export {
+  background: linear-gradient(135deg, #757575 0%, #9e9e9e 100%);
+  box-shadow: 0 4px 12px rgba(117, 117, 117, 0.3);
+}
+
+.export-btn.cancel-export:hover {
+  box-shadow: 0 6px 16px rgba(117, 117, 117, 0.4);
+}
+
+.btn-cancel {
+  padding: 12px 30px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-cancel:hover {
+  background: #5a6268;
+}
+
+.btn-export-sydonia {
+  padding: 12px 30px;
+  background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.btn-export-sydonia:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
+}
+
+/* Scrollbar styling */
+.sydonia-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sydonia-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.sydonia-content::-webkit-scrollbar-thumb {
+  background: #1e3c72;
+  border-radius: 10px;
+}
+
+.sydonia-content::-webkit-scrollbar-thumb:hover {
+  background: #2a5298;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sydonia-overlay {
+    padding: 10px;
+  }
+
+  .sydonia-form {
+    max-height: 95vh;
+  }
+
+  .sydonia-header {
+    padding: 15px 20px;
+  }
+
+  .sydonia-header h2 {
+    font-size: 20px;
+  }
+
+  .sydonia-content {
+    padding: 20px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sydonia-footer {
+    flex-direction: column;
+  }
+
+  .btn-cancel,
+  .btn-export-sydonia {
+    width: 100%;
+  }
+}

@@ -7,9 +7,11 @@ import { ProjectNameDialog } from '../components/ProjectNameDialog';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { ToolsPanel } from '../components/ToolsPanel';
 import { AutoDeclarationPanel } from '../components/AutoDeclarationPanel';
+import { ManualDeclaration } from '../components/ManualDeclaration';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import type { ExportMeta, CustomsInput } from '../types';
 import './MainLayout.css';
+import { CurrencyFrames } from '../components/CurrencyFrames';
 
 interface MainLayoutProps {
   backendUrl: string;
@@ -26,7 +28,9 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [showTools, setShowTools] = useState(false);
   const [showAutoDeclaration, setShowAutoDeclaration] = useState(false);
+  const [showManualDeclaration, setShowManualDeclaration] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   // Auto-select first project if none selected
   useEffect(() => {
@@ -65,6 +69,8 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
 
     setShowFileDropZone(false);
     setProcessing(true);
+    const controller = new AbortController();
+    setAbortController(controller);
 
     for (const file of files) {
       console.log('Processing file:', file.name, 'Type:', file.type, 'Size:', file.size);
@@ -91,6 +97,7 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
         const ocrRes = await fetch(`${backendUrl}/api/ocr/process`, {
           method: 'POST',
           body: formData,
+          signal: controller.signal,
         });
 
         if (!ocrRes.ok) {
@@ -170,15 +177,24 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
 
         updateDocument(selectedProjectId, doc.id, { status: 'completed' });
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        updateDocument(selectedProjectId, doc.id, {
-          status: 'error',
-          error: message,
-        });
+        if (err instanceof Error && err.name === 'AbortError') {
+          console.log('Processing cancelled by user');
+          updateDocument(selectedProjectId, doc.id, {
+            status: 'error',
+            error: "Annulé par l'utilisateur",
+          });
+        } else {
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          updateDocument(selectedProjectId, doc.id, {
+            status: 'error',
+            error: message,
+          });
+        }
       }
     }
 
     setProcessing(false);
+    setAbortController(null);
   };
 
   const handleExport = async (format: 'pdf' | 'xml_esad' | 'csv' | 'json', meta?: ExportMeta) => {
@@ -212,8 +228,21 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
     }
   };
 
+  // Ajout fonction pour revenir à l'accueil
+  const handleGoHome = () => {
+    setShowManualDeclaration(false);
+    setShowAutoDeclaration(false);
+    setShowFileDropZone(false);
+    setSelectedDocumentId(null);
+    setProcessing(false);
+  };
+
   return (
     <div className="main-layout">
+      {/* Bouton Accueil en haut à droite */}
+      <button className="btn-home" onClick={handleGoHome} title="Accueil">
+        🏠 Accueil
+      </button>
       <ProjectNameDialog
         isOpen={showProjectDialog}
         onConfirm={handleProjectNameConfirm}
@@ -290,21 +319,51 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
           <div className="processing-indicator">
             <div className="spinner"></div>
             <p>Traitement en cours...</p>
+            <button
+              onClick={() => {
+                if (abortController) {
+                  abortController.abort();
+                  setProcessing(false);
+                  setAbortController(null);
+                }
+              }}
+              className="btn-cancel"
+            >
+              ❌ Annuler le traitement
+            </button>
           </div>
         ) : selectedDocument ? (
           <DetailsPanel document={selectedDocument} onExport={handleExport} />
+        ) : showManualDeclaration ? (
+          <ManualDeclaration
+            backendUrl={backendUrl}
+            onBack={() => setShowManualDeclaration(false)}
+            onDeclare={calculation => {
+              // TODO: Ouvrir le formulaire SYDONIA avec les données pré-remplies
+              console.log('Déclaration manuelle:', calculation);
+              alert(
+                `Déclaration pour Code SH ${calculation.code_sh}\n` +
+                  `Valeur CIF: ${calculation.valeur_cif.toLocaleString('fr-FR')} XAF\n` +
+                  `Total Taxes: ${calculation.total_taxes.toLocaleString('fr-FR')} XAF\n` +
+                  `Valeur Totale: ${calculation.valeur_totale.toLocaleString('fr-FR')} XAF\n\n` +
+                  `Formulaire SYDONIA à venir...`
+              );
+            }}
+          />
         ) : (
           <div className="welcome-screen">
             <h2>Bienvenue dans DECLADO-IA</h2>
             <p>Workflow: Import → OCR → Classification HS → Calcul douanier → Export</p>
-            <div className="quick-start">
-              <h3>Démarrage rapide:</h3>
-              <ol>
-                <li>Créez un projet dans la sidebar</li>
-                <li>Ajoutez des documents (PDF, images)</li>
-                <li>L&apos;OCR et les calculs se font automatiquement</li>
-                <li>Exportez vos résultats (PDF, XML eSAD, CSV, JSON)</li>
-              </ol>
+            <CurrencyFrames />
+            <div className="declaration-modes">
+              <button className="btn-mode" onClick={() => setShowFileDropZone(true)}>
+                📄 Déclaration par Extraction
+                <span>Importez une facture et laissez l&apos;IA extraire les données</span>
+              </button>
+              <button className="btn-mode" onClick={() => setShowManualDeclaration(true)}>
+                📝 Déclaration Manuelle
+                <span>Recherchez un code SH et remplissez le formulaire</span>
+              </button>
             </div>
           </div>
         )}
