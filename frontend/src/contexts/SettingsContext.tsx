@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { DEFAULT_EXCHANGE_RATES, fetchExchangeRates, validateExchangeRate, roundCurrency } from '../utils/currencyUtils';
+import { DEFAULT_EXCHANGE_RATES, fetchExchangeRates, validateExchangeRate } from '../utils/currencyUtils';
 
 export type Theme = 'dark' | 'light' | 'custom';
 export type Currency = 'XAF' | 'USD' | 'EUR' | 'GBP' | 'CNY';

@@ -9,7 +9,7 @@ interface ToolsPanelProps {
 }
 
 export function ToolsPanel({ isOpen, onClose }: ToolsPanelProps) {
-  const { settings, formatCurrency, convertCurrency } = useSettings();
+  const { formatCurrency, convertCurrency } = useSettings();
   const [converterAmount, setConverterAmount] = useState(1000000);
   const [converterFrom, setConverterFrom] = useState<'XAF' | 'USD' | 'EUR' | 'GBP' | 'CNY'>('XAF');
 

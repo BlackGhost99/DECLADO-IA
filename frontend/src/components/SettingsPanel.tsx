@@ -250,7 +250,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
               <div className="setting-item">
                 <label>
-                  <span>Format d'export par défaut</span>
+                  <span>Format d&apos;export par défaut</span>
                   <select defaultValue="pdf">
                     <option value="pdf">PDF</option>
                     <option value="xml_esad">XML eSAD</option>
