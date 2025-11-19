@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import './CurrencyFrames.css';
+import { Globe3D } from './Globe3D';
 
 interface Rates {
   [code: string]: number;
@@ -186,13 +187,16 @@ export function CurrencyFrames() {
   }, []);
 
   return (
-    <div className="currency-frames-container">
-      <CurrencyFrame currency="USD" name="Dollar US" rate={1} isReference />
-      <CurrencyFrame currency="EUR" name="Euro" rate={rates.EUR || 0} />
-      <CurrencyFrame currency="GBP" name="Sterling" rate={rates.GBP || 0} />
-      <CurrencyFrame currency="CNY" name="Yuan" rate={rates.CNY || 0} />
-      <CurrencyFrame currency="JPY" name="Yen" rate={rates.JPY || 0} />
-      <CurrencyFrame currency="XOF" name="Franc CFA" rate={rates.XOF || 0} />
+    <div className="currency-frames-wrapper">
+      <div className="currency-frames-container">
+        <CurrencyFrame currency="USD" name="Dollar US" rate={1} isReference />
+        <CurrencyFrame currency="EUR" name="Euro" rate={rates.EUR || 0} />
+        <CurrencyFrame currency="GBP" name="Sterling" rate={rates.GBP || 0} />
+        <CurrencyFrame currency="CNY" name="Yuan" rate={rates.CNY || 0} />
+        <CurrencyFrame currency="JPY" name="Yen" rate={rates.JPY || 0} />
+        <CurrencyFrame currency="XOF" name="Franc CFA" rate={rates.XOF || 0} />
+      </div>
+      <Globe3D />
     </div>
   );
 }

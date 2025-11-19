@@ -8,7 +8,6 @@
   border-right: 2px solid var(--grey-700);
   display: flex;
   flex-direction: column;
-  transition: width var(--transition-base);
   overflow: hidden;
   box-shadow: var(--shadow-xl);
   position: relative;
@@ -22,10 +21,6 @@
   width: 3px;
   height: 100%;
   background: linear-gradient(180deg, var(--red-600) 0%, transparent 100%);
-}
-
-.sidebar.collapsed {
-  width: 60px;
 }
 
 .sidebar-header {
@@ -54,27 +49,6 @@
   color: var(--white);
   font-weight: 700;
   letter-spacing: 0.5px;
-}
-
-.btn-collapse {
-  background: var(--grey-700);
-  border: none;
-  font-size: 1.1rem;
-  cursor: pointer;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-md);
-  color: var(--white);
-  transition: all var(--transition-base);
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-collapse:hover {
-  background: var(--grey-600);
-  transform: scale(1.1);
 }
 
 .btn-new-project {

@@ -1,21 +1,63 @@
+.currency-frames-wrapper {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 200px);
+  min-height: 700px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
 .currency-frames-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
-  max-width: 800px;
-  margin: 24px auto;
-  padding: 0 16px;
+  position: relative;
+  width: 1100px;
+  height: 750px;
+  margin: 0 auto;
 }
 
 .currency-frame {
-  position: relative;
-  border-radius: 12px;
+  position: absolute;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 4px 16px rgba(30,60,114,0.15);
+  box-shadow: 0 6px 20px rgba(30,60,114,0.2);
   background: linear-gradient(135deg, #0a1836 0%, #1e3c72 100%);
   border: 2px solid #2a5298;
-  min-height: 120px;
+  width: 220px;
+  min-height: 160px;
   transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.currency-frame:nth-child(1) {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.currency-frame:nth-child(2) {
+  top: 20%;
+  right: 0;
+}
+
+.currency-frame:nth-child(3) {
+  bottom: 20%;
+  right: 0;
+}
+
+.currency-frame:nth-child(4) {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.currency-frame:nth-child(5) {
+  bottom: 20%;
+  left: 0;
+}
+
+.currency-frame:nth-child(6) {
+  top: 20%;
+  left: 0;
 }
 
 .currency-frame:hover {
@@ -44,7 +86,7 @@
 .frame-content {
   position: relative;
   z-index: 2;
-  padding: 16px 12px;
+  padding: 28px 20px;
   text-align: center;
   background: rgba(255,255,255,0.75);
   border-radius: 12px;
@@ -52,12 +94,12 @@
 }
 
 .frame-currency {
-  font-size: 1.5rem;
+  font-size: 2rem;
   font-weight: 800;
   color: #1e3c72;
   font-family: 'Roboto Mono', monospace;
-  margin-bottom: 4px;
-  letter-spacing: 1px;
+  margin-bottom: 6px;
+  letter-spacing: 1.5px;
 }
 
 .currency-frame.reference .frame-currency {
@@ -65,18 +107,18 @@
 }
 
 .frame-name {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: #2a5298;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   font-weight: 500;
 }
 
 .frame-rate {
-  font-size: 1.3rem;
+  font-size: 1.6rem;
   font-weight: 700;
   color: #00bcd4;
   font-family: 'Roboto Mono', monospace;
-  margin-top: 6px;
+  margin-top: 8px;
   transition: color 0.5s, transform 0.5s;
 }
 
@@ -92,15 +134,15 @@
 
 .currency-frame.reference .frame-rate {
   color: #1e3c72;
-  font-size: 1.1rem;
+  font-size: 1.3rem;
 }
 
 .frame-pulse {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 12px;
+  right: 12px;
   color: #00eaff;
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   animation: blink 1s infinite;
   z-index: 10;
 }
@@ -112,13 +154,13 @@
 
 .frame-badge {
   display: inline-block;
-  margin-top: 6px;
-  padding: 3px 10px;
+  margin-top: 8px;
+  padding: 4px 12px;
   background: linear-gradient(135deg, #00bcd4, #00eaff);
   color: white;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  border-radius: 10px;
+  border-radius: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }

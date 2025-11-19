@@ -17,7 +17,6 @@ export function Sidebar({
   onNewProject,
   onDeleteProject,
 }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = (e: React.MouseEvent, projectId: string, projectName: string) => {
@@ -43,21 +42,12 @@ export function Sidebar({
   };
 
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+    <aside className="sidebar">
       <div className="sidebar-header">
-        <h2>{!collapsed && 'Projets'}</h2>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="btn-collapse"
-          aria-label={collapsed ? 'Développer' : 'Réduire'}
-          title={collapsed ? 'Développer' : 'Réduire'}
-        >
-          {collapsed ? '→' : '←'}
-        </button>
+        <h2>Projets</h2>
       </div>
 
-      {!collapsed && (
-        <>
+      <>
           <button onClick={onNewProject} className="btn-new-project">
             ➕ Nouveau projet
           </button>
@@ -86,8 +76,7 @@ export function Sidebar({
           </ul>
 
           {projects.length === 0 && <p className="empty-state">Aucun projet. Créez-en un!</p>}
-        </>
-      )}
+      </>
     </aside>
   );
 }

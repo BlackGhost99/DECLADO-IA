@@ -8,6 +8,7 @@ import { SettingsPanel } from '../components/SettingsPanel';
 import { ToolsPanel } from '../components/ToolsPanel';
 import { AutoDeclarationPanel } from '../components/AutoDeclarationPanel';
 import { ManualDeclaration } from '../components/ManualDeclaration';
+import { ScannerMode } from '../components/ScannerMode';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import type { ExportMeta, CustomsInput } from '../types';
 import './MainLayout.css';
@@ -29,6 +30,8 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
   const [showTools, setShowTools] = useState(false);
   const [showAutoDeclaration, setShowAutoDeclaration] = useState(false);
   const [showManualDeclaration, setShowManualDeclaration] = useState(false);
+  const [showDeclarationChoice, setShowDeclarationChoice] = useState(false);
+  const [showScannerMode, setShowScannerMode] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
@@ -304,11 +307,55 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
             }
           }
         }}
-        onAddFiles={() => setShowFileDropZone(true)}
+        onAddFiles={() => setShowDeclarationChoice(true)}
       />
 
       <div className="content-area">
-        {showFileDropZone ? (
+        {showDeclarationChoice ? (
+          <div className="declaration-modes-screen">
+            <h2>📋 Ajouter une déclaration</h2>
+            <p className="mode-description">Choisissez votre méthode de déclaration</p>
+            
+            <div className="declaration-modes-grid">
+              <div className="mode-card" onClick={() => {
+                setShowDeclarationChoice(false);
+                setShowFileDropZone(true);
+              }}>
+                <div className="mode-icon">📄</div>
+                <h3>Déclaration par Extraction</h3>
+                <p>Cliquez ou glissez-déposez des fichiers</p>
+                <p className="mode-hint">Formats acceptés: PDF, PNG, JPG, TIFF</p>
+                <button className="btn-mode-action">Importer des fichiers</button>
+              </div>
+              
+              <div className="mode-card" onClick={() => {
+                setShowDeclarationChoice(false);
+                setShowManualDeclaration(true);
+              }}>
+                <div className="mode-icon">📝</div>
+                <h3>Déclaration Manuelle</h3>
+                <p>Recherchez un code SH et calculez les taxes</p>
+                <p className="mode-hint">Remplissez le formulaire manuellement</p>
+                <button className="btn-mode-action">Rechercher un code SH</button>
+              </div>
+              
+              <div className="mode-card" onClick={() => {
+                setShowDeclarationChoice(false);
+                setShowScannerMode(true);
+              }}>
+                <div className="mode-icon">🖨</div>
+                <h3>Numérisation Scanner</h3>
+                <p>Scannez directement avec votre imprimante</p>
+                <p className="mode-hint">Scanner ou imprimante multifonction</p>
+                <button className="btn-mode-action">Lancer le scanner</button>
+              </div>
+            </div>
+            
+            <button onClick={() => setShowDeclarationChoice(false)} className="btn-cancel btn-cancel-choice">
+              Annuler
+            </button>
+          </div>
+        ) : showFileDropZone ? (
           <div className="file-drop-container">
             <FileDropZone onFilesSelected={handleFilesSelected} />
             <button onClick={() => setShowFileDropZone(false)} className="btn-cancel">
@@ -332,6 +379,10 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
               ❌ Annuler le traitement
             </button>
           </div>
+        ) : showScannerMode ? (
+          <ScannerMode
+            onBack={() => setShowScannerMode(false)}
+          />
         ) : selectedDocument ? (
           <DetailsPanel document={selectedDocument} onExport={handleExport} />
         ) : showManualDeclaration ? (
@@ -352,19 +403,10 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
           />
         ) : (
           <div className="welcome-screen">
-            <h2>Bienvenue dans DECLADO-IA</h2>
+            <h2>DECLADO-IA</h2>
+            <p className="slogan">Simplifiez vos déclarations douanières, optimisez vos flux logistiques</p>
             <p>Workflow: Import → OCR → Classification HS → Calcul douanier → Export</p>
             <CurrencyFrames />
-            <div className="declaration-modes">
-              <button className="btn-mode" onClick={() => setShowFileDropZone(true)}>
-                📄 Déclaration par Extraction
-                <span>Importez une facture et laissez l&apos;IA extraire les données</span>
-              </button>
-              <button className="btn-mode" onClick={() => setShowManualDeclaration(true)}>
-                📝 Déclaration Manuelle
-                <span>Recherchez un code SH et remplissez le formulaire</span>
-              </button>
-            </div>
           </div>
         )}
       </div>
