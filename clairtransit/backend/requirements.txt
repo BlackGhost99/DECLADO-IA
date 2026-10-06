@@ -1,0 +1,9 @@
+# Dépendances d'exécution, versions verrouillées (vérifiées le 2026-10-06, Python 3.13).
+# Django 5.2 est la version LTS (support jusqu'en avril 2028).
+Django==5.2.18
+djangorestframework==3.18.1
+psycopg[binary]==3.3.6
+django-environ==0.14.0
+celery==5.6.3
+redis==8.1.0
+openpyxl==3.1.5

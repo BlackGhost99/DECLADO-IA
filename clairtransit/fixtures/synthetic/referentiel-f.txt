@@ -1,0 +1,44 @@
+TARIF FICTIF DE TEST
+Aucune valeur réelle
+
+1
+Règles générales fictives
+1. Le classement fictif suit les libellés.
+
+2
+TABLEAU
+DES
+DROITS ET TAXES
+
+3
+Section I
+ANIMAUX FICTIFS
+Notes.
+1 - Note de section fictive.
+Chapitre premier
+Animaux vivants fictifs
+Note.
+1 - Le présent Chapitre exclut les poissons (fictif).
+NUMERO
+DU
+TARIF
+01.01
+0101.10.10
+0101.10.90
+01.02
+0101.20.00
+0102.10.00
+0102.10.00
+0103.00.00.
+01023.00
+Chevaux fictifs........
+5 %
+
+4
+Chapitre 2
+Viandes fictives
+NUMERO
+02.01
+0201.30.00
+Viandes désossées fictives.....
+30 %
