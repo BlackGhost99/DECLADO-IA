@@ -5,8 +5,16 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main, develop ]
+    # ClairTransit a son propre workflow (clairtransit.yml).
+    paths-ignore:
+      - 'clairtransit/**'
+      - '.github/workflows/clairtransit.yml'
   pull_request:
     branches: [ main, develop ]
+    # ClairTransit a son propre workflow (clairtransit.yml).
+    paths-ignore:
+      - 'clairtransit/**'
+      - '.github/workflows/clairtransit.yml'
 
 jobs:
   # ==========================================

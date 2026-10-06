@@ -17,7 +17,9 @@ pydantic-settings==2.1.0
 # ==========================================
 sqlalchemy==2.0.36
 alembic==1.13.1
-sqlcipher3==0.5.2
+# Chiffrement SQLCipher optionnel : app/db/database.py importe pysqlcipher3 et
+# revient à SQLite sinon. sqlcipher3 ne se compile pas sans les en-têtes SQLCipher
+# (aucune roue Windows), il est donc retiré de l'installation de base.
 asyncpg==0.29.0  # Pour PostgreSQL async (cloud)
 
 # ==========================================
@@ -85,7 +87,7 @@ toml==0.10.2
 
 # Date & Time
 python-dateutil==2.8.2
-pytz==2024.1
+pytz==2023.4
 
 # Validation
 phonenumbers==8.13.28
@@ -136,5 +138,3 @@ ipython==8.20.0
 ipdb==0.13.13
 watchdog==3.0.0
 
-# API Documentation
-fastapi-swagger==0.2.0

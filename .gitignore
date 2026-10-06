@@ -326,6 +326,8 @@ invoices/*.tiff
 generated_docs/
 output/
 exports/
+# Le code source du module d'export n'est pas une sortie générée.
+!backend/app/exports/
 
 # ==========================================
 # IDE & Éditeurs
