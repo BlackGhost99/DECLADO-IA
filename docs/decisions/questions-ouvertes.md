@@ -12,7 +12,9 @@ Reprend `docs/specifications/03-plan-et-recette.md` §7 et ajoute les points rel
 | Formats du système officiel | Intégration | Société pilote / éditeur | ultérieur | Ouvert |
 | Hébergement, conservation, fournisseur IA | Pièces réelles, production | Porteur du projet | 3, 6 | Ouvert |
 | Volumes et budget | Dimensionnement | Porteur + équipe | après lot 0 | Ouvert |
-| Sources PDF 2009, Excel 2016 et `audit-et-conception.md` non fournies | Le lot 1 ne peut importer que le jeu synthétique | Porteur du projet | 1 | Ouvert (lot 0) |
+| PDF 2009 et Excel 2016 originaux (reçus : texte extrait et CSV) ; `audit-et-conception.md` | Désignations et taux non rattachés aux codes 2009 ; formules Excel perdues | Porteur du projet | 1 | Ouvert |
+| Signification des colonnes DSO, STT, TPM (unités ?), OAD, TAUX du CSV | Observations seulement | Détenteur du classeur + référent douanier | 1, 4 | Ouvert |
+| Restitution des accents abîmés du CSV (1 055 libellés) | Lisibilité, recherche | Gestionnaire du référentiel | 1 | Ouvert |
 | Nom du produit : DECLADO (projet) ou ClairTransit (documents) | Nom de code du dépôt, libellés | Porteur du projet | tous | Ouvert : ClairTransit par défaut |
 | Dépôt Git distant | CI réelle, revue | Porteur du projet | 0 | Ouvert |
 | Envoi d'e-mails (invitation, mot de passe oublié) | Gestion des comptes | Porteur du projet | 2 | Ouvert |

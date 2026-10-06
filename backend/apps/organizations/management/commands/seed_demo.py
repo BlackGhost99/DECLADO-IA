@@ -30,7 +30,10 @@ USERS = [
     ("validateur@beta.demo", "Validateur Bêta", {"beta": [Role.VALIDATOR]}),
     ("admin@beta.demo", "Admin Bêta", {"beta": [Role.ORG_ADMIN, Role.DECLARANT]}),
     ("multi@demo.demo", "Agent multi-sociétés", {"alpha": [Role.DECLARANT], "beta": [Role.DECLARANT]}),
+    # Gestionnaire du référentiel : permission distincte, sans accès métier aux sociétés.
+    ("referentiel@demo.demo", "Gestionnaire du référentiel", {}),
 ]
+REFERENCE_MANAGERS = {"referentiel@demo.demo"}
 
 IMPORTERS = {
     "alpha": [("Société Fictive Import Alpha", {"nif": "DEMO-A-0001"})],
@@ -57,7 +60,12 @@ class Command(BaseCommand):
         for email, full_name, affiliations in USERS:
             user = User.objects.filter(email=email).first()
             if user is None:
-                user = User.objects.create_user(email=email, password=password, full_name=full_name)
+                user = User.objects.create_user(
+                    email=email,
+                    password=password,
+                    full_name=full_name,
+                    is_reference_manager=email in REFERENCE_MANAGERS,
+                )
             for key, roles in affiliations.items():
                 Membership.objects.update_or_create(
                     organization=orgs[key], user=user, defaults={"roles": list(roles), "active": True}
@@ -70,5 +78,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Jeu de démonstration prêt (données fictives)."))
         for email, _, affiliations in USERS:
             detail = ", ".join(f"{ORGS[k]}: {'/'.join(r.value for r in v)}" for k, v in affiliations.items())
+            detail = detail or "gestionnaire du référentiel (aucune société)"
             self.stdout.write(f"  {email:28} {detail}")
         self.stdout.write(f"Mot de passe commun : {password}")

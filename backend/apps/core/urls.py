@@ -4,6 +4,7 @@ from apps.accounts import api as accounts
 from apps.audit import api as audit
 from apps.clients import api as clients
 from apps.organizations import api as organizations
+from apps.tariffs import api as tariffs
 
 from .api import HealthView
 
@@ -20,4 +21,13 @@ urlpatterns = [
     path("importers", clients.ImporterListView.as_view()),
     path("importers/<uuid:pk>", clients.ImporterDetailView.as_view()),
     path("audit-events", audit.AuditEventListView.as_view()),
+    path("tariffs/editions", tariffs.EditionListView.as_view()),
+    path("tariffs/editions/<uuid:edition_id>/publish", tariffs.PublishEditionView.as_view()),
+    path("tariffs/editions/<uuid:edition_id>/withdraw", tariffs.WithdrawEditionView.as_view()),
+    path("tariffs/search", tariffs.SearchView.as_view()),
+    path("tariffs/nodes/<uuid:node_id>", tariffs.NodeDetailView.as_view()),
+    path("tariffs/records/<uuid:record_id>", tariffs.RecordView.as_view()),
+    path("reference-imports", tariffs.ImportRunListView.as_view()),
+    path("reference-imports/<uuid:run_id>/issues", tariffs.IssueListView.as_view()),
+    path("reference-issues/<uuid:issue_id>/resolve", tariffs.ResolveIssueView.as_view()),
 ]

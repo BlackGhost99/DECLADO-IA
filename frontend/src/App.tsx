@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, type Me } from "./api";
 import { LoginForm } from "./LoginForm";
 import { OrganizationPicker } from "./OrganizationPicker";
+import { Reference } from "./Reference";
 import { Workspace } from "./Workspace";
 
 export default function App() {
@@ -54,6 +55,8 @@ export default function App() {
       <main>
         {active ? (
           <Workspace key={active.organization.id} membership={active} />
+        ) : me.memberships.length === 0 && me.is_reference_manager ? (
+          <Reference />
         ) : (
           <OrganizationPicker me={me} onChange={setMe} />
         )}

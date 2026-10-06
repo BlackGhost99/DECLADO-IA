@@ -1,18 +1,35 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, ROLE_LABELS, type Importer, type Member, type Membership } from "./api";
+import { Reference } from "./Reference";
 
 export function Workspace({ membership }: { membership: Membership }) {
   const canEdit = membership.roles.some((r) => r === "declarant" || r === "validator");
   const isAdmin = membership.roles.includes("org_admin");
 
+  const [tab, setTab] = useState<"reference" | "importers">("reference");
+
   return (
     <>
       <p className="muted">
-        Vos rôles : {membership.roles.map((r) => ROLE_LABELS[r]).join(", ") || "aucun"}.
-        Les dossiers douaniers arrivent au lot 2 ; ce socle montre l'isolation des données par société.
+        Vos rôles : {membership.roles.map((r) => ROLE_LABELS[r]).join(", ") || "aucun"}. Les dossiers douaniers
+        arrivent au lot 2.
       </p>
-      <Importers canEdit={canEdit} />
-      {isAdmin && <Members />}
+      <div role="tablist" className="tabs">
+        <button type="button" role="tab" aria-selected={tab === "reference"} onClick={() => setTab("reference")}>
+          Référentiel
+        </button>
+        <button type="button" role="tab" aria-selected={tab === "importers"} onClick={() => setTab("importers")}>
+          Importateurs
+        </button>
+      </div>
+      {tab === "reference" ? (
+        <Reference />
+      ) : (
+        <>
+          <Importers canEdit={canEdit} />
+          {isAdmin && <Members />}
+        </>
+      )}
     </>
   );
 }

@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "apps.organizations",
     "apps.audit",
     "apps.clients",
+    "apps.tariffs",
 ]
 
 MIDDLEWARE = [
@@ -132,3 +133,6 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
 }
+
+# Stockage privé des sources et pièces : jamais servi directement par le serveur web.
+PRIVATE_STORAGE_ROOT = Path(env("PRIVATE_STORAGE_ROOT", default=str(BASE_DIR / "var" / "private")))

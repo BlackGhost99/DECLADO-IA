@@ -1,8 +1,8 @@
 # ClairTransit
 
 Application web de préparation des dossiers douaniers pour les sociétés de transit (périmètre initial Gabon/CEMAC).
-Les spécifications V1 sont dans [`docs/specifications/`](docs/specifications/). État actuel : **lot 0 (socle)** livré,
-voir [`docs/lots/lot-0.md`](docs/lots/lot-0.md).
+Les spécifications V1 sont dans [`docs/specifications/`](docs/specifications/). État actuel : **lots 0 (socle) et 1 (référentiel)** livrés,
+voir [`docs/lots/`](docs/lots/).
 
 Un dossier « validé » dans ClairTransit signifie validé en interne par la société de transit, jamais accepté par la Douane.
 
@@ -66,8 +66,22 @@ Créés par `seed_demo` (refusé hors `DJANGO_DEBUG=true`). Mot de passe commun 
 | validateur@beta.demo | Transit Bêta (démo) | Validateur |
 | admin@beta.demo | Transit Bêta (démo) | Administrateur + Déclarant |
 | multi@demo.demo | les deux | Déclarant (choix de la société à la connexion) |
+| referentiel@demo.demo | aucune | Gestionnaire du référentiel (import, anomalies, publication) |
 
 Pour un compte d'administration technique : `python manage.py createsuperuser`. Il n'ouvre aucun accès métier aux sociétés.
+
+## Charger un référentiel
+
+Les sources tarifaires ne sont pas dans le dépôt. Avec le jeu synthétique F :
+
+```bash
+cd backend
+python manage.py import_tariff_csv ../fixtures/synthetic/referentiel-f.csv --label "Jeu F (CSV fictif)"
+python manage.py import_tariff_text ../fixtures/synthetic/referentiel-f.txt --label "Jeu F (texte fictif)"
+```
+
+Puis publier pour consultation en tant que `referentiel@demo.demo` (`POST /api/v1/tariffs/editions/<id>/publish`,
+`{"mode": "consultation"}`). Commandes pour les sources réelles : [`docs/lots/lot-1.md`](docs/lots/lot-1.md).
 
 ## Vérifications
 
@@ -88,6 +102,7 @@ backend/            API Django/DRF
   apps/organizations/ sociétés, affiliations, rôles, société active
   apps/clients/     importateurs (socle CLI-01)
   apps/audit/       journal append-only
+  apps/tariffs/     référentiel tarifaire versionné (imports, recherche, anomalies)
   tests/            tests d'API, d'isolation et de droits
 frontend/           React/TypeScript (Vite)
 infra/compose.yaml  environnement de développement complet

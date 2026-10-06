@@ -14,3 +14,4 @@ frontend/dist/
 # Documents clients : jamais dans le dépôt
 /data/
 *.tsbuildinfo
+backend/var/

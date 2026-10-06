@@ -89,6 +89,79 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   return data as T;
 }
 
+export interface EditionBrief {
+  id: string;
+  label: string;
+  publication_state: "draft" | "consultation" | "operational" | "withdrawn";
+}
+
+export interface NodeBrief {
+  id: string;
+  code: string | null;
+  code_display: string;
+  kind: string;
+  label: string;
+  declarable: boolean;
+}
+
+export interface SearchResult extends NodeBrief {
+  reason: string;
+  full_path: string;
+  validation_state: string;
+  label_damaged: boolean;
+  edition: EditionBrief;
+}
+
+export interface Evidence {
+  record_id: string;
+  location: string;
+  page_index: number | null;
+  printed_page: string;
+  cell_range: string;
+  line: number | null;
+}
+
+export interface Note {
+  id: string;
+  scope_type: string;
+  scope_ref: string;
+  heading: string;
+  text: string;
+  edition: EditionBrief;
+  evidence: Evidence | null;
+}
+
+export interface NodeDetail extends NodeBrief {
+  label_raw: string;
+  label_damaged: boolean;
+  label_available: boolean;
+  validation_state: string;
+  full_path: string;
+  edition: EditionBrief & {
+    warning: string | null;
+    source: { title: string; kind_label: string; is_derived_copy: boolean; provenance_note: string };
+  };
+  ancestors: NodeBrief[];
+  children: NodeBrief[];
+  evidence: Evidence | null;
+  occurrences: (Evidence & { raw_code: string })[];
+  rate_observations: {
+    warning: string;
+    items: { column: string; raw_value: string; value: string | null; quality: string }[];
+  };
+  notes: Note[];
+  related_notes: Note[];
+  same_code_in_other_editions: (NodeBrief & { edition: EditionBrief })[];
+  issues: { id: string; category: string; severity: string; message: string; state: string }[];
+}
+
+export interface RecordDetail extends Evidence {
+  source: { title: string; is_derived_copy: boolean; sha256: string };
+  header: string[] | null;
+  raw_cells: string[];
+  raw_text: string;
+}
+
 export const api = {
   me: () => request<Me>("GET", "/me"),
   login: (email: string, password: string) => request<Me>("POST", "/auth/login", { email, password }),
@@ -98,6 +171,10 @@ export const api = {
   importers: () => request<Page<Importer>>("GET", "/importers"),
   createImporter: (data: Partial<Importer>) => request<Importer>("POST", "/importers", data),
   members: () => request<Page<Member>>("GET", "/organization/members"),
+  searchTariffs: (q: string) =>
+    request<{ results: SearchResult[] }>("GET", `/tariffs/search?q=${encodeURIComponent(q)}`),
+  tariffNode: (id: string) => request<NodeDetail>("GET", `/tariffs/nodes/${id}`),
+  tariffRecord: (id: string) => request<RecordDetail>("GET", `/tariffs/records/${id}`),
 };
 
 export const ROLE_LABELS: Record<Role, string> = {
