@@ -28,7 +28,9 @@ def detect_tables_by_lines(img: np.ndarray) -> list[dict[str, Any]]:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
         gray = img
-    thr = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 31, 10)
+    thr = cv2.adaptiveThreshold(
+        gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 31, 10
+    )
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 1))
     morphed = cv2.morphologyEx(thr, cv2.MORPH_CLOSE, kernel, iterations=2)
     contours, _ = cv2.findContours(morphed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import List, Optional
-
 
 DATE_PATTERNS = [
     r"\b(\d{2})[\./-](\d{2})[\./-](\d{4})\b",  # dd/mm/yyyy
@@ -23,8 +21,8 @@ CEMAC_CURRENCIES = {
 }
 
 
-def normalize_date(text: str) -> List[str]:
-    dates: List[str] = []
+def normalize_date(text: str) -> list[str]:
+    dates: list[str] = []
     for pat in DATE_PATTERNS:
         for m in re.finditer(pat, text):
             try:
@@ -37,10 +35,10 @@ def normalize_date(text: str) -> List[str]:
                 dates.append(dt.date().isoformat())
             except Exception:
                 continue
-    return sorted(list(set(dates)))
+    return sorted(set(dates))
 
 
-def _to_float(num_str: str) -> Optional[float]:
+def _to_float(num_str: str) -> float | None:
     s = num_str.replace(" ", "").replace(",", ".")
     try:
         return float(s)
@@ -48,15 +46,15 @@ def _to_float(num_str: str) -> Optional[float]:
         return None
 
 
-def normalize_amounts(text: str) -> List[float]:
-    amts: List[float] = []
+def normalize_amounts(text: str) -> list[float]:
+    amts: list[float] = []
     for m in re.finditer(AMOUNT_PATTERN, text):
         v = _to_float(m.group(1))
         if v is not None:
             amts.append(v)
     # keep unique while preserving order (rounded to cents)
     seen = set()
-    uniq: List[float] = []
+    uniq: list[float] = []
     for v in amts:
         key = round(v, 2)
         if key not in seen:
@@ -65,8 +63,8 @@ def normalize_amounts(text: str) -> List[float]:
     return uniq
 
 
-def normalize_currencies(text: str) -> List[str]:
-    currs: List[str] = []
+def normalize_currencies(text: str) -> list[str]:
+    currs: list[str] = []
     for m in re.finditer(CURRENCY_PATTERN, text, flags=re.IGNORECASE):
         val = m.group(0).upper()
         if val in ("€",):
@@ -75,7 +73,7 @@ def normalize_currencies(text: str) -> List[str]:
             val = "USD"
         currs.append(CEMAC_CURRENCIES.get(val, val))
     # unique order-preserving
-    out: List[str] = []
+    out: list[str] = []
     for c in currs:
         if c not in out:
             out.append(c)

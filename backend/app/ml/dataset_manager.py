@@ -9,7 +9,6 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import pandas as pd
 from pydantic import BaseModel
@@ -22,7 +21,7 @@ class AnnotatedHS(BaseModel):
 
     description: str  # Description de la marchandise
     hs_code: str  # Code HS correct (4-10 chiffres)
-    origin_country: Optional[str] = None  # Pays d'origine
+    origin_country: str | None = None  # Pays d'origine
     confidence: float = 1.0  # Confiance de l'annotation (0-1)
     annotator: str = "system"  # Qui a annoté
     timestamp: datetime = None  # Quand annoté
@@ -84,8 +83,8 @@ class DatasetManager:
             return False
 
     def load_annotations(
-        self, source: Optional[str] = None, min_confidence: float = 0.5
-    ) -> List[AnnotatedHS]:
+        self, source: str | None = None, min_confidence: float = 0.5
+    ) -> list[AnnotatedHS]:
         """
         Charge les annotations collectées.
 
@@ -108,7 +107,7 @@ class DatasetManager:
                 if not file.exists():
                     continue
 
-                with open(file, "r", encoding="utf-8") as f:
+                with open(file, encoding="utf-8") as f:
                     for line in f:
                         try:
                             data = json.loads(line)
@@ -126,7 +125,7 @@ class DatasetManager:
             return []
 
     def create_dataset(
-        self, name: str, split_ratios: Tuple[float, float, float] = (0.7, 0.15, 0.15)
+        self, name: str, split_ratios: tuple[float, float, float] = (0.7, 0.15, 0.15)
     ) -> dict:
         """
         Crée un dataset versioning avec splits train/val/test.

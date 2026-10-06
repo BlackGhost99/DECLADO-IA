@@ -4,7 +4,6 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import List, Tuple
 
 
 def _levenshtein(a: str, b: str) -> int:
@@ -26,16 +25,16 @@ def _levenshtein(a: str, b: str) -> int:
     return prev[-1]
 
 
-def compute_cer_from_outputs(outputs_dir: str) -> Tuple[int, List[float]]:
+def compute_cer_from_outputs(outputs_dir: str) -> tuple[int, list[float]]:
     exts = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff"}
-    cer_values: List[float] = []
+    cer_values: list[float] = []
     n = 0
     for fn in os.listdir(outputs_dir):
         if not fn.lower().endswith(".json"):
             continue
         src_base = Path(fn).with_suffix("").name
         json_path = os.path.join(outputs_dir, fn)
-        with open(json_path, "r", encoding="utf-8") as f:
+        with open(json_path, encoding="utf-8") as f:
             data = json.load(f)
         full_text = "\n".join(p.get("text", "") for p in data.get("pages", []))
         # find gt file by checking typical raw locations; assume sibling in data/raw or same folder
@@ -48,7 +47,7 @@ def compute_cer_from_outputs(outputs_dir: str) -> Tuple[int, List[float]]:
         gt_path = next((c for c in candidates if os.path.exists(c)), None)
         if gt_path is None:
             continue
-        with open(gt_path, "r", encoding="utf-8", errors="ignore") as f:
+        with open(gt_path, encoding="utf-8", errors="ignore") as f:
             gt_text = f.read().strip()
         if not gt_text:
             continue
@@ -70,7 +69,7 @@ def main():
         "description": "Aggregate OCR Character Error Rate (CER) baseline computed from available ground truths (*.gt.txt).",
         "num_samples": n,
         "cer_mean": (sum(vals) / len(vals)) if vals else None,
-        "cer_median": (sorted(vals)[len(vals)//2] if vals else None),
+        "cer_median": (sorted(vals)[len(vals) // 2] if vals else None),
     }
     os.makedirs(os.path.dirname(metrics_json), exist_ok=True)
     with open(metrics_json, "w", encoding="utf-8") as f:

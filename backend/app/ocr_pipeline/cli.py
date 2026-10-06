@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 
 from .pipeline import run_batch
 

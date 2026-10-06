@@ -5,7 +5,7 @@ Types de données pour le moteur de règles douanières.
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -14,10 +14,10 @@ class AuditLogEntry:
 
     step: str  # Nom de l'étape de calcul
     formula: str  # Formule appliquée
-    inputs: Dict[str, Any]  # Valeurs d'entrée
+    inputs: dict[str, Any]  # Valeurs d'entrée
     output: Any  # Résultat de l'étape
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-    notes: Optional[str] = None  # Notes ou explications supplémentaires
+    notes: str | None = None  # Notes ou explications supplémentaires
 
 
 @dataclass
@@ -25,22 +25,22 @@ class AuditLog:
     """Journal d'audit complet d'un calcul douanier."""
 
     calculation_id: str
-    entries: List[AuditLogEntry] = field(default_factory=list)
+    entries: list[AuditLogEntry] = field(default_factory=list)
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def add_entry(
         self,
         step: str,
         formula: str,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
         output: Any,
-        notes: Optional[str] = None,
+        notes: str | None = None,
     ):
         """Ajoute une entrée au journal d'audit."""
         entry = AuditLogEntry(step=step, formula=formula, inputs=inputs, output=output, notes=notes)
         self.entries.append(entry)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convertit le journal en dictionnaire pour sérialisation."""
         return {
             "calculation_id": self.calculation_id,
@@ -80,7 +80,7 @@ class TaxBreakdown:
     vat_rate: Decimal  # Taux TVA (%)
     vat_base: Decimal  # Assiette TVA (FCFA)
     vat_amount: Decimal  # Montant TVA (FCFA)
-    other_taxes: Dict[str, Decimal] = field(default_factory=dict)  # Autres taxes
+    other_taxes: dict[str, Decimal] = field(default_factory=dict)  # Autres taxes
     total_taxes: Decimal = Decimal("0")  # Total taxes
     total_amount: Decimal = Decimal("0")  # Valeur CIF + taxes
 
@@ -98,10 +98,10 @@ class CalculationInput:
     incoterm: str  # FOB, CFR, CIF, etc.
     origin_country: str  # Pays d'origine (ISO 3166-1 alpha-2)
     destination_country: str = "CM"  # Cameroun par défaut
-    freight_cost: Optional[Decimal] = None  # Coût de fret si connu
-    insurance_cost: Optional[Decimal] = None  # Coût d'assurance si connu
-    exchange_rate: Optional[Decimal] = None  # Taux de change vers FCFA
-    exemption_code: Optional[str] = None  # Code d'exonération si applicable
+    freight_cost: Decimal | None = None  # Coût de fret si connu
+    insurance_cost: Decimal | None = None  # Coût d'assurance si connu
+    exchange_rate: Decimal | None = None  # Taux de change vers FCFA
+    exemption_code: str | None = None  # Code d'exonération si applicable
 
 
 @dataclass
@@ -113,11 +113,11 @@ class CalculationResult:
     incoterms_conversion: IncotermsConversion
     taxable_base: Decimal  # Valeur en douane (base imposable)
     tax_breakdown: TaxBreakdown
-    required_documents: List[str]  # Documents requis pour dédouanement
+    required_documents: list[str]  # Documents requis pour dédouanement
     audit_log: AuditLog
-    warnings: List[str] = field(default_factory=list)  # Avertissements éventuels
+    warnings: list[str] = field(default_factory=list)  # Avertissements éventuels
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convertit le résultat en dictionnaire pour API."""
         return {
             "calculation_id": self.calculation_id,

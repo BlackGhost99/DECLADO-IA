@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any, Optional, Tuple
+from dataclasses import asdict, dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -11,15 +11,15 @@ class BBox:
     w: int
     h: int
 
-    def to_list(self) -> List[int]:
+    def to_list(self) -> list[int]:
         return [self.x, self.y, self.w, self.h]
 
 
 @dataclass
 class Word:
     text: str
-    bbox: Optional[BBox] = None
-    conf: Optional[float] = None
+    bbox: BBox | None = None
+    conf: float | None = None
 
 
 @dataclass
@@ -28,10 +28,10 @@ class PageResult:
     width: int
     height: int
     text: str
-    words: List[Word] = field(default_factory=list)
-    tables: List[Dict[str, Any]] = field(default_factory=list)  # rows: List[List[str]], bbox
+    words: list[Word] = field(default_factory=list)
+    tables: list[dict[str, Any]] = field(default_factory=list)  # rows: List[List[str]], bbox
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "page_index": self.page_index,
             "width": self.width,
@@ -47,12 +47,12 @@ class PageResult:
 
 @dataclass
 class NormalizedFields:
-    dates: List[str] = field(default_factory=list)  # ISO yyyy-mm-dd
-    amounts: List[float] = field(default_factory=list)
-    currencies: List[str] = field(default_factory=list)  # ISO codes
-    vendor: Optional[str] = None
+    dates: list[str] = field(default_factory=list)  # ISO yyyy-mm-dd
+    amounts: list[float] = field(default_factory=list)
+    currencies: list[str] = field(default_factory=list)  # ISO codes
+    vendor: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -60,12 +60,12 @@ class NormalizedFields:
 class DocumentResult:
     source: str
     num_pages: int
-    pages: List[PageResult]
+    pages: list[PageResult]
     normalized: NormalizedFields
-    cer: Optional[float] = None
-    warnings: List[str] = field(default_factory=list)
+    cer: float | None = None
+    warnings: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "source": self.source,
             "num_pages": self.num_pages,

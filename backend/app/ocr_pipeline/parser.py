@@ -5,63 +5,63 @@ and transform it into a structured Pydantic model.
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
 class Party:
     """Represents a party (expediteur, destinataire, declarant)"""
 
-    name: Optional[str] = None
-    address: Optional[str] = None
-    identifier: Optional[str] = None
+    name: str | None = None
+    address: str | None = None
+    identifier: str | None = None
 
 
 @dataclass
 class Item:
     """Represents an item in the declaration"""
 
-    description: Optional[str] = None
-    hs_code: Optional[str] = None
-    quantity: Optional[float] = None
-    gross_weight: Optional[float] = None
-    net_weight: Optional[float] = None
-    price: Optional[float] = None
-    statistical_value: Optional[float] = None
-    origin_country: Optional[str] = None
+    description: str | None = None
+    hs_code: str | None = None
+    quantity: float | None = None
+    gross_weight: float | None = None
+    net_weight: float | None = None
+    price: float | None = None
+    statistical_value: float | None = None
+    origin_country: str | None = None
 
 
 @dataclass
 class Tax:
     """Represents a tax/duty line item"""
 
-    type: Optional[str] = None  # DDI, TCI, TVA, etc.
-    base: Optional[float] = None
-    rate: Optional[float] = None
-    amount: Optional[float] = None
+    type: str | None = None  # DDI, TCI, TVA, etc.
+    base: float | None = None
+    rate: float | None = None
+    amount: float | None = None
 
 
 @dataclass
 class DeclarationData:
     """Main data structure for a customs declaration"""
 
-    declaration_number: Optional[str] = None
-    bureau: Optional[str] = None
-    reference_douane: Optional[str] = None
+    declaration_number: str | None = None
+    bureau: str | None = None
+    reference_douane: str | None = None
     destinataire: Party = field(default_factory=Party)
     expediteur: Party = field(default_factory=Party)
     declarant: Party = field(default_factory=Party)
-    transport_mode: Optional[str] = None
-    country_origin: Optional[str] = None
-    country_destination: Optional[str] = None
-    currency: Optional[str] = None
-    total_amount: Optional[float] = None
-    items: List[Item] = field(default_factory=list)
-    taxes: List[Tax] = field(default_factory=list)
-    raw_text_preview: Optional[str] = None
+    transport_mode: str | None = None
+    country_origin: str | None = None
+    country_destination: str | None = None
+    currency: str | None = None
+    total_amount: float | None = None
+    items: list[Item] = field(default_factory=list)
+    taxes: list[Tax] = field(default_factory=list)
+    raw_text_preview: str | None = None
 
 
-def extract_declaration_number(text: str) -> Optional[str]:
+def extract_declaration_number(text: str) -> str | None:
     """Extract declaration number (Box 1) - format like OW110"""
     patterns = [
         r"DECLARATION[:\s]*([A-Z]{2}\d+)",
@@ -74,7 +74,7 @@ def extract_declaration_number(text: str) -> Optional[str]:
     return None
 
 
-def extract_bureau(text: str) -> Optional[str]:
+def extract_bureau(text: str) -> str | None:
     """Extract customs bureau name"""
     patterns = [
         r"B\.([A-Z][A-Z\s\-]+)",
@@ -87,7 +87,7 @@ def extract_bureau(text: str) -> Optional[str]:
     return None
 
 
-def extract_party_info(text: str, box_keywords: List[str]) -> Party:
+def extract_party_info(text: str, box_keywords: list[str]) -> Party:
     """
     Extract party information (name, address, identifier) based on box keywords.
     Box keywords help locate the right section in the text.
@@ -116,7 +116,7 @@ def extract_party_info(text: str, box_keywords: List[str]) -> Party:
     return party
 
 
-def extract_hs_codes(text: str) -> List[str]:
+def extract_hs_codes(text: str) -> list[str]:
     """Extract HS codes from the document - typically 8-10 digit codes"""
     hs_codes = []
     # HS codes are typically 6-10 digits
@@ -127,7 +127,7 @@ def extract_hs_codes(text: str) -> List[str]:
     return hs_codes
 
 
-def extract_items(text: str) -> List[Item]:
+def extract_items(text: str) -> list[Item]:
     """
     Extract item information from Box 31 onwards.
     This is complex as items span multiple boxes.
@@ -164,7 +164,7 @@ def extract_items(text: str) -> List[Item]:
     return items
 
 
-def extract_taxes(text: str) -> List[Tax]:
+def extract_taxes(text: str) -> list[Tax]:
     """Extract tax information from Box 47"""
     taxes = []
 
@@ -189,7 +189,7 @@ def extract_taxes(text: str) -> List[Tax]:
     return taxes
 
 
-def extract_currency(text: str) -> Optional[str]:
+def extract_currency(text: str) -> str | None:
     """Extract currency code"""
     currency_pattern = r"\b(XAF|USD|EUR|GBP|FCFA)\b"
     match = re.search(currency_pattern, text, re.IGNORECASE)
@@ -198,7 +198,7 @@ def extract_currency(text: str) -> Optional[str]:
     return None
 
 
-def parse_declaration(raw_text: str) -> Dict[str, Any]:
+def parse_declaration(raw_text: str) -> dict[str, Any]:
     """
     Parses the raw text from OCR to extract structured data from a customs declaration.
 

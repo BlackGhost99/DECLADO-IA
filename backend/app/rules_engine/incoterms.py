@@ -5,7 +5,6 @@ Convertit les valeurs FOB → CFR → CIF selon les règles douanières CEMAC.
 """
 
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Tuple
 
 
 def round_fcfa(amount: Decimal) -> Decimal:
@@ -72,7 +71,7 @@ def fob_to_cfr(
     freight_cost: Decimal | None = None,
     origin: str = "CN",
     destination: str = "CM",
-) -> Tuple[Decimal, Decimal]:
+) -> tuple[Decimal, Decimal]:
     """
     Convertit FOB vers CFR (Cost and Freight).
 
@@ -96,7 +95,7 @@ def fob_to_cfr(
 
 def cfr_to_cif(
     cfr_value: Decimal, insurance_cost: Decimal | None = None
-) -> Tuple[Decimal, Decimal]:
+) -> tuple[Decimal, Decimal]:
     """
     Convertit CFR vers CIF (Cost, Insurance and Freight).
 
@@ -122,7 +121,7 @@ def fob_to_cif(
     insurance_cost: Decimal | None = None,
     origin: str = "CN",
     destination: str = "CM",
-) -> Tuple[Decimal, Decimal, Decimal]:
+) -> tuple[Decimal, Decimal, Decimal]:
     """
     Convertit FOB directement vers CIF.
 
@@ -154,7 +153,7 @@ def convert_to_cif(
     insurance_cost: Decimal | None = None,
     origin: str = "CN",
     destination: str = "CM",
-) -> Tuple[Decimal, Decimal, Decimal, str]:
+) -> tuple[Decimal, Decimal, Decimal, str]:
     """
     Convertit n'importe quel Incoterm vers CIF.
 

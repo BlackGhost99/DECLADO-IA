@@ -2,15 +2,12 @@
 This module handles the core OCR processing using Tesseract.
 """
 
-import io
-from pathlib import Path
-from typing import IO, Union
+from typing import IO
 
 import cv2
 import numpy as np
 import pytesseract
-from pdf2image import convert_from_bytes, convert_from_path
-from PIL import Image
+from pdf2image import convert_from_path
 
 
 def preprocess_image_for_ocr(image_stream: IO[bytes]) -> np.ndarray:

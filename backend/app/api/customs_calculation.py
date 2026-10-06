@@ -154,11 +154,15 @@ async def calculate_customs(request: CalculateRequest):
 
     except ValueError as e:
         # Erreur de conversion des nombres (Decimal)
-        raise HTTPException(status_code=400, detail=f"Données numériques invalides: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Données numériques invalides: {str(e)}"
+        ) from e
 
     except Exception as e:
         # Erreur générique lors du calcul
-        raise HTTPException(status_code=500, detail=f"Erreur lors du calcul douanier: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Erreur lors du calcul douanier: {str(e)}"
+        ) from e
 
 
 @router.get("/test")

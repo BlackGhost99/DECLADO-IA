@@ -1,5 +1,5 @@
 import re
-from typing import Iterable, List
+from collections.abc import Iterable
 
 
 def clean_text(text: str) -> str:
@@ -13,5 +13,5 @@ def clean_text(text: str) -> str:
     return text
 
 
-def prepare_corpus(texts: Iterable[str]) -> List[str]:
+def prepare_corpus(texts: Iterable[str]) -> list[str]:
     return [clean_text(t) for t in texts]

@@ -3,17 +3,19 @@ API endpoint pour les taux de change
 Phase 10: Tests, QA et Performance
 """
 
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.rules_engine.config import TariffConfig
-from pathlib import Path
 
 router = APIRouter(tags=["exchange-rates"])
 
 
 class ExchangeRatesResponse(BaseModel):
     """Réponse avec les taux de change."""
+
     XAF: float = 1.0
     USD: float
     EUR: float
@@ -27,16 +29,16 @@ class ExchangeRatesResponse(BaseModel):
 async def get_exchange_rates():
     """
     Récupère les taux de change actuels depuis la configuration.
-    
+
     Les taux sont exprimés comme "1 [devise] = X XAF"
     """
     try:
         # Charger la configuration tarifaire
         backend_dir = Path(__file__).parent.parent.parent
         tariffs_dir = backend_dir / "data" / "tariffs"
-        
+
         config = TariffConfig(tariffs_dir)
-        
+
         # Récupérer les taux
         rates = {
             "XAF": 1.0,
@@ -45,7 +47,7 @@ async def get_exchange_rates():
             "GBP": float(config.get_exchange_rate("GBP")),
             "CNY": float(config.get_exchange_rate("CNY")),
         }
-        
+
         return ExchangeRatesResponse(
             **rates,
             source="CEMAC/BEAC",
@@ -53,7 +55,5 @@ async def get_exchange_rates():
         )
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"Erreur lors de la récupération des taux de change: {str(e)}"
-        )
-
+            status_code=500, detail=f"Erreur lors de la récupération des taux de change: {str(e)}"
+        ) from e

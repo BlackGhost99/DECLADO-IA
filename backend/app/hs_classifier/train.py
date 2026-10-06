@@ -1,9 +1,8 @@
 """Train script for HS classifier baseline."""
 
 import csv
-from pathlib import Path
 
-from .model import build_pipeline, train_and_save
+from .model import train_and_save
 from .preprocess import prepare_corpus
 
 

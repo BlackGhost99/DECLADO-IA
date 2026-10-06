@@ -2,6 +2,7 @@
 DECLADO-IA Backend - Application FastAPI principale
 """
 
+import importlib
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -10,14 +11,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import health  # critical router only for minimal startup
-import importlib
 
-# Ensure logger defined before optional import attempts (patch safety)
-try:  # noqa: SIM105
-    logger  # type: ignore[name-defined]
-except Exception:  # logger not yet defined
-    import logging as _logging
-    logger = _logging.getLogger(__name__)
+# Logger défini avant les imports optionnels, qui l'utilisent.
+logger = logging.getLogger(__name__)
 
 _OPTIONAL_MODULES = [
     "customs_calculation",
@@ -37,10 +33,10 @@ for _m in _OPTIONAL_MODULES:
         logger.info(f"Loaded optional module: {_m}")
     except Exception as e:
         logger.warning(f"Module {_m} not loaded (optional): {e}")
-from app.core.config import settings
-from app.db import init_db, test_db_connection
-from app.security.hmac_logger import configure_hmac_logging
-from app.security.signatures import verify_signature
+from app.core.config import settings  # noqa: E402
+from app.db import init_db, test_db_connection  # noqa: E402
+from app.security.hmac_logger import configure_hmac_logging  # noqa: E402
+from app.security.signatures import verify_signature  # noqa: E402
 
 # Configuration du logging
 logging.basicConfig(
@@ -112,9 +108,22 @@ app.include_router(health.router, prefix="/api")
 for name, module in _loaded_optional.items():
     if hasattr(module, "router"):
         # Use /api prefix for most; keep previous behavior selectively
-        prefix = "/api" if name in {"ocr", "hs_classification", "exchange_rates", "customs_calculation", "declaration_auto", "export", "export_sydonia"} else ""
+        prefix = (
+            "/api"
+            if name
+            in {
+                "ocr",
+                "hs_classification",
+                "exchange_rates",
+                "customs_calculation",
+                "declaration_auto",
+                "export",
+                "export_sydonia",
+            }
+            else ""
+        )
         try:
-            app.include_router(getattr(module, "router"), prefix=prefix)
+            app.include_router(module.router, prefix=prefix)
         except Exception as e:
             logger.warning(f"Failed to include router for {name}: {e}")
 

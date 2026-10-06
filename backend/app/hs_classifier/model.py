@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import os
-from typing import List, Tuple
 
 import numpy as np
 from joblib import dump, load
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
@@ -23,7 +21,7 @@ def build_pipeline(max_features: int = 20000) -> Pipeline:
     return pipe
 
 
-def train_and_save(X: List[str], y: List[str], out_path: str = None) -> Pipeline:
+def train_and_save(X: list[str], y: list[str], out_path: str = None) -> Pipeline:
     pipe = build_pipeline()
     pipe.fit(X, y)
     target = out_path or os.path.abspath(MODEL_PATH)
@@ -37,7 +35,7 @@ def load_model(path: str = None) -> Pipeline:
     return load(target)
 
 
-def predict_topk(pipe: Pipeline, texts: List[str], k: int = 3) -> List[List[Tuple[str, float]]]:
+def predict_topk(pipe: Pipeline, texts: list[str], k: int = 3) -> list[list[tuple[str, float]]]:
     """Return top-k (label, score) for each text."""
     # LinearSVC n'a pas predict_proba, utiliser decision_function
     if hasattr(pipe, "predict_proba"):

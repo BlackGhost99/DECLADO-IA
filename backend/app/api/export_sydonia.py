@@ -4,7 +4,6 @@ API endpoints pour l'export des déclarations SYDONIA
 
 import io
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -15,8 +14,8 @@ try:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import cm
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfbase import pdfmetrics  # noqa: F401
+    from reportlab.pdfbase.ttfonts import TTFont  # noqa: F401
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     REPORTLAB_AVAILABLE = True
@@ -370,4 +369,4 @@ async def export_sydonia_pdf(declaration: SydoniaDeclaration):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Erreur lors de la génération du PDF: {str(e)}"
-        )
+        ) from e

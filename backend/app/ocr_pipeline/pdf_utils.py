@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Iterator, Optional
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 try:
     import pdfplumber  # type: ignore
@@ -14,10 +15,13 @@ try:
 except ImportError:  # pragma: no cover
     convert_from_path = None
 
+if TYPE_CHECKING:
+    import PIL.Image
+
 logger = logging.getLogger(__name__)
 
 
-def _find_poppler_bin() -> Optional[str]:
+def _find_poppler_bin() -> str | None:
     """Try to locate Poppler's bin directory on Windows.
 
     Returns the path to the bin directory if found (containing pdfinfo.exe), else None.
@@ -89,7 +93,7 @@ def _require_pdf2image() -> None:
 
 def iter_pdf_pages_as_images(
     pdf_path: str, dpi: int = 300
-) -> Iterator[tuple[int, "PIL.Image.Image"]]:
+) -> Iterator[tuple[int, PIL.Image.Image]]:
     """Yield (page_index, PIL Image) for each page in the PDF.
 
     Uses pdf2image to rasterize pages when OCR is required (scanned PDFs).
@@ -105,8 +109,7 @@ def iter_pdf_pages_as_images(
         )
         # Let pdf2image raise a clear error; caller may catch and surface a helpful message
         images = convert_from_path(pdf_path, dpi=dpi)
-    for idx, img in enumerate(images):
-        yield idx, img
+    yield from enumerate(images)
 
 
 def extract_pdf_text_and_tables(pdf_path: str):

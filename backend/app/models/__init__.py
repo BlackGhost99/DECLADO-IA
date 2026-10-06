@@ -1,14 +1,15 @@
 """
 Models package initialization
 """
+
 from .schemas import (
     HealthResponse,
-    OCRDemoRequest,
-    OCRDemoResponse,
     HSClassificationRequest,
     HSClassificationResponse,
     InvoiceCreate,
     InvoiceResponse,
+    OCRDemoRequest,
+    OCRDemoResponse,
 )
 
 __all__ = [

@@ -1,16 +1,18 @@
 """
 Modèles SQLAlchemy pour la base de données
 """
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text
+
+from sqlalchemy import Column, DateTime, Float, Integer, String, Text
 from sqlalchemy.sql import func
+
 from app.db.database import Base
 
 
 class HealthCheck(Base):
     """Table pour stocker les health checks (test DB)"""
-    
+
     __tablename__ = "health_checks"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     status = Column(String(50), default="healthy")
@@ -19,9 +21,9 @@ class HealthCheck(Base):
 
 class Invoice(Base):
     """Table pour stocker les factures"""
-    
+
     __tablename__ = "invoices"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     invoice_number = Column(String(100), unique=True, index=True)
     date = Column(DateTime(timezone=True))
@@ -35,9 +37,9 @@ class Invoice(Base):
 
 class HSClassification(Base):
     """Table pour stocker les classifications HS"""
-    
+
     __tablename__ = "hs_classifications"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     product_description = Column(Text)
     hs_code = Column(String(10))

@@ -1,5 +1,4 @@
 import os
-from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -12,17 +11,17 @@ router = APIRouter()
 
 class HSSuggestRequest(BaseModel):
     text: str
-    k: Optional[int] = 3
+    k: int | None = 3
 
 
 class HSSuggestion(BaseModel):
     code: str
     score: float
-    keywords: List[str]
+    keywords: list[str]
 
 
 class HSSuggestResponse(BaseModel):
-    suggestions: List[HSSuggestion]
+    suggestions: list[HSSuggestion]
 
 
 MODEL_FILE = os.path.join(os.path.dirname(__file__), "../../models/hs_classifier.joblib")
@@ -37,7 +36,7 @@ def suggest(payload: HSSuggestRequest):
     try:
         model = load_model(MODEL_FILE)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Model load error: {e}")
+        raise HTTPException(status_code=500, detail=f"Model load error: {e}") from e
 
     text_clean = prepare_corpus([payload.text])[0]
     topk = predict_topk(model, [text_clean], k=payload.k)[0]

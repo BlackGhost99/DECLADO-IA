@@ -7,9 +7,7 @@ Export ONNX avec quantization post-entraînement.
 
 import logging
 from pathlib import Path
-from typing import Tuple
 
-import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -175,7 +173,7 @@ class TransformerTrainer:
         epochs: int = 10,
         batch_size: int = 32,
         lr: float = 1e-3,
-    ) -> Tuple[nn.Module, dict]:
+    ) -> tuple[nn.Module, dict]:
         """
         Entraîne un transformer.
 
@@ -222,7 +220,7 @@ class TransformerTrainer:
                 # Train
                 model.train()
                 train_loss = 0
-                for batch_idx, (inputs, targets) in enumerate(train_loader):
+                for _batch_idx, (inputs, targets) in enumerate(train_loader):
                     inputs, targets = inputs.to(self.device), targets.to(self.device)
 
                     optimizer.zero_grad()
