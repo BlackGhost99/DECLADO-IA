@@ -66,59 +66,42 @@ def _display(code: str) -> str:
     return code
 
 
-@transaction.atomic
-def import_csv(
-    path: Path,
+def load_table(
+    run,
+    edition,
+    issues: IssueCollector,
+    header: list[str],
+    body: list[list[str]],
     *,
-    edition_label: str,
-    title: str,
-    code_length: int = 8,
-    actor=None,
-    publisher_claimed: str = "",
-    provenance_note: str = "",
-    territory: str = "CEMAC",
-) -> TariffEdition:
-    source = register_source(
-        path,
-        kind=SourceKind.CSV_EXPORT,
-        title=title,
-        is_derived_copy=True,
-        actor=actor,
-        publisher_claimed=publisher_claimed,
-        edition_label_claimed=edition_label,
-        provenance_note=provenance_note,
-    )
-    run = ImportRun.objects.create(
-        source=source, importer_name=IMPORTER_NAME, importer_version=IMPORTER_VERSION, created_by=actor
-    )
-    edition = TariffEdition.objects.create(label=edition_label, territory_scope=territory, import_run=run)
-    issues = IssueCollector(run)
+    sheet: str,
+    code_length: int,
+    formulas: dict[int, dict[str, str]] | None = None,
+) -> dict:
+    """Charge un tableau (en-tête + lignes de textes) : brut, nœuds, parents déduits, observations, anomalies.
 
-    data = source_path(source).read_bytes()
-    try:
-        text = data.decode("utf-8-sig")
-        encoding = "utf-8"
-    except UnicodeDecodeError:
-        text = data.decode("cp1252", errors="replace")
-        encoding = "cp1252"
-        issues.add("ENCODING_GUESSED", S.REVIEW, "Fichier non UTF-8 : décodé en cp1252, à vérifier.")
-    delimiter = csv.Sniffer().sniff(text[:5000], delimiters=";,\t").delimiter
-    rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
-    header, body = rows[0], rows[1:]
+    `formulas` : {numéro de ligne: {lettre de colonne: formule}} lorsque la source les fournit.
+    """
     last_col = _col_letter(len(header) - 1)
-
-    issues.add(
-        "FORMULAS_UNAVAILABLE",
-        S.INFO,
-        "Source CSV : les formules et valeurs en cache de l'Excel d'origine ne sont pas disponibles (REF-02). "
-        "Fournir le classeur .xlsx pour les conserver.",
-    )
-
-    records = [RawTariffRecord(run=run, ordinal=1, sheet="CSV", cell_range=f"A1:{last_col}1", raw_cells=header)]
+    formulas = formulas or {}
+    records = [
+        RawTariffRecord(
+            run=run,
+            ordinal=1,
+            sheet=sheet,
+            cell_range=f"A1:{last_col}1",
+            raw_cells=header,
+            formulas=formulas.get(1, {}),
+        )
+    ]
     for n, row in enumerate(body, start=2):
         records.append(
             RawTariffRecord(
-                run=run, ordinal=n, sheet="CSV", cell_range=f"A{n}:{_col_letter(len(row) - 1)}{n}", raw_cells=row
+                run=run,
+                ordinal=n,
+                sheet=sheet,
+                cell_range=f"A{n}:{_col_letter(len(row) - 1)}{n}",
+                raw_cells=row,
+                formulas=formulas.get(n, {}),
             )
         )
     RawTariffRecord.objects.bulk_create(records, batch_size=2000)
@@ -130,6 +113,7 @@ def import_csv(
     derived: dict[str, TariffNode] = {}
     occurrences: list[CodeOccurrence] = []
     observations: list[tuple[str, RawTariffRecord, int, str]] = []
+    row_numbers: dict[str, int] = {}
     damaged_examples = []
     order = 0
 
@@ -194,6 +178,7 @@ def import_csv(
             raw = row[i] if i < len(row) else ""
             column_values[i][raw.strip()] += 1
             observations.append((code, record, i, raw))
+        row_numbers[code] = n
 
     # Parents dérivés : présents dans la hiérarchie SH mais sans libellé dans cette source.
     for prefix, node in derived.items():
@@ -213,6 +198,7 @@ def import_csv(
     quality = Counter()
     rate_rows = []
     for code, record, i, raw in observations:
+        formula = formulas.get(row_numbers[code], {}).get(_col_letter(i), "")
         value = _parse_decimal(raw) if raw.strip() else None
         if not raw.strip():
             q = RateObservation.Quality.UNKNOWN
@@ -230,6 +216,7 @@ def import_csv(
                 raw_value=raw,
                 value=value,
                 quality=q,
+                formula=formula,
             )
         )
     RateObservation.objects.bulk_create(rate_rows, batch_size=5000)
@@ -276,16 +263,62 @@ def import_csv(
                 code=damaged_node.code,
             )
 
-    counts = {
+    return {
         "rows": len(body),
         "records": len(records),
         "tariff_lines": len(nodes),
         "derived_parents": len(derived),
         "observations": dict(quality),
-        "encoding": encoding,
-        "delimiter": delimiter,
-        "columns": header,
     }
-    coverage = {"rows_without_node": len(body) - len(nodes)}
+
+
+@transaction.atomic
+def import_csv(
+    path: Path,
+    *,
+    edition_label: str,
+    title: str,
+    code_length: int = 8,
+    actor=None,
+    publisher_claimed: str = "",
+    provenance_note: str = "",
+    territory: str = "CEMAC",
+) -> TariffEdition:
+    source = register_source(
+        path,
+        kind=SourceKind.CSV_EXPORT,
+        title=title,
+        is_derived_copy=True,
+        actor=actor,
+        publisher_claimed=publisher_claimed,
+        edition_label_claimed=edition_label,
+        provenance_note=provenance_note,
+    )
+    run = ImportRun.objects.create(
+        source=source, importer_name=IMPORTER_NAME, importer_version=IMPORTER_VERSION, created_by=actor
+    )
+    edition = TariffEdition.objects.create(label=edition_label, territory_scope=territory, import_run=run)
+    issues = IssueCollector(run)
+
+    data = source_path(source).read_bytes()
+    try:
+        text = data.decode("utf-8-sig")
+        encoding = "utf-8"
+    except UnicodeDecodeError:
+        text = data.decode("cp1252", errors="replace")
+        encoding = "cp1252"
+        issues.add("ENCODING_GUESSED", S.REVIEW, "Fichier non UTF-8 : décodé en cp1252, à vérifier.")
+    delimiter = csv.Sniffer().sniff(text[:5000], delimiters=";,\t").delimiter
+    rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
+    header, body = rows[0], rows[1:]
+    issues.add(
+        "FORMULAS_UNAVAILABLE",
+        S.INFO,
+        "Source CSV : les formules et valeurs en cache de l'Excel d'origine ne sont pas disponibles (REF-02). "
+        "Fournir le classeur .xlsx pour les conserver.",
+    )
+    table_counts = load_table(run, edition, issues, header, body, sheet="CSV", code_length=code_length)
+    counts = {**table_counts, "encoding": encoding, "delimiter": delimiter, "columns": header}
+    coverage = {"rows_without_node": len(body) - table_counts["tariff_lines"]}
     finish_run(run, counts=counts, coverage=coverage, issues=issues)
     return edition

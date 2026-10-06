@@ -328,3 +328,61 @@ def test_reference_manager_lists_runs_and_issues(manager, csv_edition, session):
     listed = s.get(f"/api/v1/reference-imports/{runs[0]['id']}/issues", severity="blocking").json()["results"]
     assert {i["category"] for i in listed} == {"MALFORMED_CODE"}
     assert listed[0]["evidence"]["cell_range"].startswith("A")
+
+
+# --- Import XLSX original (REF-02, T30) --------------------------------------
+
+
+@pytest.fixture
+def xlsx_edition(db, tmp_path):
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Feuil1"
+    ws.append(["POSITION", "LIBELLE", "DDI", "STT", "UNITE", "TAUX"])
+    ws.append(
+        [
+            "01011000",
+            "Chevaux reproducteurs fictifs",
+            5,
+            "=LOOKUP(A2,'[1]2009'!A$1:A$9,'[1]2009'!F$1:F$9)",
+            "=LOOKUP('[1]2015'!A2,'[1]2009'!A$1:A$9,'[1]2009'!H$1:H$9)",
+            "25.35",
+        ]
+    )
+    ws.append(["02013000", "Viande d_x0002_soss_x0002_e fictive", None, 0, "KGM", "0"])
+    ws.append([1011000, "Code saisi comme nombre (zéro perdu)", 5, 0, "NMB", "1"])
+    path = tmp_path / "fictif.xlsx"
+    wb.save(path)
+    from apps.tariffs.importers.xlsx import import_xlsx
+
+    return import_xlsx(path, edition_label="Jeu F XLSX", title="fictif.xlsx")
+
+
+def test_xlsx_keeps_formulas_and_never_evaluates_them(xlsx_edition):
+    run = xlsx_edition.import_run
+    assert run.source.kind == "xlsx" and not run.source.is_derived_copy
+    record = node(xlsx_edition, "01011000").source_record
+    assert record.formulas["D"].startswith("=LOOKUP(A2,'[1]2009'")
+    obs = {o.column: o for o in node(xlsx_edition, "01011000").rate_observations.all()}
+    # Pas de valeur en cache (fichier écrit sans calcul) : inconnue, jamais recalculée ni mise à zéro.
+    assert obs["STT"].quality == "unknown" and obs["STT"].formula.startswith("=LOOKUP")
+    assert obs["TAUX"].raw_value == "25.35" and obs["TAUX"].value == Decimal("25.35")
+    assert issues(xlsx_edition, "EXTERNAL_FORMULA").count() == 2
+    mismatch = issues(xlsx_edition, "LOOKUP_KEY_MISMATCH").get()
+    assert mismatch.details["letter"] == "E" and mismatch.details["examples"][0]["cell"] == "E2"
+    assert issues(xlsx_edition, "NUMBER_STORED_AS_TEXT").get().details["letter"] == "F"
+
+
+def test_xlsx_numeric_code_is_not_repaired(xlsx_edition):
+    malformed = issues(xlsx_edition, "MALFORMED_CODE").get()
+    assert malformed.details["raw_code"] == "1011000"  # 7 chiffres : aucun zéro rajouté
+    assert not TariffNode.objects.filter(edition=xlsx_edition, code="01011000", source_record__ordinal=4).exists()
+    assert node(xlsx_edition, "02013000").rate_observations.get(column="DDI").quality == "unknown"
+
+
+def test_xlsx_escaped_control_characters_are_flagged(xlsx_edition):
+    damaged = node(xlsx_edition, "02013000")
+    assert damaged.label_damaged and damaged.label_clean == "Viande d\ufffdsoss\ufffde fictive"
+    assert issues(xlsx_edition, "DAMAGED_LABEL").filter(node=damaged).exists()

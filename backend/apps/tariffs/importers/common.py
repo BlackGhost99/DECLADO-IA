@@ -1,6 +1,7 @@
 """Outils partagés des importateurs : enregistrement de la source, anomalies, comptages."""
 
 import hashlib
+import re
 import shutil
 from collections import Counter
 from pathlib import Path
@@ -55,8 +56,16 @@ def source_path(source: SourceDocument) -> Path:
     return Path(settings.PRIVATE_STORAGE_ROOT) / source.storage_path
 
 
+OOXML_ESCAPE = re.compile(r"_x([0-9A-Fa-f]{4})_")
+
+
 def clean_label(raw: str) -> tuple[str, bool]:
-    """Libellé affichable : espaces normalisés, caractères de contrôle signalés (non devinés)."""
+    """Libellé affichable : espaces normalisés, caractères de contrôle signalés (non devinés).
+
+    Les échappements OOXML (« _x0002_ ») sont décodés avant contrôle : Excel les utilise pour
+    stocker des caractères de contrôle.
+    """
+    raw = OOXML_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), raw)
     damaged = any(c in CONTROL_CHARS for c in raw)
     text = "".join(REPLACEMENT if c in CONTROL_CHARS else c for c in raw)
     return " ".join(text.split()), damaged

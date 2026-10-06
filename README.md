@@ -81,7 +81,7 @@ python manage.py import_tariff_text ../fixtures/synthetic/referentiel-f.txt --la
 ```
 
 Puis publier pour consultation en tant que `referentiel@demo.demo` (`POST /api/v1/tariffs/editions/<id>/publish`,
-`{"mode": "consultation"}`). Commandes pour les sources réelles : [`docs/lots/lot-1.md`](docs/lots/lot-1.md).
+`{"mode": "consultation"}`). Classeur .xlsx original : `python manage.py import_tariff_xlsx <fichier.xlsx> --label "…"`. Commandes pour les sources réelles : [`docs/lots/lot-1.md`](docs/lots/lot-1.md).
 
 ## Vérifications
 

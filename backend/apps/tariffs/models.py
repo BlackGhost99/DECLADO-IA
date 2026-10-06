@@ -121,8 +121,8 @@ class RawTariffRecord(models.Model):
     cell_range = models.CharField(max_length=50, blank=True)
     raw_cells = models.JSONField(default=list, blank=True)
     raw_text = models.TextField(blank=True)
-    formula = models.TextField(blank=True)
-    cached_value = models.TextField(blank=True)
+    # Formules d'origine par lettre de colonne ; raw_cells contient alors les valeurs en cache.
+    formulas = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["run", "ordinal"]
@@ -208,6 +208,8 @@ class RateObservation(models.Model):
     raw_value = models.CharField(max_length=100, blank=True)
     value = models.DecimalField(max_digits=24, decimal_places=8, null=True, blank=True)
     quality = models.CharField(max_length=20, choices=Quality.choices)
+    # Formule d'origine lorsque la valeur est un cache Excel (jamais réévaluée).
+    formula = models.TextField(blank=True)
 
     class Meta:
         ordering = ["node", "column_index"]
