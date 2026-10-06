@@ -15,11 +15,14 @@ from apps.documents import services as documents
 from apps.documents.models import Document
 from apps.documents.sniff import JPEG, PDF, PNG, XLSX
 from apps.documents.storage import get_storage
+from apps.extraction import services as extraction
+from apps.extraction.codes import FINDING_MESSAGES
+from apps.extraction.models import FieldObservation
 from apps.organizations.models import Role
 from apps.organizations.permissions import HasActiveOrganization, require_roles
 from apps.tariffs.api import HISTORICAL_WARNING
 
-from . import completeness, services
+from . import completeness, proposals, services
 from .models import (
     CaseDocument,
     CaseRevision,
@@ -75,7 +78,15 @@ def case_document_payload(link: CaseDocument) -> dict:
         "replaced_by_id": str(link.replaced_by_id) if link.replaced_by_id else None,
         "row_version": link.row_version,
         "document": document_payload(link.document),
+        "latest_extraction": _latest_extraction(link),
     }
+
+
+def _latest_extraction(link: CaseDocument) -> dict | None:
+    from apps.extraction.api import run_summary
+
+    run = link.extraction_runs.select_related("job", "created_by").order_by("-created_at").first()
+    return run_summary(run) if run else None
 
 
 def observation_payload(obs: CodeObservation) -> dict:
@@ -89,6 +100,8 @@ def observation_payload(obs: CodeObservation) -> dict:
         "entry_origin": obs.entry_origin,
         "evidence_document_id": str(obs.evidence_document_id) if obs.evidence_document_id else None,
         "evidence_page": obs.evidence_page,
+        "source_span": obs.source_span.as_dict() if obs.source_span_id else None,
+        "findings": [{"code": f, "message": FINDING_MESSAGES.get(f, f)} for f in obs.findings],
         "created_by": obs.created_by.email,
         "created_at": obs.created_at,
         "superseded_at": obs.superseded_at,
@@ -117,6 +130,45 @@ def line_payload(line: InvoiceLine) -> dict:
         "codes": [observation_payload(o) for o in observations if o.superseded_at is None],
         "code_history": [observation_payload(o) for o in observations if o.superseded_at is not None],
         "goods_line_ids": [str(s.goods_line_id) for s in sources],
+        "extraction_key": line.extraction_key or None,
+        "field_origins": line.field_origins,
+        "review_flags": line.review_flags,
+        "field_sources": extraction.field_sources(
+            line.field_observations.select_related("source_span") if line.extraction_key else []
+        ),
+        "corrections": [correction_payload(c) for c in line.corrections.select_related("actor")],
+    }
+
+
+def correction_payload(c) -> dict:
+    return {
+        "id": str(c.id),
+        "field": c.field_name,
+        "previous": c.previous,
+        "current": c.current,
+        "reason": c.reason,
+        "actor": c.actor.email,
+        "at": c.created_at,
+    }
+
+
+def divergence_payload(d) -> dict:
+    return {
+        "id": str(d.id),
+        "kind": d.kind,
+        "kind_label": d.get_kind_display(),
+        "invoice_line_id": str(d.invoice_line_id) if d.invoice_line_id else None,
+        "line_ordinal": d.invoice_line.ordinal if d.invoice_line_id else None,
+        "field": d.field_name,
+        "current_value": d.current_value,
+        "extracted_value": d.extracted_value,
+        "run_id": str(d.run_id),
+        "state": d.state,
+        "state_label": d.get_state_display(),
+        "resolved_by": d.resolved_by.email if d.resolved_by_id else None,
+        "resolved_at": d.resolved_at,
+        "resolution_reason": d.resolution_reason,
+        "span": d.observation.source_span.as_dict() if d.observation_id and d.observation.source_span_id else None,
     }
 
 
@@ -133,6 +185,17 @@ def invoice_payload(inv: Invoice) -> dict:
         "document_id": str(inv.document_id) if inv.document_id else None,
         "row_version": inv.row_version,
         "lines": [line_payload(ln) for ln in inv.lines.all()],
+        "field_origins": inv.field_origins,
+        "review_flags": inv.review_flags,
+        "field_sources": extraction.field_sources(
+            FieldObservation.objects.filter(invoice=inv, invoice_line__isnull=True).select_related("source_span")
+        ),
+        "divergences": [
+            divergence_payload(d)
+            for d in inv.divergences.select_related("invoice_line", "resolved_by", "observation__source_span")
+        ],
+        "totals_check": extraction.invoice_totals(inv),
+        "latest_extraction_id": str(run.id) if (run := extraction.latest_run_for_invoice(inv)) else None,
     }
 
 
@@ -280,6 +343,7 @@ class InvoiceInput(serializers.Serializer):
     incoterm = serializers.CharField(required=False, allow_blank=True, max_length=20)
     declared_total = serializers.DecimalField(**AMOUNT)
     document_id = serializers.UUIDField(required=False, allow_null=True)
+    correction_reason = serializers.CharField(required=False, allow_blank=True, max_length=500)
 
 
 class LineInput(serializers.Serializer):
@@ -299,6 +363,7 @@ class LineInput(serializers.Serializer):
     claimed_scheme = serializers.CharField(required=False, allow_blank=True, max_length=60)
     uncertain_code = serializers.CharField(required=False, allow_blank=True, max_length=60)
     uncertain_code_label = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    correction_reason = serializers.CharField(required=False, allow_blank=True, max_length=500)
 
     def to_internal_value(self, data):
         for key in ("customs_code", "uncertain_code", "source_reference"):
@@ -316,9 +381,10 @@ class GoodsInput(serializers.Serializer):
 
 
 class DecisionInput(serializers.Serializer):
-    action = serializers.ChoiceField(choices=["confirm", "complete", "replace"])
+    action = serializers.ChoiceField(choices=["confirm", "complete", "replace", "classify"])
     code_check_id = serializers.UUIDField()
     node_id = serializers.UUIDField(required=False, allow_null=True)
+    proposal_id = serializers.UUIDField(required=False, allow_null=True)
     reason = serializers.CharField()
     evidence_refs = serializers.ListField(required=False)
     goods_line_version = serializers.IntegerField()
@@ -770,3 +836,47 @@ class CaseAuditView(APIView):
                 ]
             }
         )
+
+
+class InvoiceGoodsLinesView(APIView):
+    """Une marchandise par ligne facturée libre de la facture (chemin court après extraction)."""
+
+    permission_classes = [CanEdit]
+
+    def post(self, request, invoice_id):
+        created = services.goods_lines_from_invoice(org=request.organization, actor=request.user, invoice_id=invoice_id)
+        return Response({"results": [goods_payload(get_goods(request, g.id)) for g in created]}, status=201)
+
+
+class ProposalInput(serializers.Serializer):
+    edition_id = serializers.UUIDField(required=False, allow_null=True)
+    query = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    explicit = serializers.BooleanField(required=False, default=False)
+
+
+class ProposalView(APIView):
+    """COD-04 à COD-06 : aide au classement, seulement si nécessaire ou explicitement demandée."""
+
+    permission_classes = [CanEdit]
+
+    def get(self, request, goods_id):
+        goods = get_goods(request, goods_id)
+        sets = goods.proposal_sets.select_related("edition", "created_by", "goods_line")[:10]
+        return Response({"results": [proposals.payload(ps) for ps in sets]})
+
+    def post(self, request, goods_id):
+        data = valid(ProposalInput, request)
+        goods = get_goods(request, goods_id)
+        edition_id = data.get("edition_id") or goods.revision.target_edition_id
+        if not edition_id:
+            raise ApiError("EDITION_REQUIRED", "Choisir l'édition du référentiel dans laquelle chercher.", 422)
+        edition = services.edition_for(request.user, edition_id)
+        proposal_set = proposals.propose(
+            org=request.organization,
+            actor=request.user,
+            goods=goods,
+            edition=edition,
+            query=data.get("query", ""),
+            explicit=data.get("explicit", False),
+        )
+        return Response(proposals.payload(proposal_set), status=201)

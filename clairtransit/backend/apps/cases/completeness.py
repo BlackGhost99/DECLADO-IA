@@ -6,10 +6,34 @@ Les écarts arithmétiques sont signalés, jamais corrigés (EXT-05, EXT-06).
 
 from decimal import Decimal
 
+from apps.extraction import services as extraction
 from apps.tariffs.models import PublicationState
 
 from . import services
 from .models import CaseDocument, CaseRevision
+
+FIELD_LABELS = {
+    "supplier_name": "fournisseur",
+    "invoice_number": "n° de facture",
+    "invoice_date": "date",
+    "currency": "devise",
+    "incoterm": "incoterm",
+    "declared_total": "total imprimé",
+    "source_reference": "réf. fournisseur",
+    "description_raw": "désignation",
+    "quantity": "quantité",
+    "unit": "unité",
+    "unit_price": "prix unitaire",
+    "amount": "montant",
+    "origin_country": "origine",
+    "code:customs": "code douanier",
+    "code:supplier": "référence fournisseur",
+    "code:ambiguous": "code de nature incertaine",
+}
+
+
+def _fmt(value) -> str:
+    return "?" if value is None else format(Decimal(value).normalize(), "f")
 
 
 def _item(scope, obj, field, message, label=""):
@@ -71,20 +95,37 @@ def evaluate(revision: CaseRevision) -> dict:
                 )
             )
         elif lines and all(ln.amount is not None for ln in lines):
-            computed = sum((ln.amount for ln in lines), Decimal(0))
-            if computed != inv.declared_total:
+            totals = extraction.invoice_totals(inv)
+            if totals["status"] == "gap":
+                c = totals["components"]
+                has_charges = any(Decimal(c[k]) for k in ("fees", "discounts", "taxes"))
+                detail = (
+                    f"Total recalculé {_fmt(totals['computed_total'])} (marchandises {_fmt(c['goods'])}"
+                    f" + frais {_fmt(c['fees'])} − remises {_fmt(c['discounts'])} + taxes {_fmt(c['taxes'])})"
+                    if has_charges
+                    else f"Somme des lignes {_fmt(c['goods'])}"
+                )
                 warnings.append(
                     _item(
                         "invoice",
                         inv,
                         "declared_total",
-                        f"Somme des lignes {format(computed.normalize(), 'f')} ≠ total imprimé "
-                        f"{format(inv.declared_total.normalize(), 'f')} (écart "
-                        f"{format((inv.declared_total - computed).normalize(), 'f')}) : "
+                        f"{detail} ≠ total imprimé {_fmt(totals['printed_total'])} (écart {_fmt(totals['gap'])}) : "
                         "remise, frais ou erreur à expliquer.",
                         label,
                     )
                 )
+        for flag in inv.review_flags:
+            warnings.append(_item("invoice", inv, flag.get("field", ""), f"À vérifier : {flag['message']}", label))
+        for divergence in inv.divergences.filter(state="open").select_related("invoice_line"):
+            where = f"{label}, ligne {divergence.invoice_line.ordinal}" if divergence.invoice_line_id else label
+            field = FIELD_LABELS.get(divergence.field_name, divergence.field_name)
+            message = (
+                "Ligne absente de la dernière lecture : la conserver ou la corriger."
+                if divergence.kind == "line_not_reread"
+                else f"La relecture contredit la valeur actuelle ({field}) : trancher."
+            )
+            blocking.append(_item("divergence", divergence, divergence.field_name or "line", message, where))
         for ln in lines:
             line_label = f"{label}, ligne {ln.ordinal}"
             for field, message in (
@@ -116,6 +157,12 @@ def evaluate(revision: CaseRevision) -> dict:
                         f"montant lu {format(ln.amount.normalize(), 'f')}.",
                         line_label,
                     )
+                )
+            for flag in ln.review_flags:
+                if flag.get("code") in ("CODE_ABSENT",):
+                    continue  # déjà couvert par le contrôle de code de la marchandise
+                warnings.append(
+                    _item("invoice_line", ln, flag.get("field", ""), f"À vérifier : {flag['message']}", line_label)
                 )
             if not ln.goods_sources.all():
                 warnings.append(

@@ -223,6 +223,162 @@ export interface CaseDocument {
   replaced_by_id: string | null;
   row_version: number;
   document: DocumentInfo;
+  latest_extraction?: ExtractionRun | null;
+}
+
+/** Localisation d'une valeur lue : page physique (depuis 1) et zone normalisée 0–1, ou feuille et cellule. */
+export interface Span {
+  id: string;
+  document_id: string;
+  page: number | null;
+  bbox: [number, number, number, number] | null;
+  page_size: [number, number] | null;
+  rotation: number;
+  sheet: string | null;
+  cell_range: string | null;
+  excerpt: string;
+}
+
+export interface FieldSource {
+  observation_id: string;
+  run_id: string;
+  label: string;
+  raw: string;
+  status: "ok" | "missing" | "ambiguous" | "unreadable" | "truncated" | "low_confidence";
+  origin: "read" | "ocr" | "inferred";
+  confidence: number | null;
+  notes: string[];
+  span: Span | null;
+}
+
+export interface ReviewFlag {
+  field: string;
+  code: string;
+  message: string;
+}
+
+export interface Correction {
+  id: string;
+  field: string;
+  previous: { value: unknown; origin?: string | null };
+  current: { value: unknown };
+  reason: string;
+  actor: string;
+  at: string;
+}
+
+export interface Divergence {
+  id: string;
+  kind: "value" | "line_not_reread";
+  kind_label: string;
+  invoice_line_id: string | null;
+  line_ordinal: number | null;
+  field: string;
+  current_value: unknown;
+  extracted_value: unknown;
+  run_id: string;
+  state: "open" | "kept" | "accepted";
+  state_label: string;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  resolution_reason: string;
+  span: Span | null;
+}
+
+export interface TotalsCheck {
+  status: "match" | "gap" | "incomplete" | "no_printed_total";
+  goods_lines: number;
+  goods_lines_without_amount: number;
+  components: { goods: string | null; fees: string | null; discounts: string | null; taxes: string | null };
+  computed_total: string | null;
+  printed_total: string | null;
+  gap: string | null;
+  explanations: string[];
+  subtotals_not_added: { label: string; amount: string | null; page: number | null }[];
+}
+
+export interface Job {
+  id: string;
+  kind: string;
+  state: "queued" | "running" | "succeeded" | "failed";
+  state_label: string;
+  phase: string;
+  progress: { done?: number; total?: number } & Record<string, unknown>;
+  attempts: number;
+  error_code: string | null;
+  error_message: string | null;
+  hint: string | null;
+  note: string;
+}
+
+export interface RunWarning {
+  code: string;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+export interface ExtractionRun {
+  id: string;
+  case_document_id: string;
+  document_id: string;
+  attempt: number;
+  parser: string;
+  parser_version: string;
+  provider: string | null;
+  model: string | null;
+  options: Record<string, unknown>;
+  status: "queued" | "running" | "succeeded" | "failed";
+  status_label: string;
+  error_code: string | null;
+  error_message: string | null;
+  hint: string | null;
+  warnings: RunWarning[];
+  invoice_id: string | null;
+  previous_run_id: string | null;
+  merge_report: Record<string, number | boolean>;
+  created_by: string;
+  created_at: string;
+  finished_at: string | null;
+  job: Job;
+}
+
+export interface ExtractionDetail extends ExtractionRun {
+  charges: { kind: string; label: string; amount: string | null; page?: number | null }[];
+  comparison: {
+    previous_attempt: number;
+    counts: { same: number; changed: number; new: number; not_reread: number };
+    rows: { entity_key: string; field: string; label: string; previous: unknown; current: unknown; status: string }[];
+  } | null;
+}
+
+export interface Proposal {
+  id: string;
+  rank: number;
+  node_id: string;
+  code: string;
+  code_display: string;
+  label: string;
+  full_path: string;
+  reasons: string[];
+  notes: { id: string; scope: string; heading: string; excerpt: string; mentions_exclusion: boolean }[];
+  distinguishing: { code: string; code_display?: string; label: string }[];
+  retrieval_score: number | null;
+}
+
+export interface ProposalSet {
+  id: string;
+  goods_line_id: string;
+  edition_id: string;
+  edition_label: string;
+  trigger: string;
+  query: string;
+  producer: string;
+  is_ai: boolean;
+  questions: string[];
+  is_current: boolean;
+  created_at: string;
+  created_by: string;
+  proposals: Proposal[];
 }
 
 export interface CodeObservation {
@@ -255,6 +411,12 @@ export interface InvoiceLine {
   codes: CodeObservation[];
   code_history: CodeObservation[];
   goods_line_ids: string[];
+  entry_origin?: string;
+  extraction_key?: string | null;
+  field_origins?: Record<string, string>;
+  review_flags?: ReviewFlag[];
+  field_sources?: Record<string, FieldSource>;
+  corrections?: Correction[];
 }
 
 export interface Invoice {
@@ -269,6 +431,12 @@ export interface Invoice {
   document_id: string | null;
   row_version: number;
   lines: InvoiceLine[];
+  field_origins?: Record<string, string>;
+  review_flags?: ReviewFlag[];
+  field_sources?: Record<string, FieldSource>;
+  divergences?: Divergence[];
+  totals_check?: TotalsCheck;
+  latest_extraction_id?: string | null;
 }
 
 export interface CodeCheck {
@@ -434,6 +602,17 @@ export const api = {
     request<CodeCheck>("POST", `/goods-lines/${goodsId}/code-checks`, { edition_id }),
   decide: (goodsId: string, data: Record<string, unknown>) =>
     request<GoodsLine>("POST", `/goods-lines/${goodsId}/decisions`, data),
+  extract: (linkId: string, options: { ocr?: boolean; retry?: boolean }) =>
+    request<ExtractionRun>("POST", `/case-documents/${linkId}/extractions`, options),
+  extractionRun: (id: string) => request<ExtractionDetail>("GET", `/extraction-runs/${id}`),
+  job: (id: string) => request<Job>("GET", `/jobs/${id}`),
+  resolveDivergence: (id: string, resolution: "keep" | "accept", reason: string) =>
+    request<Divergence>("POST", `/divergences/${id}/resolve`, { resolution, reason }),
+  goodsFromInvoice: (invoiceId: string) =>
+    request<{ results: GoodsLine[] }>("POST", `/invoices/${invoiceId}/goods-lines`, {}),
+  proposals: (goodsId: string) => request<{ results: ProposalSet[] }>("GET", `/goods-lines/${goodsId}/proposals`),
+  propose: (goodsId: string, data: { edition_id?: string; query?: string; explicit?: boolean }) =>
+    request<ProposalSet>("POST", `/goods-lines/${goodsId}/proposals`, data),
 };
 
 export const ROLE_LABELS: Record<Role, string> = {

@@ -22,5 +22,8 @@ Reprend `docs/specifications/03-plan-et-recette.md` §7 et ajoute les points rel
 | Envoi d'e-mails (invitation, mot de passe oublié) | Gestion des comptes | Porteur du projet | 2 | Ouvert |
 | Liste des régimes douaniers et territoires à proposer (saisie libre au lot 2 ; GA couvert par une édition CEMAC) | Contrôles de cohérence, calcul | Référent douanier | 2, 4 | Ouvert |
 | Hébergement des pièces (adaptateur S3 non branché ; stockage local privé au lot 2) | Production, sauvegarde | Porteur du projet | 2, 6 | Ouvert |
-| Limite de 500 pages par facture PDF (non appliquée : nécessite la lecture du PDF, lot 3) | Charge | Porteur du projet | 3 | Ouvert |
+| Limite de 500 pages par facture PDF | Charge | Porteur du projet | 3 | Résolu au lot 3 : appliquée à l'extraction (`EXTRACTION_MAX_PAGES`), la pièce reste conservée |
 | Visibilité des dossiers : tous les membres d'une société voient tous ses dossiers (choix par défaut du lot 2) | Confidentialité interne | Société pilote | 2, 5 | Ouvert |
+| Corpus de factures réelles anonymisées (jeu I) pour mesurer l'extraction | Fiabilité réelle inconnue : seules des pièces synthétiques ont été mesurées | Porteur du projet + transitaire | 3 | Ouvert |
+| Choix d'un fournisseur d'IA (prestataire, localisation, conservation, secrets) | `AI_PROVIDER=disabled` seul admis ; recherche lexicale uniquement | Porteur du projet | 3, 6 | Ouvert |
+| Seuil de confiance OCR (60 retenu par défaut) et langues (fra+eng) | Valeurs inconnues sur scans médiocres | Porteur du projet + transitaire | 3 | Ouvert |

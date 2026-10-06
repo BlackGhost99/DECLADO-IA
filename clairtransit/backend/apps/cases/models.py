@@ -137,6 +137,9 @@ class Invoice(OrganizationOwnedModel):
     incoterm = models.CharField(max_length=20, blank=True)
     declared_total = models.DecimalField(**AMOUNT)
     document = models.ForeignKey(CaseDocument, null=True, blank=True, on_delete=models.PROTECT, related_name="invoices")
+    # Provenance de chaque valeur : « extracted », « inferred » (lue puis déduite) ou « manual » (saisie/corrigée).
+    field_origins = models.JSONField(default=dict, blank=True)
+    review_flags = models.JSONField(default=list, blank=True)
 
     class Meta:
         verbose_name = "facture"
@@ -169,6 +172,10 @@ class InvoiceLine(OrganizationOwnedModel):
     )
     evidence_page = models.PositiveIntegerField(null=True, blank=True)
     evidence_note = models.CharField(max_length=300, blank=True)
+    # Rang de la ligne dans la lecture de la pièce : sert à rapprocher deux lectures (EXT-07).
+    extraction_key = models.CharField(max_length=40, blank=True)
+    field_origins = models.JSONField(default=dict, blank=True)
+    review_flags = models.JSONField(default=list, blank=True)
 
     class Meta:
         verbose_name = "ligne facturée"
@@ -195,6 +202,10 @@ class CodeObservation(OrganizationOwnedModel):
         CaseDocument, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
     evidence_page = models.PositiveIntegerField(null=True, blank=True)
+    source_span = models.ForeignKey(
+        "extraction.SourceSpan", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    findings = models.JSONField(default=list, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     superseded_at = models.DateTimeField(null=True, blank=True)
     superseded_by = models.OneToOneField(
@@ -268,6 +279,7 @@ class ClassificationDecision(OrganizationOwnedModel):
         CONFIRM = "confirm", "Confirmer le code présent"
         COMPLETE = "complete", "Compléter un code incomplet"
         REPLACE = "replace", "Remplacer le code présent"
+        CLASSIFY = "classify", "Classer une marchandise sans code"
 
     goods_line = models.ForeignKey(GoodsLine, on_delete=models.PROTECT, related_name="decisions")
     original_observation = models.ForeignKey(
@@ -276,6 +288,9 @@ class ClassificationDecision(OrganizationOwnedModel):
     code_check = models.ForeignKey(CodeCheck, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     selected_node = models.ForeignKey("tariffs.TariffNode", on_delete=models.PROTECT, related_name="+")
     selected_code = models.CharField(max_length=20)  # instantané textuel, zéros conservés
+    proposal = models.ForeignKey(
+        "ClassificationProposal", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
     edition = models.ForeignKey("tariffs.TariffEdition", on_delete=models.PROTECT, related_name="+")
     action = models.CharField(max_length=20, choices=Action.choices)
     reason = models.TextField()
@@ -292,3 +307,39 @@ class ClassificationDecision(OrganizationOwnedModel):
         if not self._state.adding:
             raise ValueError("Une décision de classement n'est jamais modifiée : en enregistrer une nouvelle.")
         super().save(*args, **kwargs)
+
+
+class ProposalSet(OrganizationOwnedModel):
+    """Aide au classement (COD-04 à COD-06) : produite seulement si nécessaire ou demandée.
+
+    Chaque proposition référence une ligne existante de l'édition ; sans preuve suffisante,
+    l'ensemble ne contient que des questions. Aucun code n'est choisi automatiquement.
+    """
+
+    goods_line = models.ForeignKey(GoodsLine, on_delete=models.PROTECT, related_name="proposal_sets")
+    code_check = models.ForeignKey(CodeCheck, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    edition = models.ForeignKey("tariffs.TariffEdition", on_delete=models.PROTECT, related_name="+")
+    trigger = models.CharField(max_length=30)  # état du contrôle ou « explicit »
+    query = models.TextField(blank=True)
+    producer = models.CharField(max_length=60)  # « recherche-referentiel 1.0 » ; un modèle d'IA serait nommé ici
+    questions = models.JSONField(default=list, blank=True)
+    input_hash = models.CharField(max_length=64)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        verbose_name = "aide au classement"
+        ordering = ["-created_at"]
+
+
+class ClassificationProposal(OrganizationOwnedModel):
+    proposal_set = models.ForeignKey(ProposalSet, on_delete=models.PROTECT, related_name="proposals")
+    node = models.ForeignKey("tariffs.TariffNode", on_delete=models.PROTECT, related_name="+")
+    code = models.CharField(max_length=20)
+    rank = models.PositiveSmallIntegerField()
+    reasons = models.JSONField(default=list)
+    note_refs = models.JSONField(default=list, blank=True)
+    distinguishing = models.JSONField(default=list, blank=True)
+    retrieval_score = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["proposal_set", "rank"]

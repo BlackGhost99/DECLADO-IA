@@ -34,8 +34,28 @@ def test_failures_are_visible_and_bounded(db):
         raise ValueError("boom")
 
     event = outbox.enqueue("test.boom", {})
+    outbox.dispatch_pending()
+    outbox.dispatch_pending()
+    assert len(calls) == 1  # nouvelle tentative différée, pas immédiate
+    event.refresh_from_db()
+    assert event.available_at > event.created_at
     for _ in range(outbox.MAX_ATTEMPTS + 3):
+        OutboxEvent.objects.update(available_at=None)  # le délai est écoulé
         outbox.dispatch_pending()
     event.refresh_from_db()
     assert len(calls) == outbox.MAX_ATTEMPTS
     assert event.dispatched_at is None and event.last_error == "ValueError"
+
+
+def test_claimed_event_is_not_given_twice(db):
+    calls = []
+
+    @outbox.register_handler("test.reentrant")
+    def reentrant(event):
+        calls.append(event.id)
+        # Un second worker qui interroge pendant le traitement ne reçoit pas le même événement.
+        assert outbox.dispatch_pending() == 0
+
+    outbox.enqueue("test.reentrant", {})
+    assert outbox.dispatch_pending() == 1
+    assert len(calls) == 1

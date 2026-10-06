@@ -12,6 +12,7 @@ from apps.core.concurrency import bump, check_version
 from apps.core.exceptions import ApiError
 from apps.documents import services as documents
 from apps.documents.models import Document
+from apps.extraction import services as extraction
 from apps.organizations.models import Membership, Role
 from apps.tariffs import services as tariffs
 from apps.tariffs.codes import normalize_code
@@ -23,9 +24,11 @@ from .models import (
     CaseRevision,
     CaseSequence,
     ClassificationDecision,
+    ClassificationProposal,
     CodeCheck,
     CodeObservation,
     CustomsCase,
+    EntryOrigin,
     GoodsLine,
     GoodsLineSource,
     Invoice,
@@ -381,6 +384,15 @@ def replace_document(*, org, actor, link_id, upload, declared_mime="") -> CaseDo
 # --- Factures et lignes --------------------------------------------------------------
 
 INVOICE_FIELDS = ("supplier_name", "invoice_number", "invoice_date", "currency", "incoterm", "declared_total")
+EXTRACTED_LINE_FIELDS = (
+    "source_reference",
+    "description_raw",
+    "quantity",
+    "unit",
+    "unit_price",
+    "amount",
+    "origin_country",
+)
 LINE_FIELDS = (
     "source_reference",
     "description_raw",
@@ -392,6 +404,10 @@ LINE_FIELDS = (
     "evidence_page",
     "evidence_note",
 )
+
+
+def _values(obj, fields):
+    return {f: getattr(obj, f) for f in fields}
 
 
 def _snapshot(obj, fields):
@@ -433,6 +449,7 @@ def update_invoice(*, org, actor, invoice_id, expected, data) -> Invoice:
     )
     check_version(invoice, expected)
     _require_editable(invoice.revision)
+    raw_before = _values(invoice, INVOICE_FIELDS)
     before = _snapshot(invoice, INVOICE_FIELDS) | {
         "document": str(invoice.document_id) if invoice.document_id else None
     }
@@ -440,6 +457,13 @@ def update_invoice(*, org, actor, invoice_id, expected, data) -> Invoice:
     invoice.currency = (invoice.currency or "").upper()
     if "document_id" in data:
         invoice.document = case_document_for(invoice.revision, data["document_id"])
+    extraction.record_corrections(
+        actor=actor,
+        entity=invoice,
+        before=raw_before,
+        after=_values(invoice, INVOICE_FIELDS),
+        reason=data.get("correction_reason", ""),
+    )
     bump(invoice)
     invoice.save()
     after = _snapshot(invoice, INVOICE_FIELDS) | {"document": str(invoice.document_id) if invoice.document_id else None}
@@ -447,11 +471,30 @@ def update_invoice(*, org, actor, invoice_id, expected, data) -> Invoice:
     return invoice
 
 
-def _observe(org, actor, line, *, raw_code, kind, field_label, claimed_scheme="", evidence=None, page=None):
+def _observe(
+    org,
+    actor,
+    line,
+    *,
+    raw_code,
+    kind,
+    field_label,
+    claimed_scheme="",
+    evidence=None,
+    page=None,
+    entry_origin=EntryOrigin.MANUAL,
+    source_span=None,
+    findings=None,
+):
     """COD-01 : l'observation précédente du même type est remplacée, jamais modifiée."""
     raw_code = (raw_code or "").strip()
     previous = line.code_observations.filter(code_kind=kind, superseded_at__isnull=True).first()
-    if previous and previous.raw_code == raw_code and previous.field_label == field_label:
+    if (
+        previous
+        and previous.raw_code == raw_code
+        and previous.field_label == field_label
+        and previous.entry_origin == entry_origin
+    ):
         return previous
     new = None
     if raw_code:
@@ -463,8 +506,11 @@ def _observe(org, actor, line, *, raw_code, kind, field_label, claimed_scheme=""
             normalized_code=normalize_code(raw_code),
             code_kind=kind,
             claimed_scheme=claimed_scheme,
+            entry_origin=entry_origin,
             evidence_document=evidence,
             evidence_page=page,
+            source_span=source_span,
+            findings=findings or [],
             created_by=actor,
         )
     if previous:
@@ -483,6 +529,7 @@ def _observe(org, actor, line, *, raw_code, kind, field_label, claimed_scheme=""
             "normalized": new.normalized_code if new else None,
             "kind": kind,
             "field_label": field_label,
+            "origin": entry_origin,
         },
     )
     return new
@@ -550,10 +597,19 @@ def update_invoice_line(*, org, actor, line_id, expected, data) -> InvoiceLine:
     check_version(line, expected)
     _require_editable(line.invoice.revision)
     before = _snapshot(line, LINE_FIELDS)
+    raw_before = _values(line, LINE_FIELDS)
     _apply(line, data, LINE_FIELDS)
     line.origin_country = (line.origin_country or "").upper()
     if "evidence_document_id" in data:
         line.evidence_document = case_document_for(line.invoice.revision, data["evidence_document_id"])
+    extraction.record_corrections(
+        actor=actor,
+        entity=line,
+        before={f: raw_before[f] for f in EXTRACTED_LINE_FIELDS},
+        after={f: getattr(line, f) for f in EXTRACTED_LINE_FIELDS},
+        reason=data.get("correction_reason", ""),
+    )
+    customs_before = _active_code(line, CodeObservation.Kind.CUSTOMS)
     bump(line)
     line.save()
     previous, current = _diff(before, _snapshot(line, LINE_FIELDS))
@@ -561,7 +617,22 @@ def update_invoice_line(*, org, actor, line_id, expected, data) -> InvoiceLine:
         # Les textes de facture ne sont pas recopiés dans le journal : seuls les noms de champs le sont.
         _event(org, actor, "invoice_line.updated", line, line.invoice.revision.case, None, {"fields": sorted(current)})
     _observe_from(org, actor, line, data)
+    customs_after = _active_code(line, CodeObservation.Kind.CUSTOMS)
+    if line.extraction_key and customs_before != customs_after:
+        extraction.record_corrections(
+            actor=actor,
+            entity=line,
+            before={"code:customs": customs_before},
+            after={"code:customs": customs_after},
+            reason=data.get("correction_reason", ""),
+        )
+        line.save(update_fields=["field_origins", "review_flags", "updated_at"])
     return line
+
+
+def _active_code(line, kind):
+    obs = line.code_observations.filter(code_kind=kind, superseded_at__isnull=True).first()
+    return obs.raw_code if obs else None
 
 
 # --- Marchandises ---------------------------------------------------------------------
@@ -619,6 +690,17 @@ def create_goods_line(*, org, actor, revision_id, data) -> GoodsLine:
         current={"ordinal": goods.ordinal, "invoice_lines": [str(ln.id) for ln in lines]},
     )
     return goods
+
+
+@transaction.atomic
+def goods_lines_from_invoice(*, org, actor, invoice_id) -> list[GoodsLine]:
+    """Chemin court : une marchandise par ligne facturée encore libre, liens et quantités conservés."""
+    invoice = _get(Invoice.objects.for_organization(org).select_related("revision"), invoice_id)
+    free = invoice.lines.filter(goods_sources__isnull=True).order_by("ordinal")
+    return [
+        create_goods_line(org=org, actor=actor, revision_id=invoice.revision_id, data={"invoice_line_ids": [line.id]})
+        for line in free
+    ]
 
 
 @transaction.atomic
@@ -753,6 +835,18 @@ def record_decision(*, org, actor, goods_id, data) -> ClassificationDecision:
     action = data.get("action")
     evidence = [e for e in (data.get("evidence_refs") or []) if isinstance(e, (str, dict))]
     obs = check.observation
+    proposal = None
+    if data.get("proposal_id"):
+        proposal = (
+            ClassificationProposal.objects.for_organization(org)
+            .filter(pk=data["proposal_id"], proposal_set__goods_line=goods, proposal_set__edition=check.target_edition)
+            .first()
+        )
+        if proposal is None or str(proposal.node_id) != str(data.get("node_id")):
+            raise ApiError(
+                "INVALID_PROPOSAL", "La proposition ne correspond pas à cette marchandise et à ce code.", 422
+            )
+        evidence.append({"proposal_id": str(proposal.id), "producer": proposal.proposal_set.producer})
     if action == ClassificationDecision.Action.CONFIRM:
         if check.state != CodeCheck.State.RECOGNIZED:
             raise ApiError(
@@ -761,6 +855,16 @@ def record_decision(*, org, actor, goods_id, data) -> ClassificationDecision:
                 422,
             )
         node = check.node
+    elif action == ClassificationDecision.Action.CLASSIFY:
+        if check.state not in (CodeCheck.State.MISSING, CodeCheck.State.AMBIGUOUS):
+            raise ApiError(
+                "CANNOT_CLASSIFY",
+                "Un code douanier est présent : le confirmer, le compléter ou le remplacer avec une source.",
+                422,
+            )
+        node = TariffNode.objects.filter(pk=data.get("node_id"), edition=check.target_edition).first()
+        if node is None or not node.declarable:
+            raise ApiError("INVALID_NODE", "Choisir une ligne déclarable existante de l'édition contrôlée.", 422)
     elif action in (ClassificationDecision.Action.COMPLETE, ClassificationDecision.Action.REPLACE):
         node = TariffNode.objects.filter(pk=data.get("node_id"), edition=check.target_edition).first()
         if node is None or not node.declarable:
@@ -773,7 +877,7 @@ def record_decision(*, org, actor, goods_id, data) -> ClassificationDecision:
         elif obs is None:
             raise ApiError(
                 "NOTHING_TO_REPLACE",
-                "Aucun code présent à remplacer : la recherche de classement arrive au lot 3.",
+                "Aucun code présent à remplacer : classer la marchandise depuis la recherche ou les propositions.",
                 422,
             )
         elif not evidence:
@@ -789,6 +893,7 @@ def record_decision(*, org, actor, goods_id, data) -> ClassificationDecision:
         code_check=check,
         selected_node=node,
         selected_code=node.code,
+        proposal=proposal,
         edition=check.target_edition,
         action=action,
         reason=reason,

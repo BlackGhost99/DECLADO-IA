@@ -42,7 +42,7 @@ services:
   worker:
     build: ../backend
     environment: *backend-env
-    command: celery -A config worker -l info
+    command: celery -A config worker -B -l info  # -B : relance périodique de la boîte d'envoi (développement)
     volumes: [private:/var/clairtransit/private]
     depends_on:
       db: { condition: service_healthy }

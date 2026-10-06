@@ -4,6 +4,7 @@ from apps.accounts import api as accounts
 from apps.audit import api as audit
 from apps.cases import api as cases
 from apps.clients import api as clients
+from apps.extraction import api as extraction
 from apps.organizations import api as organizations
 from apps.tariffs import api as tariffs
 
@@ -35,10 +36,16 @@ urlpatterns = [
     path("revisions/<uuid:revision_id>/goods-lines", cases.GoodsLineCreateView.as_view()),
     path("invoices/<uuid:invoice_id>", cases.InvoiceDetailView.as_view()),
     path("invoices/<uuid:invoice_id>/lines", cases.InvoiceLineCreateView.as_view()),
+    path("invoices/<uuid:invoice_id>/goods-lines", cases.InvoiceGoodsLinesView.as_view()),
     path("invoice-lines/<uuid:line_id>", cases.InvoiceLineDetailView.as_view()),
     path("goods-lines/<uuid:goods_id>", cases.GoodsLineDetailView.as_view()),
     path("goods-lines/<uuid:goods_id>/code-checks", cases.CodeCheckView.as_view()),
     path("goods-lines/<uuid:goods_id>/decisions", cases.DecisionView.as_view()),
+    path("goods-lines/<uuid:goods_id>/proposals", cases.ProposalView.as_view()),
+    path("case-documents/<uuid:link_id>/extractions", extraction.CaseDocumentExtractionsView.as_view()),
+    path("extraction-runs/<uuid:run_id>", extraction.ExtractionRunView.as_view()),
+    path("jobs/<uuid:job_id>", extraction.JobView.as_view()),
+    path("divergences/<uuid:divergence_id>/resolve", extraction.DivergenceResolveView.as_view()),
     path("documents/limits", cases.DocumentLimitsView.as_view()),
     path("documents/<uuid:document_id>", cases.DocumentDetailView.as_view()),
     path("documents/<uuid:document_id>/download", cases.DocumentDownloadView.as_view()),

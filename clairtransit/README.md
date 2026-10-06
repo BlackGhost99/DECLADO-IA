@@ -1,7 +1,7 @@
 # ClairTransit
 
 Application web de préparation des dossiers douaniers pour les sociétés de transit (périmètre initial Gabon/CEMAC).
-Les spécifications V1 sont dans [`docs/specifications/`](docs/specifications/). État actuel : **lots 0 (socle), 1 (référentiel) et 2 (dossiers et pièces)** livrés,
+Les spécifications V1 sont dans [`docs/specifications/`](docs/specifications/). État actuel : **lots 0 (socle), 1 (référentiel), 2 (dossiers et pièces) et 3 (extraction et aide au classement)** livrés,
 voir [`docs/lots/`](docs/lots/).
 
 Un dossier « validé » dans ClairTransit signifie validé en interne par la société de transit, jamais accepté par la Douane.
@@ -19,7 +19,7 @@ Versions Python : `backend/requirements.txt` (directes) et `backend/requirements
 
 ## Démarrage rapide (machine locale)
 
-Prérequis : Python 3.13, Node 22.22+ (ou 24), PostgreSQL 16, Redis (facultatif au lot 0).
+Prérequis : Python 3.13, Node 22.22+ (ou 24), PostgreSQL 16, Redis, et Tesseract pour l'OCR (`apt install tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng`, facultatif : sans lui, l'OCR échoue proprement).
 
 ```bash
 # 1. Base de données (une fois)
@@ -41,7 +41,7 @@ npm ci
 npm run dev                          # http://127.0.0.1:5173
 ```
 
-Worker (facultatif au lot 0, utile dès le lot 3) : `cd backend && celery -A config worker -l info`.
+Worker (nécessaire dès le lot 3 pour les extractions) : `cd backend && celery -A config worker -B -l info` (`-B` relance la boîte d'envoi toutes les 30 s).
 
 ## Démarrage avec Docker
 

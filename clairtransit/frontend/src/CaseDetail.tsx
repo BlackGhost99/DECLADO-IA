@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   api,
   ApiError,
@@ -13,6 +13,8 @@ import {
   type Preview,
   type Revision,
 } from "./api";
+import { Divergences, ExtractionControls, Flags, LineEditor, OriginBadge, TotalsPanel } from "./Extraction";
+import { ProposalsPanel } from "./Proposals";
 import { errorText, type EditionOption } from "./ui";
 
 const USAGES: [string, string][] = [
@@ -306,7 +308,7 @@ function Documents({
           <thead>
             <tr>
               <th scope="col">Pièce</th><th scope="col">Usage</th><th scope="col">État</th>
-              <th scope="col">Ajoutée par</th><th scope="col">Actions</th>
+              <th scope="col">Ajoutée par</th><th scope="col">Lecture</th><th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -324,6 +326,11 @@ function Documents({
                   ))}
                 </td>
                 <td className="small">{link.added_by.email}</td>
+                <td>
+                  {(link.usage === "invoice" || link.latest_extraction) && (
+                    <ExtractionControls link={link} editable={editable} onDone={onChange} />
+                  )}
+                </td>
                 <td className="row">
                   <button type="button" onClick={() => void open(link)} disabled={!link.document.previewable}>Aperçu</button>
                   <button type="button" onClick={() => void download(link)}>Télécharger</button>
@@ -482,7 +489,19 @@ function InvoiceBlock({
   act: (a: () => Promise<unknown>) => Promise<void>;
 }) {
   const [line, setLine] = useState(EMPTY_LINE);
+  const [editing, setEditing] = useState<string | null>(null);
   const docs = revision.documents.filter((d) => !d.replaced_by_id);
+  const free = invoice.lines.filter((ln) => ln.goods_line_ids.length === 0);
+  const sources = invoice.field_sources ?? {};
+  const origins = invoice.field_origins ?? {};
+  const headerFields: [string, string, string | null][] = [
+    ["supplier_name", "Fournisseur", invoice.supplier_name],
+    ["invoice_number", "N°", invoice.invoice_number],
+    ["invoice_date", "Date", invoice.invoice_date],
+    ["currency", "Devise", invoice.currency],
+    ["incoterm", "Incoterm", invoice.incoterm],
+    ["declared_total", "Total imprimé", invoice.declared_total],
+  ];
 
   function add(event: FormEvent) {
     event.preventDefault();
@@ -506,6 +525,28 @@ function InvoiceBlock({
         {invoice.invoice_number || "n° ?"} · {invoice.currency || "devise ?"}
         {invoice.declared_total && ` · total imprimé ${invoice.declared_total}`}
       </h3>
+      {invoice.latest_extraction_id && (
+        <dl className="facts small" aria-label={`En-tête lu de la facture ${invoice.ordinal}`}>
+          {headerFields.map(([field, label, value]) => (
+            <div key={field} className="fact">
+              <dt>{label}</dt>
+              <dd>
+                {value || <em className="muted">inconnu</em>} <OriginBadge origin={origins[field]} source={sources[field]} />
+                <Flags flags={invoice.review_flags} field={field} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <TotalsPanel totals={invoice.totals_check} currency={invoice.currency} />
+      <Divergences invoice={invoice} editable={editable} act={act} />
+      {editable && free.length > 0 && (
+        <p>
+          <button type="button" onClick={() => void act(() => api.goodsFromInvoice(invoice.id))}>
+            Préparer les marchandises ({free.length} ligne(s) libre(s))
+          </button>
+        </p>
+      )}
       {invoice.lines.length > 0 && (
         <table className="small">
           <thead>
@@ -517,9 +558,29 @@ function InvoiceBlock({
           </thead>
           <tbody>
             {invoice.lines.map((ln) => (
-              <tr key={ln.id}>
+              <Fragment key={ln.id}>
+              <tr>
                 <td>{ln.ordinal}</td>
-                <td>{ln.description_raw || <em className="muted">?</em>}<div className="muted">{ln.entry_origin_label}</div></td>
+                <td>
+                  {ln.description_raw || <em className="muted">?</em>}
+                  <div className="muted">
+                    {ln.entry_origin_label} <OriginBadge origin={ln.field_origins?.description_raw} source={ln.field_sources?.description_raw} />
+                  </div>
+                  <Flags flags={ln.review_flags} />
+                  {(ln.corrections?.length ?? 0) > 0 && (
+                    <details className="muted">
+                      <summary>{ln.corrections?.length} correction(s)</summary>
+                      <ul>
+                        {ln.corrections?.map((c) => (
+                          <li key={c.id}>
+                            {c.field} : {String(c.previous.value ?? "—")} → {String(c.current.value ?? "—")} par {c.actor}
+                            {c.reason && ` (${c.reason})`}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </td>
                 <td className="code">{ln.source_reference}</td>
                 <td>
                   {ln.codes.map((c) => (
@@ -530,9 +591,15 @@ function InvoiceBlock({
                   ))}
                   {ln.code_history.length > 0 && <div className="muted">{ln.code_history.length} valeur(s) antérieure(s)</div>}
                 </td>
-                <td>{ln.quantity ?? <em className="muted">inconnue</em>} {ln.unit}</td>
+                <td>
+                  {ln.quantity ?? <em className="muted">inconnue</em>} {ln.unit}{" "}
+                  <OriginBadge origin={ln.field_origins?.quantity} source={ln.field_sources?.quantity} />
+                </td>
                 <td>{ln.unit_price ?? "—"}</td>
-                <td>{ln.amount ?? <em className="muted">inconnu</em>}</td>
+                <td>
+                  {ln.amount ?? <em className="muted">inconnu</em>}{" "}
+                  <OriginBadge origin={ln.field_origins?.amount} source={ln.field_sources?.amount} />
+                </td>
                 <td>{ln.origin_country || "—"}</td>
                 <td>
                   {ln.goods_line_ids.length > 0 ? (
@@ -542,8 +609,21 @@ function InvoiceBlock({
                   ) : (
                     "—"
                   )}
+                  {editable && (
+                    <button type="button" className="link" onClick={() => setEditing(editing === ln.id ? null : ln.id)}>
+                      Corriger
+                    </button>
+                  )}
                 </td>
               </tr>
+              {editing === ln.id && (
+                <tr>
+                  <td colSpan={9}>
+                    <LineEditor line={ln} act={act} toDecimal={decimalInput} onClose={() => setEditing(null)} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -718,6 +798,12 @@ function GoodsCard({
             </form>
           )}
         </div>
+      )}
+      {(editable || goods.latest_check) && (
+        <details open={Boolean(check && check.recognition_status !== "recognized")}>
+          <summary>Aide au classement (recherche dans le référentiel, sans IA)</summary>
+          <ProposalsPanel goods={goods} editionId={edition} editable={editable} act={act} />
+        </details>
       )}
     </div>
   );

@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.tariffs",
     "apps.documents",
     "apps.cases",
+    "apps.extraction",
 ]
 
 MIDDLEWARE = [
@@ -122,6 +123,11 @@ REST_FRAMEWORK = {
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
 CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
+# Relance périodique de la boîte d'envoi : reprend les événements en attente (courtier indisponible
+# au moment de l'enregistrement, nouvelle tentative après échec, bail expiré d'un travail interrompu).
+CELERY_BEAT_SCHEDULE = {
+    "outbox": {"task": "core.dispatch_outbox", "schedule": env.int("OUTBOX_POLL_SECONDS", default=30)},
+}
 
 LOGGING = {
     "version": 1,
@@ -142,5 +148,12 @@ PRIVATE_STORAGE_ROOT = Path(env("PRIVATE_STORAGE_ROOT", default=str(BASE_DIR / "
 # Pièces des dossiers (DOC-01) : limites configurables, à réviser après mesure.
 DOCUMENT_MAX_BYTES = env.int("DOCUMENT_MAX_BYTES", default=50 * 1024 * 1024)
 DOCUMENT_LINK_TTL_SECONDS = env.int("DOCUMENT_LINK_TTL_SECONDS", default=300)
+
+# Extraction des factures (lot 3). Limite de pages proposée par le cahier des charges, révisable après mesure.
+EXTRACTION_MAX_PAGES = env.int("EXTRACTION_MAX_PAGES", default=500)
+OCR_LANGUAGES = env("OCR_LANGUAGES", default="fra+eng")
+OCR_PAGE_TIMEOUT_SECONDS = env.int("OCR_PAGE_TIMEOUT_SECONDS", default=120)
+# Aucun fournisseur d'IA n'est raccordé : « disabled » tant que fournisseur, contrat et corpus ne sont pas fixés.
+AI_PROVIDER = env("AI_PROVIDER", default="disabled")
 # Au-delà, Django écrit le fichier reçu sur disque plutôt qu'en mémoire.
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024

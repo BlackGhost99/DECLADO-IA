@@ -56,9 +56,45 @@ class OutboxEvent(UUIDModel):
     dispatched_at = models.DateTimeField(null=True, blank=True)
     attempts = models.PositiveSmallIntegerField(default=0)
     last_error = models.CharField(max_length=200, blank=True)
+    # Prise en charge en cours (bail) ou nouvelle tentative différée après un échec.
+    available_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         indexes = [models.Index(fields=["dispatched_at", "created_at"])]
 
     def __str__(self):
         return f"{self.topic} ({self.id})"
+
+
+class BackgroundJob(OrganizationOwnedModel):
+    """Travail long suivi par l'utilisateur (extraction, OCR, puis calculs et exports).
+
+    L'état du travail est indépendant de l'état du dossier : un travail terminé ne valide rien.
+    """
+
+    class State(models.TextChoices):
+        QUEUED = "queued", "En attente"
+        RUNNING = "running", "En cours"
+        SUCCEEDED = "succeeded", "Terminé"
+        FAILED = "failed", "Échec (relance possible)"
+
+    kind = models.CharField(max_length=40)
+    state = models.CharField(max_length=20, choices=State.choices, default=State.QUEUED)
+    phase = models.CharField(max_length=60, blank=True)
+    progress = models.JSONField(default=dict, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    input_hash = models.CharField(max_length=64)
+    scope = models.CharField(max_length=80, blank=True)
+    result_ref = models.CharField(max_length=80, blank=True)
+    error_code = models.CharField(max_length=60, blank=True)
+    error_message = models.CharField(max_length=500, blank=True)
+    created_by = models.ForeignKey("accounts.User", on_delete=models.PROTECT, related_name="+")
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["organization", "kind", "input_hash"])]
+
+    def __str__(self):
+        return f"{self.kind} {self.state} ({self.id})"
