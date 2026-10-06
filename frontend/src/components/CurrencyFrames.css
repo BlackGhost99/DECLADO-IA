@@ -20,12 +20,14 @@
   position: absolute;
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 6px 20px rgba(30,60,114,0.2);
+  box-shadow: 0 6px 20px rgba(30, 60, 114, 0.2);
   background: linear-gradient(135deg, #0a1836 0%, #1e3c72 100%);
   border: 2px solid #2a5298;
   width: 220px;
   min-height: 160px;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
 .currency-frame:nth-child(1) {
@@ -62,16 +64,16 @@
 
 .currency-frame:hover {
   transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(30,60,114,0.25);
+  box-shadow: 0 6px 20px rgba(30, 60, 114, 0.25);
 }
 
 .currency-frame.reference {
   border-color: #00eaff;
-  box-shadow: 0 4px 16px rgba(0,234,255,0.3);
+  box-shadow: 0 4px 16px rgba(0, 234, 255, 0.3);
 }
 
 .currency-frame.reference:hover {
-  box-shadow: 0 6px 20px rgba(0,234,255,0.45);
+  box-shadow: 0 6px 20px rgba(0, 234, 255, 0.45);
 }
 
 .frame-matrix-canvas {
@@ -88,7 +90,7 @@
   z-index: 2;
   padding: 28px 20px;
   text-align: center;
-  background: rgba(255,255,255,0.75);
+  background: rgba(255, 255, 255, 0.75);
   border-radius: 12px;
   margin: 0;
 }
@@ -119,7 +121,9 @@
   color: #00bcd4;
   font-family: 'Roboto Mono', monospace;
   margin-top: 8px;
-  transition: color 0.5s, transform 0.5s;
+  transition:
+    color 0.5s,
+    transform 0.5s;
 }
 
 .frame-rate.updating {
@@ -128,8 +132,13 @@
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 .currency-frame.reference .frame-rate {
@@ -148,8 +157,13 @@
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .frame-badge {
@@ -170,19 +184,19 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
-  
+
   .currency-frame {
     min-height: 100px;
   }
-  
+
   .frame-content {
     padding: 12px 8px;
   }
-  
+
   .frame-currency {
     font-size: 1.2rem;
   }
-  
+
   .frame-rate {
     font-size: 1.1rem;
   }

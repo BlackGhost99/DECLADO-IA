@@ -28,7 +28,7 @@ export function FilePreview({ document, size = 'medium' }: FilePreviewProps) {
     // Pour les PDFs et autres fichiers, on affiche les infos disponibles
     setLoading(false);
     if (!document.ocrResult) {
-      setError('Fichier non traité - effectuez d\'abord l\'OCR');
+      setError("Fichier non traité - effectuez d'abord l'OCR");
     }
   }, [document]);
 
@@ -94,4 +94,3 @@ export function FilePreview({ document, size = 'medium' }: FilePreviewProps) {
     </div>
   );
 }
-

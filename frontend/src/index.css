@@ -65,7 +65,7 @@
 }
 
 /* Light Theme */
-[data-theme="light"] {
+[data-theme='light'] {
   --grey-100: #212121;
   --grey-200: #303030;
   --grey-300: #424242;
@@ -85,14 +85,14 @@
 }
 
 /* Custom Theme */
-[data-theme="custom"] {
+[data-theme='custom'] {
   /* Utilise les valeurs par défaut mais peut être personnalisé */
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+    'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: linear-gradient(135deg, var(--grey-800) 0%, var(--black-200) 100%);
@@ -163,7 +163,8 @@ code {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -172,13 +173,21 @@ code {
 }
 
 @keyframes shake {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateX(0);
   }
-  10%, 30%, 50%, 70%, 90% {
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
     transform: translateX(-5px);
   }
-  20%, 40%, 60%, 80% {
+  20%,
+  40%,
+  60%,
+  80% {
     transform: translateX(5px);
   }
 }
@@ -219,11 +228,14 @@ code {
 }
 
 @keyframes glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 5px var(--red-500);
   }
   50% {
-    box-shadow: 0 0 20px var(--red-500), 0 0 30px var(--red-500);
+    box-shadow:
+      0 0 20px var(--red-500),
+      0 0 30px var(--red-500);
   }
 }
 

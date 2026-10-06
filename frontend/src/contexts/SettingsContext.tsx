@@ -1,5 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { DEFAULT_EXCHANGE_RATES, fetchExchangeRates, validateExchangeRate, roundCurrency } from '../utils/currencyUtils';
+import {
+  DEFAULT_EXCHANGE_RATES,
+  fetchExchangeRates,
+  validateExchangeRate,
+} from '../utils/currencyUtils';
 
 export type Theme = 'dark' | 'light' | 'custom';
 export type Currency = 'XAF' | 'USD' | 'EUR' | 'GBP' | 'CNY';
@@ -56,17 +60,17 @@ export function SettingsProvider({ children, backendUrl }: SettingsProviderProps
         // Valider les taux de change sauvegardés
         const validatedRates: Record<Currency, number> = {
           XAF: 1,
-          USD: validateExchangeRate(parsed.exchangeRates?.USD, 'USD') 
-            ? parsed.exchangeRates.USD 
+          USD: validateExchangeRate(parsed.exchangeRates?.USD, 'USD')
+            ? parsed.exchangeRates.USD
             : DEFAULT_EXCHANGE_RATES.USD.rate,
-          EUR: validateExchangeRate(parsed.exchangeRates?.EUR, 'EUR') 
-            ? parsed.exchangeRates.EUR 
+          EUR: validateExchangeRate(parsed.exchangeRates?.EUR, 'EUR')
+            ? parsed.exchangeRates.EUR
             : DEFAULT_EXCHANGE_RATES.EUR.rate,
-          GBP: validateExchangeRate(parsed.exchangeRates?.GBP, 'GBP') 
-            ? parsed.exchangeRates.GBP 
+          GBP: validateExchangeRate(parsed.exchangeRates?.GBP, 'GBP')
+            ? parsed.exchangeRates.GBP
             : DEFAULT_EXCHANGE_RATES.GBP.rate,
-          CNY: validateExchangeRate(parsed.exchangeRates?.CNY, 'CNY') 
-            ? parsed.exchangeRates.CNY 
+          CNY: validateExchangeRate(parsed.exchangeRates?.CNY, 'CNY')
+            ? parsed.exchangeRates.CNY
             : DEFAULT_EXCHANGE_RATES.CNY.rate,
         };
         return { ...defaultSettings, ...parsed, exchangeRates: validatedRates };
@@ -138,34 +142,36 @@ export function SettingsProvider({ children, backendUrl }: SettingsProviderProps
    */
   const formatCurrency = (amount: number): string => {
     if (!isFinite(amount) || isNaN(amount)) return '0';
-    
+
     const converted = convertCurrency(amount, 'XAF', settings.currency);
-    
+
     // Formatage selon la devise
     const locale = settings.language === 'fr' ? 'fr-FR' : 'en-US';
-    
+
     // Pour XAF, on n'utilise pas le format currency standard (pas de symbole ISO)
     if (settings.currency === 'XAF') {
-      return new Intl.NumberFormat(locale, {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(converted) + ' FCFA';
+      return (
+        new Intl.NumberFormat(locale, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(converted) + ' FCFA'
+      );
     }
-    
+
     const formatter = new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: settings.currency,
-      minimumFractionDigits: settings.currency === 'JPY' ? 0 : 2,
-      maximumFractionDigits: settings.currency === 'JPY' ? 0 : 2,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     });
-    
+
     return formatter.format(converted);
   };
 
   /**
    * Convertit un montant d'une devise vers une autre
    * Les taux sont stockés comme "1 [devise] = X XAF"
-   * 
+   *
    * @param amount Montant à convertir
    * @param from Devise source
    * @param to Devise cible
@@ -175,12 +181,12 @@ export function SettingsProvider({ children, backendUrl }: SettingsProviderProps
     // Validation
     if (!isFinite(amount) || isNaN(amount) || amount < 0) return 0;
     if (from === to) return Math.round(amount * 100) / 100; // Arrondi à 2 décimales
-    
+
     const rates = settings.exchangeRates;
-    
+
     // Tous les taux sont exprimés en XAF (1 [devise] = X XAF)
     // Exemple: rates.USD = 600 signifie 1 USD = 600 XAF
-    
+
     // Étape 1: Convertir la source vers XAF
     let amountInXAF: number;
     if (from === 'XAF') {
@@ -189,7 +195,7 @@ export function SettingsProvider({ children, backendUrl }: SettingsProviderProps
       // Multiplier par le taux: si on a 100 USD et 1 USD = 600 XAF, alors 100 * 600 = 60000 XAF
       amountInXAF = amount * rates[from];
     }
-    
+
     // Étape 2: Convertir de XAF vers la devise cible
     let result: number;
     if (to === 'XAF') {
@@ -198,7 +204,7 @@ export function SettingsProvider({ children, backendUrl }: SettingsProviderProps
       // Diviser par le taux: si on a 60000 XAF et 1 USD = 600 XAF, alors 60000 / 600 = 100 USD
       result = amountInXAF / rates[to];
     }
-    
+
     // Arrondi à 2 décimales pour les devises, 0 pour XAF
     if (to === 'XAF') {
       return Math.round(result); // Arrondi au franc le plus proche
@@ -209,11 +215,11 @@ export function SettingsProvider({ children, backendUrl }: SettingsProviderProps
 
   return (
     <SettingsContext.Provider
-      value={{ 
-        settings, 
-        updateSettings, 
-        resetSettings, 
-        formatCurrency, 
+      value={{
+        settings,
+        updateSettings,
+        resetSettings,
+        formatCurrency,
         convertCurrency,
         refreshExchangeRates,
         validateRate,
@@ -224,6 +230,8 @@ export function SettingsProvider({ children, backendUrl }: SettingsProviderProps
   );
 }
 
+// Le hook accompagne son fournisseur ; le rafraîchissement à chaud recharge alors tout le fichier.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSettings() {
   const context = useContext(SettingsContext);
   if (!context) {
@@ -231,4 +239,3 @@ export function useSettings() {
   }
   return context;
 }
-

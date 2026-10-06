@@ -11,7 +11,9 @@ interface DetailsPanelProps {
 
 export function DetailsPanel({ document, onExport }: DetailsPanelProps) {
   const { settings, formatCurrency } = useSettings();
-  const [activeTab, setActiveTab] = useState<'preview' | 'ocr' | 'hs' | 'customs' | 'export'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'ocr' | 'hs' | 'customs' | 'export'>(
+    'preview'
+  );
   const [exportMeta, setExportMeta] = useState<ExportMeta>({
     declaration_number: '',
     declarant_name: 'DECLADO-IA',
@@ -188,7 +190,9 @@ export function DetailsPanel({ document, onExport }: DetailsPanelProps) {
                   </p>
                   <p>
                     <strong>Valeur CIF:</strong>{' '}
-                    {formatCurrency(parseInt(document.customsCalculation.incoterms_conversion.cif_value))}
+                    {formatCurrency(
+                      parseInt(document.customsCalculation.incoterms_conversion.cif_value)
+                    )}
                   </p>
                 </div>
 
@@ -199,7 +203,9 @@ export function DetailsPanel({ document, onExport }: DetailsPanelProps) {
                       Droits de douane (
                       {document.customsCalculation.tax_breakdown.customs_duty_rate}%):
                     </strong>{' '}
-                    {formatCurrency(parseInt(document.customsCalculation.tax_breakdown.customs_duty_amount))}
+                    {formatCurrency(
+                      parseInt(document.customsCalculation.tax_breakdown.customs_duty_amount)
+                    )}
                   </p>
                   <p>
                     <strong>TVA ({document.customsCalculation.tax_breakdown.vat_rate}%):</strong>{' '}
@@ -207,7 +213,9 @@ export function DetailsPanel({ document, onExport }: DetailsPanelProps) {
                   </p>
                   <p className="total">
                     <strong>TOTAL:</strong>{' '}
-                    {formatCurrency(parseInt(document.customsCalculation.tax_breakdown.total_amount))}
+                    {formatCurrency(
+                      parseInt(document.customsCalculation.tax_breakdown.total_amount)
+                    )}
                   </p>
                 </div>
 

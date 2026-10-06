@@ -156,8 +156,8 @@
 }
 
 .setting-item select,
-.setting-item input[type="text"],
-.setting-item input[type="number"] {
+.setting-item input[type='text'],
+.setting-item input[type='number'] {
   padding: var(--spacing-md);
   border: 2px solid var(--grey-700);
   border-radius: var(--radius-md);
@@ -180,7 +180,7 @@
   cursor: pointer;
 }
 
-.checkbox-label input[type="checkbox"] {
+.checkbox-label input[type='checkbox'] {
   width: 20px;
   height: 20px;
   cursor: pointer;
@@ -457,4 +457,3 @@
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
-

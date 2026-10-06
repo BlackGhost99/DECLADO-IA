@@ -13,6 +13,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import type { ExportMeta, CustomsInput } from '../types';
 import './MainLayout.css';
 import { CurrencyFrames } from '../components/CurrencyFrames';
+import { debugLog } from '../utils/debug';
 
 interface MainLayoutProps {
   backendUrl: string;
@@ -65,10 +66,10 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
       return;
     }
 
-    console.log('=== DEBUG START ===');
-    console.log('Backend URL:', backendUrl);
-    console.log('Files:', files);
-    console.log('Selected Project ID:', selectedProjectId);
+    debugLog('=== DEBUG START ===');
+    debugLog('Backend URL:', backendUrl);
+    debugLog('Files:', files);
+    debugLog('Selected Project ID:', selectedProjectId);
 
     setShowFileDropZone(false);
     setProcessing(true);
@@ -76,12 +77,12 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
     setAbortController(controller);
 
     for (const file of files) {
-      console.log('Processing file:', file.name, 'Type:', file.type, 'Size:', file.size);
+      debugLog('Processing file:', file.name, 'Type:', file.type, 'Size:', file.size);
 
       let doc;
       try {
         doc = addDocument(selectedProjectId, { filename: file.name });
-        console.log('Document created with ID:', doc.id);
+        debugLog('Document created with ID:', doc.id);
       } catch (addErr) {
         console.error('Error creating document:', addErr);
         continue;
@@ -89,14 +90,14 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
 
       // Process OCR
       try {
-        console.log('Setting status to processing for doc:', doc.id);
+        debugLog('Setting status to processing for doc:', doc.id);
         updateDocument(selectedProjectId, doc.id, { status: 'processing' });
 
         const formData = new FormData();
         formData.append('file', file);
         formData.append('lang', 'eng+fra');
 
-        console.log('Sending OCR request to:', `${backendUrl}/api/ocr/process`);
+        debugLog('Sending OCR request to:', `${backendUrl}/api/ocr/process`);
         const ocrRes = await fetch(`${backendUrl}/api/ocr/process`, {
           method: 'POST',
           body: formData,
@@ -110,13 +111,13 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
         }
 
         const ocrResult = await ocrRes.json();
-        console.log('OCR Result:', ocrResult);
+        debugLog('OCR Result:', ocrResult);
         updateDocument(selectedProjectId, doc.id, { ocrResult });
 
         // Auto HS classification if description found
         const fullText = ocrResult.pages?.map((p: { text: string }) => p.text).join(' ') || '';
         const desc = ocrResult.normalized?.vendor || fullText.substring(0, 200);
-        console.log('Description extracted:', desc);
+        debugLog('Description extracted:', desc);
 
         if (desc && desc.trim()) {
           const hsRes = await fetch(`${backendUrl}/api/hs/suggest`, {
@@ -181,7 +182,7 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
         updateDocument(selectedProjectId, doc.id, { status: 'completed' });
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
-          console.log('Processing cancelled by user');
+          debugLog('Processing cancelled by user');
           updateDocument(selectedProjectId, doc.id, {
             status: 'error',
             error: "Annulé par l'utilisateur",
@@ -315,34 +316,43 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
           <div className="declaration-modes-screen">
             <h2>📋 Ajouter une déclaration</h2>
             <p className="mode-description">Choisissez votre méthode de déclaration</p>
-            
+
             <div className="declaration-modes-grid">
-              <div className="mode-card" onClick={() => {
-                setShowDeclarationChoice(false);
-                setShowFileDropZone(true);
-              }}>
+              <div
+                className="mode-card"
+                onClick={() => {
+                  setShowDeclarationChoice(false);
+                  setShowFileDropZone(true);
+                }}
+              >
                 <div className="mode-icon">📄</div>
                 <h3>Déclaration par Extraction</h3>
                 <p>Cliquez ou glissez-déposez des fichiers</p>
                 <p className="mode-hint">Formats acceptés: PDF, PNG, JPG, TIFF</p>
                 <button className="btn-mode-action">Importer des fichiers</button>
               </div>
-              
-              <div className="mode-card" onClick={() => {
-                setShowDeclarationChoice(false);
-                setShowManualDeclaration(true);
-              }}>
+
+              <div
+                className="mode-card"
+                onClick={() => {
+                  setShowDeclarationChoice(false);
+                  setShowManualDeclaration(true);
+                }}
+              >
                 <div className="mode-icon">📝</div>
                 <h3>Déclaration Manuelle</h3>
                 <p>Recherchez un code SH et calculez les taxes</p>
                 <p className="mode-hint">Remplissez le formulaire manuellement</p>
                 <button className="btn-mode-action">Rechercher un code SH</button>
               </div>
-              
-              <div className="mode-card" onClick={() => {
-                setShowDeclarationChoice(false);
-                setShowScannerMode(true);
-              }}>
+
+              <div
+                className="mode-card"
+                onClick={() => {
+                  setShowDeclarationChoice(false);
+                  setShowScannerMode(true);
+                }}
+              >
                 <div className="mode-icon">🖨</div>
                 <h3>Numérisation Scanner</h3>
                 <p>Scannez directement avec votre imprimante</p>
@@ -350,8 +360,11 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
                 <button className="btn-mode-action">Lancer le scanner</button>
               </div>
             </div>
-            
-            <button onClick={() => setShowDeclarationChoice(false)} className="btn-cancel btn-cancel-choice">
+
+            <button
+              onClick={() => setShowDeclarationChoice(false)}
+              className="btn-cancel btn-cancel-choice"
+            >
               Annuler
             </button>
           </div>
@@ -380,9 +393,7 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
             </button>
           </div>
         ) : showScannerMode ? (
-          <ScannerMode
-            onBack={() => setShowScannerMode(false)}
-          />
+          <ScannerMode onBack={() => setShowScannerMode(false)} />
         ) : selectedDocument ? (
           <DetailsPanel document={selectedDocument} onExport={handleExport} />
         ) : showManualDeclaration ? (
@@ -391,7 +402,7 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
             onBack={() => setShowManualDeclaration(false)}
             onDeclare={calculation => {
               // TODO: Ouvrir le formulaire SYDONIA avec les données pré-remplies
-              console.log('Déclaration manuelle:', calculation);
+              debugLog('Déclaration manuelle:', calculation);
               alert(
                 `Déclaration pour Code SH ${calculation.code_sh}\n` +
                   `Valeur CIF: ${calculation.valeur_cif.toLocaleString('fr-FR')} XAF\n` +
@@ -404,7 +415,9 @@ export function MainLayout({ backendUrl }: MainLayoutProps) {
         ) : (
           <div className="welcome-screen">
             <h2>DECLADO-IA</h2>
-            <p className="slogan">Simplifiez vos déclarations douanières, optimisez vos flux logistiques</p>
+            <p className="slogan">
+              Simplifiez vos déclarations douanières, optimisez vos flux logistiques
+            </p>
             <p>Workflow: Import → OCR → Classification HS → Calcul douanier → Export</p>
             <CurrencyFrames />
           </div>

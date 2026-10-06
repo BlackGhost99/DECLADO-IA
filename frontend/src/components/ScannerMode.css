@@ -90,7 +90,9 @@
   height: 4px;
   background: linear-gradient(90deg, transparent, #00eaff, transparent);
   box-shadow: 0 0 20px #00eaff;
-  animation: scanPulse 1s ease-in-out infinite, scanMove 3s linear infinite;
+  animation:
+    scanPulse 1s ease-in-out infinite,
+    scanMove 3s linear infinite;
 }
 
 @keyframes scanMove {
@@ -113,7 +115,8 @@
 }
 
 @keyframes scanPulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.5;
   }
   50% {
@@ -206,7 +209,9 @@
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.3);
   transform: translate(-50%, -50%);
-  transition: width 0.4s, height 0.4s;
+  transition:
+    width 0.4s,
+    height 0.4s;
 }
 
 .btn-scan:hover::before {

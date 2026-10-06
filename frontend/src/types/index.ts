@@ -22,7 +22,7 @@ export interface OCRPage {
   height: number;
   text: string;
   words: OCRWord[];
-  tables: any[];
+  tables: unknown[];
 }
 
 export interface OCRWord {

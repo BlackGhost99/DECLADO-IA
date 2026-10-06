@@ -8,7 +8,11 @@ interface CurrencyConverterProps {
   onAmountChange?: (amount: number, currency: Currency) => void;
 }
 
-export function CurrencyConverter({ amount, from = 'XAF', onAmountChange }: CurrencyConverterProps) {
+export function CurrencyConverter({
+  amount,
+  from = 'XAF',
+  onAmountChange,
+}: CurrencyConverterProps) {
   const { settings, convertCurrency, formatCurrency } = useSettings();
   const [inputAmount, setInputAmount] = useState(amount.toString());
   const [selectedCurrency, setSelectedCurrency] = useState<Currency>(from);
@@ -61,11 +65,15 @@ export function CurrencyConverter({ amount, from = 'XAF', onAmountChange }: Curr
           <span className="conversion-label">=</span>
           <span className="conversion-amount">{formatCurrency(convertedAmount)}</span>
           <span className="conversion-note">
-            ({inputValue.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {selectedCurrency} → {settings.currency})
+            (
+            {inputValue.toLocaleString('fr-FR', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{' '}
+            {selectedCurrency} → {settings.currency})
           </span>
         </div>
       )}
     </div>
   );
 }
-

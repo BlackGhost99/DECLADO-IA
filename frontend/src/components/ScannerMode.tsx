@@ -28,7 +28,7 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
 
   const detectScanners = async () => {
     setDetectingDevices(true);
-    
+
     try {
       // 1. Détecter via l'API backend (WIA pour Windows)
       const response = await fetch('http://127.0.0.1:8000/api/scanners/detect', {
@@ -46,13 +46,13 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
         if ('mediaDevices' in navigator) {
           const devices = await navigator.mediaDevices.enumerateDevices();
           const videoDevices = devices.filter(device => device.kind === 'videoinput');
-          
+
           const detectedScanners: Scanner[] = videoDevices.map((device, index) => ({
             id: device.deviceId,
             name: device.label || `Scanner ${index + 1}`,
             status: 'online' as const,
             type: 'local' as const,
-            capabilities: ['scan', 'color', 'grayscale']
+            capabilities: ['scan', 'color', 'grayscale'],
           }));
 
           setScanners(detectedScanners);
@@ -81,38 +81,38 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
               name: 'Scanner WIA par défaut (Windows)',
               status: 'online',
               type: 'local',
-              capabilities: ['scan', 'color', 'grayscale']
+              capabilities: ['scan', 'color', 'grayscale'],
             },
             {
               id: 'demo-local-1',
               name: 'HP LaserJet Pro MFP M428fdw (USB)',
               status: 'online',
               type: 'local',
-              capabilities: ['scan', 'color', 'grayscale', 'duplex']
+              capabilities: ['scan', 'color', 'grayscale', 'duplex'],
             },
             {
               id: 'demo-network-1',
               name: 'Canon imageCLASS MF445dw (Réseau - 192.168.1.100)',
               status: 'online',
               type: 'network',
-              capabilities: ['scan', 'color', 'grayscale', 'adf']
+              capabilities: ['scan', 'color', 'grayscale', 'adf'],
             },
             {
               id: 'demo-network-2',
               name: 'Epson WorkForce Pro WF-4740 (Réseau - 192.168.1.105)',
               status: 'online',
               type: 'network',
-              capabilities: ['scan', 'color', 'photo']
+              capabilities: ['scan', 'color', 'photo'],
             },
             {
               id: 'demo-local-2',
               name: 'Brother MFC-L2710DW (USB)',
               status: 'online',
               type: 'local',
-              capabilities: ['scan', 'grayscale', 'duplex', 'adf']
-            }
+              capabilities: ['scan', 'grayscale', 'duplex', 'adf'],
+            },
           ];
-          
+
           setScanners(demoScanners);
           if (!selectedScanner) {
             setSelectedScanner(demoScanners[0].id);
@@ -121,7 +121,7 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
       }
     } catch (error) {
       console.error('Erreur lors de la détection des scanners:', error);
-      
+
       // Fallback final en cas d'erreur
       const fallbackScanners: Scanner[] = [
         {
@@ -129,8 +129,8 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
           name: 'Scanner système par défaut',
           status: 'online',
           type: 'local',
-          capabilities: ['scan']
-        }
+          capabilities: ['scan'],
+        },
       ];
       setScanners(fallbackScanners);
       setSelectedScanner(fallbackScanners[0].id);
@@ -150,11 +150,13 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
 
     // Simuler le processus de scan
     const interval = setInterval(() => {
-      setScanProgress((prev) => {
+      setScanProgress(prev => {
         if (prev >= 100) {
           clearInterval(interval);
           setScanning(false);
-          alert(`Numérisation terminée avec ${scanners.find(s => s.id === selectedScanner)?.name}!`);
+          alert(
+            `Numérisation terminée avec ${scanners.find(s => s.id === selectedScanner)?.name}!`
+          );
           return 100;
         }
         return prev + 10;
@@ -193,12 +195,14 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
         <div className="scanner-controls">
           <div className="scanner-settings">
             <h3>Paramètres de numérisation</h3>
-            
+
             <div className="setting-group">
               <label htmlFor="scanner-resolution">Résolution</label>
               <select id="scanner-resolution" className="scanner-select">
                 <option value="150">150 DPI - Rapide</option>
-                <option value="300" selected>300 DPI - Standard</option>
+                <option value="300" selected>
+                  300 DPI - Standard
+                </option>
                 <option value="600">600 DPI - Haute qualité</option>
               </select>
             </div>
@@ -206,7 +210,9 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
             <div className="setting-group">
               <label htmlFor="scanner-color">Mode couleur</label>
               <select id="scanner-color" className="scanner-select">
-                <option value="color" selected>Couleur</option>
+                <option value="color" selected>
+                  Couleur
+                </option>
                 <option value="grayscale">Niveaux de gris</option>
                 <option value="bw">Noir et blanc</option>
               </select>
@@ -215,7 +221,9 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
             <div className="setting-group">
               <label htmlFor="scanner-format">Format de sortie</label>
               <select id="scanner-format" className="scanner-select">
-                <option value="pdf" selected>PDF</option>
+                <option value="pdf" selected>
+                  PDF
+                </option>
                 <option value="jpg">JPEG</option>
                 <option value="png">PNG</option>
                 <option value="tiff">TIFF</option>
@@ -225,7 +233,9 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
             <div className="setting-group">
               <label htmlFor="scanner-pages">Type de document</label>
               <select id="scanner-pages" className="scanner-select">
-                <option value="single" selected>Page simple</option>
+                <option value="single" selected>
+                  Page simple
+                </option>
                 <option value="multiple">Pages multiples</option>
                 <option value="duplex">Recto-verso</option>
               </select>
@@ -233,16 +243,14 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
           </div>
 
           <div className="scanner-actions">
-            <button 
-              onClick={handleScan} 
-              disabled={scanning}
-              className="btn-scan"
-            >
+            <button onClick={handleScan} disabled={scanning} className="btn-scan">
               {scanning ? '⏳ Numérisation...' : '🖨️ Lancer la numérisation'}
             </button>
-            
+
             <div className="scanner-info">
-              <p>💡 <strong>Astuce :</strong> Placez le document face vers le bas sur le scanner</p>
+              <p>
+                💡 <strong>Astuce :</strong> Placez le document face vers le bas sur le scanner
+              </p>
               <p>📋 Les documents numérisés seront automatiquement traités par l&apos;OCR</p>
             </div>
           </div>
@@ -256,7 +264,7 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
             {detectingDevices ? '🔄 Recherche...' : '🔄 Actualiser'}
           </button>
         </div>
-        
+
         <div className="device-list">
           {scanners.length === 0 ? (
             <div className="no-devices">
@@ -266,9 +274,9 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
               </p>
             </div>
           ) : (
-            scanners.map((scanner) => (
-              <div 
-                key={scanner.id} 
+            scanners.map(scanner => (
+              <div
+                key={scanner.id}
                 className={`device-item ${selectedScanner === scanner.id ? 'selected' : ''} ${scanner.status === 'offline' ? 'offline' : ''}`}
                 onClick={() => scanner.status === 'online' && setSelectedScanner(scanner.id)}
               >
@@ -290,9 +298,7 @@ export function ScannerMode({ onBack }: ScannerModeProps) {
                     </span>
                   )}
                 </div>
-                {selectedScanner === scanner.id && (
-                  <span className="device-selected">✓</span>
-                )}
+                {selectedScanner === scanner.id && <span className="device-selected">✓</span>}
               </div>
             ))
           )}

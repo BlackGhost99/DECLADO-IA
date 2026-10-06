@@ -36,19 +36,19 @@ export function DocumentList({
 
   const handleDelete = (e: React.MouseEvent, docId: string, filename: string) => {
     e.stopPropagation();
-    
+
     // Animation de shake pour la confirmation
     const button = e.currentTarget as HTMLElement;
     button.style.animation = 'shake 0.5s ease';
-    
+
     setTimeout(() => {
       if (confirm(`Supprimer "${filename}" ?`)) {
         // Animation d'explosion
         setExplodingId(docId);
-        
+
         setTimeout(() => {
           setDeletingId(docId);
-          
+
           // Suppression après animation
           setTimeout(() => {
             onDeleteDocument(docId);

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './AutoDeclarationPanel.css';
+import { debugLog } from '../utils/debug';
 
 interface AutoDeclarationPanelProps {
   isOpen: boolean;
@@ -54,10 +55,10 @@ export function AutoDeclarationPanel({ isOpen, backendUrl, onClose }: AutoDeclar
         formData.append('hs_override', hsOverride.trim());
       }
 
-      console.log('Sending request to:', `${backendUrl}/api/declaration/auto`);
-      console.log('FormData entries:');
+      debugLog('Sending request to:', `${backendUrl}/api/declaration/auto`);
+      debugLog('FormData entries:');
       for (const [key, value] of formData.entries()) {
-        console.log(`  ${key}:`, value);
+        debugLog(`  ${key}:`, value);
       }
 
       const response = await fetch(`${backendUrl}/api/declaration/auto`, {
@@ -65,7 +66,7 @@ export function AutoDeclarationPanel({ isOpen, backendUrl, onClose }: AutoDeclar
         body: formData,
       });
 
-      console.log('Response status:', response.status);
+      debugLog('Response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();

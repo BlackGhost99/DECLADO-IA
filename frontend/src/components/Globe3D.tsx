@@ -237,7 +237,14 @@ export function Globe3D() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Draw glow effect
-      const gradient = ctx.createRadialGradient(centerX, centerY, radius * 0.8, centerX, centerY, radius * 1.3);
+      const gradient = ctx.createRadialGradient(
+        centerX,
+        centerY,
+        radius * 0.8,
+        centerX,
+        centerY,
+        radius * 1.3
+      );
       gradient.addColorStop(0, 'rgba(0, 234, 255, 0.1)');
       gradient.addColorStop(1, 'rgba(0, 234, 255, 0)');
       ctx.fillStyle = gradient;
@@ -320,7 +327,7 @@ export function Globe3D() {
         if (visiblePoints.length > 2) {
           ctx.beginPath();
           let started = false;
-          projectedPoints.forEach((p) => {
+          projectedPoints.forEach(p => {
             if (p.visible) {
               if (!started) {
                 ctx.moveTo(p.x, p.y);

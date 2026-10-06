@@ -9,8 +9,11 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
-  const { settings, updateSettings, resetSettings, refreshExchangeRates, validateRate } = useSettings();
-  const [activeTab, setActiveTab] = useState<'general' | 'currency' | 'theme' | 'advanced'>('general');
+  const { settings, updateSettings, resetSettings, refreshExchangeRates, validateRate } =
+    useSettings();
+  const [activeTab, setActiveTab] = useState<'general' | 'currency' | 'theme' | 'advanced'>(
+    'general'
+  );
   const [rateErrors, setRateErrors] = useState<Record<string, string>>({});
 
   if (!isOpen) return null;
@@ -56,7 +59,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           {activeTab === 'general' && (
             <div className="settings-section">
               <h3>Préférences générales</h3>
-              
+
               <div className="setting-item">
                 <label>
                   <span>Langue</span>
@@ -97,7 +100,11 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   <span>Taille de prévisualisation</span>
                   <select
                     value={settings.previewSize}
-                    onChange={e => updateSettings({ previewSize: e.target.value as 'small' | 'medium' | 'large' })}
+                    onChange={e =>
+                      updateSettings({
+                        previewSize: e.target.value as 'small' | 'medium' | 'large',
+                      })
+                    }
                   >
                     <option value="small">Petite</option>
                     <option value="medium">Moyenne</option>
@@ -111,7 +118,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           {activeTab === 'currency' && (
             <div className="settings-section">
               <h3>Gestion des devises</h3>
-              
+
               <div className="setting-item">
                 <label>
                   <span>Devise par défaut</span>
@@ -139,12 +146,12 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     🔄 Actualiser
                   </button>
                 </div>
-                
+
                 {(['USD', 'EUR', 'GBP', 'CNY'] as Currency[]).map(currency => {
                   const rate = settings.exchangeRates[currency];
                   const isValid = validateRate(rate, currency);
                   const error = rateErrors[currency];
-                  
+
                   return (
                     <div key={currency} className="exchange-rate-item">
                       <label>
@@ -157,7 +164,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                           onChange={e => {
                             const value = parseFloat(e.target.value);
                             const errors = { ...rateErrors };
-                            
+
                             if (isNaN(value) || value <= 0) {
                               errors[currency] = 'Le taux doit être un nombre positif';
                             } else if (!validateRate(value, currency)) {
@@ -165,9 +172,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                             } else {
                               delete errors[currency];
                             }
-                            
+
                             setRateErrors(errors);
-                            
+
                             if (!errors[currency]) {
                               const newRates = {
                                 ...settings.exchangeRates,
@@ -185,10 +192,12 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         <div className="rate-info">
                           <span className="rate-display">{formatExchangeRate(rate, currency)}</span>
                           <span className="rate-inverse">
-                            1 XAF = {getInverseRate(rate).toLocaleString('fr-FR', {
+                            1 XAF ={' '}
+                            {getInverseRate(rate).toLocaleString('fr-FR', {
                               minimumFractionDigits: 6,
-                              maximumFractionDigits: 6
-                            })} {currency}
+                              maximumFractionDigits: 6,
+                            })}{' '}
+                            {currency}
                           </span>
                         </div>
                       )}
@@ -206,7 +215,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           {activeTab === 'theme' && (
             <div className="settings-section">
               <h3>Thème visuel</h3>
-              
+
               <div className="theme-selector">
                 {(['dark', 'light', 'custom'] as Theme[]).map(theme => (
                   <button
@@ -218,7 +227,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       <div className="theme-preview-header"></div>
                       <div className="theme-preview-content"></div>
                     </div>
-                    <span>{theme === 'dark' ? '🌙 Sombre' : theme === 'light' ? '☀️ Clair' : '🎨 Personnalisé'}</span>
+                    <span>
+                      {theme === 'dark'
+                        ? '🌙 Sombre'
+                        : theme === 'light'
+                          ? '☀️ Clair'
+                          : '🎨 Personnalisé'}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -235,7 +250,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           {activeTab === 'advanced' && (
             <div className="settings-section">
               <h3>Paramètres avancés</h3>
-              
+
               <div className="setting-item">
                 <label>
                   <span>Répertoire de sauvegarde</span>
@@ -250,7 +265,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
               <div className="setting-item">
                 <label>
-                  <span>Format d'export par défaut</span>
+                  <span>Format d&apos;export par défaut</span>
                   <select defaultValue="pdf">
                     <option value="pdf">PDF</option>
                     <option value="xml_esad">XML eSAD</option>
@@ -264,16 +279,19 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <button onClick={resetSettings} className="btn-reset-settings">
                   🔄 Réinitialiser les paramètres
                 </button>
-                <button onClick={() => {
-                  const data = JSON.stringify(settings, null, 2);
-                  const blob = new Blob([data], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'declado-settings.json';
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }} className="btn-export-settings">
+                <button
+                  onClick={() => {
+                    const data = JSON.stringify(settings, null, 2);
+                    const blob = new Blob([data], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'declado-settings.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="btn-export-settings"
+                >
                   💾 Exporter les paramètres
                 </button>
               </div>
@@ -284,4 +302,3 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     </div>
   );
 }
-

@@ -9,7 +9,7 @@ interface ToolsPanelProps {
 }
 
 export function ToolsPanel({ isOpen, onClose }: ToolsPanelProps) {
-  const { settings, formatCurrency, convertCurrency } = useSettings();
+  const { formatCurrency, convertCurrency } = useSettings();
   const [converterAmount, setConverterAmount] = useState(1000000);
   const [converterFrom, setConverterFrom] = useState<'XAF' | 'USD' | 'EUR' | 'GBP' | 'CNY'>('XAF');
 
@@ -31,7 +31,7 @@ export function ToolsPanel({ isOpen, onClose }: ToolsPanelProps) {
             <p className="tool-description">
               Convertissez des montants entre différentes devises selon les taux configurés.
             </p>
-            
+
             <div className="converter-tool">
               <CurrencyConverter
                 amount={converterAmount}
@@ -41,7 +41,7 @@ export function ToolsPanel({ isOpen, onClose }: ToolsPanelProps) {
                   setConverterFrom(currency);
                 }}
               />
-              
+
               <div className="conversion-results">
                 <h4>Résultats de conversion</h4>
                 <div className="conversion-grid">
@@ -64,34 +64,20 @@ export function ToolsPanel({ isOpen, onClose }: ToolsPanelProps) {
             <p className="tool-description">
               Calculez rapidement les droits et taxes pour un montant donné.
             </p>
-            
+
             <div className="calculator-tool">
               <div className="calc-inputs">
                 <label>
                   <span>Valeur CIF</span>
-                  <input
-                    type="number"
-                    placeholder="1000000"
-                    className="calc-input"
-                  />
+                  <input type="number" placeholder="1000000" className="calc-input" />
                 </label>
                 <label>
                   <span>Taux DD (%)</span>
-                  <input
-                    type="number"
-                    placeholder="20"
-                    step="0.1"
-                    className="calc-input"
-                  />
+                  <input type="number" placeholder="20" step="0.1" className="calc-input" />
                 </label>
                 <label>
                   <span>Taux TVA (%)</span>
-                  <input
-                    type="number"
-                    placeholder="19.25"
-                    step="0.1"
-                    className="calc-input"
-                  />
+                  <input type="number" placeholder="19.25" step="0.1" className="calc-input" />
                 </label>
               </div>
               <button className="btn-calculate">Calculer</button>
@@ -103,7 +89,7 @@ export function ToolsPanel({ isOpen, onClose }: ToolsPanelProps) {
             <p className="tool-description">
               Calculez les taux de change inverses et les pourcentages.
             </p>
-            
+
             <div className="rate-calculator">
               <p className="coming-soon">🚧 Fonctionnalité à venir</p>
             </div>
@@ -113,4 +99,3 @@ export function ToolsPanel({ isOpen, onClose }: ToolsPanelProps) {
     </div>
   );
 }
-
