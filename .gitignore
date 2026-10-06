@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+backend/staticfiles/
+# Node
+node_modules/
+frontend/dist/
+# Secrets et environnements locaux : ne jamais committer
+.env
+*.env.local
+# Documents clients : jamais dans le dépôt
+/data/
+*.tsbuildinfo
