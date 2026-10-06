@@ -1,20 +1,23 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, ApiError, ROLE_LABELS, type Importer, type Member, type Membership } from "./api";
+import { api, ApiError, ROLE_LABELS, type Importer, type Me, type Member, type Membership } from "./api";
+import { Cases } from "./Cases";
 import { Reference } from "./Reference";
 
-export function Workspace({ membership }: { membership: Membership }) {
+export function Workspace({ membership, me }: { membership: Membership; me: Pick<Me, "id"> }) {
   const canEdit = membership.roles.some((r) => r === "declarant" || r === "validator");
   const isAdmin = membership.roles.includes("org_admin");
 
-  const [tab, setTab] = useState<"reference" | "importers">("reference");
+  const [tab, setTab] = useState<"cases" | "reference" | "importers">("cases");
 
   return (
     <>
       <p className="muted">
-        Vos rôles : {membership.roles.map((r) => ROLE_LABELS[r]).join(", ") || "aucun"}. Les dossiers douaniers
-        arrivent au lot 2.
+        Vos rôles : {membership.roles.map((r) => ROLE_LABELS[r]).join(", ") || "aucun"}.
       </p>
       <div role="tablist" className="tabs">
+        <button type="button" role="tab" aria-selected={tab === "cases"} onClick={() => setTab("cases")}>
+          Dossiers
+        </button>
         <button type="button" role="tab" aria-selected={tab === "reference"} onClick={() => setTab("reference")}>
           Référentiel
         </button>
@@ -22,7 +25,9 @@ export function Workspace({ membership }: { membership: Membership }) {
           Importateurs
         </button>
       </div>
-      {tab === "reference" ? (
+      {tab === "cases" ? (
+        <Cases membership={membership} me={me} />
+      ) : tab === "reference" ? (
         <Reference />
       ) : (
         <>

@@ -54,7 +54,7 @@ export default function App() {
       </header>
       <main>
         {active ? (
-          <Workspace key={active.organization.id} membership={active} />
+          <Workspace key={active.organization.id} membership={active} me={me} />
         ) : me.memberships.length === 0 && me.is_reference_manager ? (
           <Reference />
         ) : (

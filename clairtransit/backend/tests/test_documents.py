@@ -159,7 +159,9 @@ def test_temporary_link_is_bound_to_user_membership_and_time(case, world, sessio
     assert b.get(f"/api/v1/documents/{doc_id}/download").status_code == 404
     assert b.get(f"/api/v1/documents/{doc_id}/preview").status_code == 404
     assert b.client.get(link["url"]).status_code == 404
-    assert s.client.get(link["url"][:-3] + "abc").status_code == 404
+    token, name = link["url"].removeprefix("/api/v1/files/").split("/")
+    assert name == "facture.pdf"
+    assert s.client.get(f"/api/v1/files/{token[:-3]}abc/{name}").status_code == 404
     # Expiration.
     settings.DOCUMENT_LINK_TTL_SECONDS = -1
     assert s.client.get(link["url"]).status_code == 404

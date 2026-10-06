@@ -80,6 +80,7 @@ describe("App", () => {
       return json(404, {});
     });
     render(<App />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Référentiel" }));
     fireEvent.change(await screen.findByLabelText(/code, préfixe/i), { target: { value: "autres" } });
     fireEvent.click(screen.getByRole("button", { name: "Rechercher" }));
     fireEvent.click(await screen.findByRole("button", { name: /0101\.90\.00/ }));

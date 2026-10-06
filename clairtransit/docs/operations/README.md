@@ -10,3 +10,5 @@ Règles déjà en place :
 - `DJANGO_DEBUG=false` impose `DJANGO_SECRET_KEY` et active cookies Secure + HSTS ;
 - chaque réponse porte `X-Request-ID`, repris dans les journaux techniques ;
 - le journal d'audit est en ajout seul, y compris en base.
+- pièces des dossiers hors racine web, dans `PRIVATE_STORAGE_ROOT` (volume `private` sous Docker) : la sauvegarde doit
+  couvrir ensemble la base et ce répertoire ; les octets ne sortent que par lien temporaire contrôlé (ADR-009).

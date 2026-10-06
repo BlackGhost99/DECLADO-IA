@@ -1,7 +1,7 @@
 # ClairTransit
 
 Application web de préparation des dossiers douaniers pour les sociétés de transit (périmètre initial Gabon/CEMAC).
-Les spécifications V1 sont dans [`docs/specifications/`](docs/specifications/). État actuel : **lots 0 (socle) et 1 (référentiel)** livrés,
+Les spécifications V1 sont dans [`docs/specifications/`](docs/specifications/). État actuel : **lots 0 (socle), 1 (référentiel) et 2 (dossiers et pièces)** livrés,
 voir [`docs/lots/`](docs/lots/).
 
 Un dossier « validé » dans ClairTransit signifie validé en interne par la société de transit, jamais accepté par la Douane.
@@ -67,6 +67,10 @@ Créés par `seed_demo` (refusé hors `DJANGO_DEBUG=true`). Mot de passe commun 
 | admin@beta.demo | Transit Bêta (démo) | Administrateur + Déclarant |
 | multi@demo.demo | les deux | Déclarant (choix de la société à la connexion) |
 | referentiel@demo.demo | aucune | Gestionnaire du référentiel (import, anomalies, publication) |
+
+`seed_demo` crée aussi un dossier fictif pour Transit Alpha : une facture PDF synthétique et une ligne « HS Code 0101.10.00 »,
+prêtes à contrôler dans l'onglet Dossiers. Lancez-le après avoir publié une édition pour qu'elle soit présélectionnée
+(sinon, choisissez l'édition dans le dossier).
 
 Pour un compte d'administration technique : `python manage.py createsuperuser`. Il n'ouvre aucun accès métier aux sociétés.
 

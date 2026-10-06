@@ -9,6 +9,7 @@ x-backend-env: &backend-env
   DATABASE_URL: postgres://clairtransit:clairtransit@db:5432/clairtransit
   CELERY_BROKER_URL: redis://redis:6379/0
   CSRF_TRUSTED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+  PRIVATE_STORAGE_ROOT: /var/clairtransit/private
 
 services:
   db:
@@ -32,6 +33,7 @@ services:
     build: ../backend
     environment: *backend-env
     command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+    volumes: [private:/var/clairtransit/private]
     ports: ["127.0.0.1:8000:8000"]
     depends_on:
       db: { condition: service_healthy }
@@ -41,6 +43,7 @@ services:
     build: ../backend
     environment: *backend-env
     command: celery -A config worker -l info
+    volumes: [private:/var/clairtransit/private]
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_started }
@@ -54,3 +57,5 @@ services:
 
 volumes:
   pgdata:
+  # Pièces des dossiers : hors de toute racine servie par le web.
+  private:

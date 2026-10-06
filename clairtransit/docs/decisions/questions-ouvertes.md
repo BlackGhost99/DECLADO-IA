@@ -18,5 +18,9 @@ Reprend `docs/specifications/03-plan-et-recette.md` §7 et ajoute les points rel
 | Signification des colonnes DSO, STT, TPM (unités ?), OAD, TAUX du CSV | Observations seulement | Détenteur du classeur + référent douanier | 1, 4 | Ouvert |
 | Restitution des accents abîmés du classeur (1 055 libellés) | Lisibilité, recherche | Gestionnaire du référentiel | 1 | Ouvert |
 | Nom du produit : DECLADO (projet) ou ClairTransit (documents) | Nom de code du dépôt, libellés | Porteur du projet | tous | Ouvert : ClairTransit par défaut |
-| Dépôt Git distant | CI réelle, revue | Porteur du projet | 0 | Ouvert |
+| Dépôt Git distant | CI réelle, revue | Porteur du projet | 0 | Résolu : DECLADO-IA, dossier `clairtransit/`, branche `clairtransit-v1` |
 | Envoi d'e-mails (invitation, mot de passe oublié) | Gestion des comptes | Porteur du projet | 2 | Ouvert |
+| Liste des régimes douaniers et territoires à proposer (saisie libre au lot 2 ; GA couvert par une édition CEMAC) | Contrôles de cohérence, calcul | Référent douanier | 2, 4 | Ouvert |
+| Hébergement des pièces (adaptateur S3 non branché ; stockage local privé au lot 2) | Production, sauvegarde | Porteur du projet | 2, 6 | Ouvert |
+| Limite de 500 pages par facture PDF (non appliquée : nécessite la lecture du PDF, lot 3) | Charge | Porteur du projet | 3 | Ouvert |
+| Visibilité des dossiers : tous les membres d'une société voient tous ses dossiers (choix par défaut du lot 2) | Confidentialité interne | Société pilote | 2, 5 | Ouvert |

@@ -81,12 +81,26 @@ export async function request<T>(method: string, path: string, body?: unknown): 
     credentials: "same-origin",
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  return parse<T>(response);
+}
+
+async function parse<T>(response: Response): Promise<T> {
   if (response.status === 204) return undefined as T;
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new ApiError(response.status, data.code ?? "ERROR", data.message ?? "Erreur inattendue.", data.details);
   }
   return data as T;
+}
+
+export async function upload<T>(path: string, form: FormData, headers: Record<string, string> = {}): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { Accept: "application/json", "X-CSRFToken": await ensureCsrf(), ...headers },
+    credentials: "same-origin",
+    body: form,
+  });
+  return parse<T>(response);
 }
 
 export interface EditionBrief {
@@ -162,6 +176,205 @@ export interface RecordDetail extends Evidence {
   raw_text: string;
 }
 
+export interface UserBrief {
+  id: string;
+  email: string;
+  full_name: string;
+}
+
+export interface Finding {
+  code: string;
+  severity: string;
+  message: string;
+  details?: Record<string, unknown> & { subdivisions?: { id: string; code: string; code_display: string; label: string }[] };
+}
+
+export interface CompletenessItem {
+  scope: string;
+  id: string;
+  label: string;
+  field: string;
+  message: string;
+}
+
+export interface DocumentInfo {
+  id: string;
+  original_name: string;
+  mime: string;
+  type_label: string;
+  bytes: number;
+  sha256: string;
+  version: number;
+  supersedes_id: string | null;
+  readability: string;
+  readability_label: string;
+  inspection_notes: string[];
+  previewable: boolean;
+  uploaded_by: UserBrief;
+  created_at: string;
+}
+
+export interface CaseDocument {
+  id: string;
+  usage: string;
+  usage_label: string;
+  added_by: UserBrief;
+  created_at: string;
+  replaced_by_id: string | null;
+  row_version: number;
+  document: DocumentInfo;
+}
+
+export interface CodeObservation {
+  id: string;
+  field_label: string;
+  raw_code: string;
+  normalized_code: string | null;
+  code_kind: "customs" | "supplier" | "ambiguous";
+  code_kind_label: string;
+  created_by: string;
+  created_at: string;
+  superseded_at: string | null;
+}
+
+export interface InvoiceLine {
+  id: string;
+  ordinal: number;
+  source_reference: string;
+  description_raw: string;
+  quantity: string | null;
+  unit: string;
+  unit_price: string | null;
+  amount: string | null;
+  origin_country: string;
+  entry_origin_label: string;
+  evidence_document_id: string | null;
+  evidence_page: number | null;
+  evidence_note: string;
+  row_version: number;
+  codes: CodeObservation[];
+  code_history: CodeObservation[];
+  goods_line_ids: string[];
+}
+
+export interface Invoice {
+  id: string;
+  ordinal: number;
+  supplier_name: string;
+  invoice_number: string;
+  invoice_date: string | null;
+  currency: string;
+  incoterm: string;
+  declared_total: string | null;
+  document_id: string | null;
+  row_version: number;
+  lines: InvoiceLine[];
+}
+
+export interface CodeCheck {
+  id: string;
+  observed_code: string | null;
+  observed_field: string | null;
+  normalized_code: string | null;
+  target_edition_id: string;
+  target_edition_label: string;
+  recognition_status: string;
+  recognition_label: string;
+  node: { id: string; code: string; code_display: string; label: string; full_path: string; declarable: boolean } | null;
+  is_current: boolean;
+  human_confirmation: "pending" | "confirmed" | "stale";
+  operational_applicability: "verified" | "unverified";
+  findings: Finding[];
+  checked_at: string;
+  checked_by: string;
+}
+
+export interface Decision {
+  id: string;
+  action: string;
+  action_label: string;
+  selected_code: string;
+  selected_code_display: string;
+  label: string;
+  edition: { id: string; label: string };
+  reason: string;
+  evidence_refs: unknown[];
+  actor: UserBrief;
+  at: string;
+  is_current: boolean;
+  note: string;
+}
+
+export interface GoodsLine {
+  id: string;
+  ordinal: number;
+  description: string;
+  origin_country: string;
+  regime: string;
+  row_version: number;
+  sources: { invoice_line_id: string; invoice_ordinal: number; line_ordinal: number; assigned_quantity: string | null; assigned_value: string | null }[];
+  latest_check: CodeCheck | null;
+  decision: Decision | null;
+  decision_count: number;
+}
+
+export interface Revision {
+  id: string;
+  revision_no: number;
+  state: string;
+  state_label: string;
+  mode: string;
+  mode_label: string;
+  territory: string;
+  planned_declaration_date: string | null;
+  regime: string;
+  is_editable: boolean;
+  row_version: number;
+  target_edition: (EditionBrief & { warning: string | null }) | null;
+  documents: CaseDocument[];
+  invoices: Invoice[];
+  goods_lines: GoodsLine[];
+  completeness: { blocking: CompletenessItem[]; warnings: CompletenessItem[]; complete: boolean };
+  status_note: string;
+}
+
+export interface CaseSummary {
+  id: string;
+  reference: string;
+  title: string;
+  importer: { id: string; name: string } | null;
+  assigned_to: UserBrief | null;
+  created_by: UserBrief;
+  created_at: string;
+  row_version: number;
+  state: string;
+  state_label: string;
+  mode: string;
+  revision_no: number;
+}
+
+export interface CaseDetail extends CaseSummary {
+  revision: Revision;
+}
+
+export interface AuditEntry {
+  id: string;
+  at: string;
+  actor: string | null;
+  event_type: string;
+  current: Record<string, unknown> | null;
+}
+
+export type Preview =
+  | { kind: "pdf" | "image"; url: string; expires_at: string }
+  | { kind: "unavailable"; message: string; notes: string[] }
+  | {
+      kind: "sheet";
+      note: string;
+      sheet_count: number;
+      sheets: { name: string; truncated: boolean; rows: { row: number; cells: { ref: string; value: string | null; formula: string | null }[] }[] }[];
+    };
+
 export const api = {
   me: () => request<Me>("GET", "/me"),
   login: (email: string, password: string) => request<Me>("POST", "/auth/login", { email, password }),
@@ -175,6 +388,52 @@ export const api = {
     request<{ results: SearchResult[] }>("GET", `/tariffs/search?q=${encodeURIComponent(q)}`),
   tariffNode: (id: string) => request<NodeDetail>("GET", `/tariffs/nodes/${id}`),
   tariffRecord: (id: string) => request<RecordDetail>("GET", `/tariffs/records/${id}`),
+  editions: () => request<(EditionBrief & { warning: string | null })[]>("GET", "/tariffs/editions"),
+  cases: (params: Record<string, string>) =>
+    request<{ results: CaseSummary[]; states: [string, string][] }>(
+      "GET",
+      `/cases?${new URLSearchParams(Object.entries(params).filter(([, v]) => v))}`,
+    ),
+  createCase: (data: Record<string, unknown>) => request<CaseDetail>("POST", "/cases", data),
+  caseDetail: (id: string) => request<CaseDetail>("GET", `/cases/${id}`),
+  assignCase: (id: string, assignee_id: string | null, row_version: number) =>
+    request<CaseSummary>("POST", `/cases/${id}/assign`, { assignee_id, row_version }),
+  updateRevision: (id: string, data: Record<string, unknown>) => request<Revision>("PATCH", `/revisions/${id}`, data),
+  caseAudit: (id: string) => request<{ results: AuditEntry[] }>("GET", `/cases/${id}/audit`),
+  documentLimits: () => request<{ max_bytes: number; accepted: string[] }>("GET", "/documents/limits"),
+  uploadDocument: (caseId: string, file: File, usage: string, duplicateAction = "", idempotencyKey = "") => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("usage", usage);
+    if (duplicateAction) form.append("duplicate_action", duplicateAction);
+    return upload<CaseDocument>(
+      `/cases/${caseId}/documents`,
+      form,
+      idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
+    );
+  },
+  reuseDocument: (caseId: string, document_id: string, usage: string) =>
+    request<CaseDocument>("POST", `/cases/${caseId}/documents/reuse`, { document_id, usage }),
+  replaceDocument: (linkId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return upload<CaseDocument>(`/case-documents/${linkId}/replace`, form);
+  },
+  documentPreview: (id: string) => request<Preview>("GET", `/documents/${id}/preview`),
+  documentLink: (id: string) => request<{ url: string; expires_at: string }>("GET", `/documents/${id}/download`),
+  addInvoice: (revisionId: string, data: Record<string, unknown>) =>
+    request<Invoice>("POST", `/revisions/${revisionId}/invoices`, data),
+  addLine: (invoiceId: string, data: Record<string, unknown>) =>
+    request<InvoiceLine>("POST", `/invoices/${invoiceId}/lines`, data),
+  updateLine: (lineId: string, data: Record<string, unknown>) =>
+    request<InvoiceLine>("PATCH", `/invoice-lines/${lineId}`, data),
+  addGoods: (revisionId: string, invoice_line_ids: string[]) =>
+    request<GoodsLine>("POST", `/revisions/${revisionId}/goods-lines`, { invoice_line_ids }),
+  updateGoods: (id: string, data: Record<string, unknown>) => request<GoodsLine>("PATCH", `/goods-lines/${id}`, data),
+  checkCode: (goodsId: string, edition_id: string) =>
+    request<CodeCheck>("POST", `/goods-lines/${goodsId}/code-checks`, { edition_id }),
+  decide: (goodsId: string, data: Record<string, unknown>) =>
+    request<GoodsLine>("POST", `/goods-lines/${goodsId}/decisions`, data),
 };
 
 export const ROLE_LABELS: Record<Role, string> = {

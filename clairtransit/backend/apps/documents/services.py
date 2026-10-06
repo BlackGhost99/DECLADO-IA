@@ -2,6 +2,7 @@
 
 import io
 from datetime import datetime, timedelta
+from urllib.parse import quote
 
 from django.conf import settings
 from django.core import signing
@@ -95,7 +96,9 @@ def issue_access(*, document: Document, user, disposition: str) -> dict:
         salt=ACCESS_SALT,
         compress=True,
     )
-    return {"url": f"/api/v1/files/{token}", "expires_at": timezone.now() + timedelta(seconds=ttl)}
+    # Le nom final ne sert qu'à l'affichage (titre du lecteur, enregistrement) ; seul le jeton compte.
+    name = quote(document.original_name, safe="")
+    return {"url": f"/api/v1/files/{token}/{name}", "expires_at": timezone.now() + timedelta(seconds=ttl)}
 
 
 def resolve_access(token: str, user) -> tuple[Document, str]:

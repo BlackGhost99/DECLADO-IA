@@ -5,6 +5,7 @@ Le mot de passe de démonstration n'est pas un secret : il ne doit jamais servir
 """
 
 import os
+from decimal import Decimal
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
@@ -75,9 +76,86 @@ class Command(BaseCommand):
             for name, identifiers in items:
                 Importer.objects.get_or_create(organization=orgs[key], name=name, defaults={"identifiers": identifiers})
 
+        self._demo_case(orgs["alpha"])
         self.stdout.write(self.style.SUCCESS("Jeu de démonstration prêt (données fictives)."))
         for email, _, affiliations in USERS:
             detail = ", ".join(f"{ORGS[k]}: {'/'.join(r.value for r in v)}" for k, v in affiliations.items())
             detail = detail or "gestionnaire du référentiel (aucune société)"
             self.stdout.write(f"  {email:28} {detail}")
         self.stdout.write(f"Mot de passe commun : {password}")
+
+    def _demo_case(self, org):
+        """Dossier fictif d'Alpha : facture PDF synthétique, une ligne avec code douanier et référence article."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from apps.cases import services as cases
+        from apps.cases.models import CustomsCase
+        from apps.documents.synthetic import make_pdf
+        from apps.tariffs.models import PublicationState, TariffEdition
+
+        title = "Dossier de démonstration (fictif)"
+        if CustomsCase.objects.for_organization(org).filter(title=title).exists():
+            return
+        actor = User.objects.get(email="declarant@alpha.demo")
+        edition = (
+            TariffEdition.objects.filter(publication_state=PublicationState.CONSULTATION).order_by("created_at").first()
+        )
+        case = cases.create_case(
+            org=org,
+            actor=actor,
+            data={
+                "title": title,
+                "importer_id": Importer.objects.for_organization(org).first().id,
+                "regime": "C100 (fictif)",
+                "target_edition_id": edition.id if edition else None,
+            },
+        )
+        revision = case.current_revision
+        pdf = make_pdf(
+            [
+                "FACTURE FICTIVE - DEMONSTRATION CLAIRTRANSIT",
+                "Fournisseur : Haras Fictif SARL   Facture n. DEMO-001   Devise : EUR",
+                "Ref. article 12345678   Chevaux reproducteurs fictifs   HS Code 0101.10.00",
+                "Quantite 2 NMB   Prix unitaire 1 500,00   Montant 3 000,00   Origine FR",
+                "Total facture : 3 000,00 EUR",
+            ]
+        )
+        link, _created = cases.attach_upload(
+            org=org,
+            actor=actor,
+            revision=revision,
+            upload=SimpleUploadedFile("facture-demo-001.pdf", pdf, content_type="application/pdf"),
+            usage="invoice",
+            duplicate_action="keep_both",
+        )
+        invoice = cases.add_invoice(
+            org=org,
+            actor=actor,
+            revision_id=revision.id,
+            data={
+                "supplier_name": "Haras Fictif SARL",
+                "invoice_number": "DEMO-001",
+                "currency": "EUR",
+                "declared_total": Decimal("3000"),
+                "document_id": link.id,
+            },
+        )
+        line = cases.add_invoice_line(
+            org=org,
+            actor=actor,
+            invoice_id=invoice.id,
+            data={
+                "description_raw": "Chevaux reproducteurs fictifs",
+                "source_reference": "12345678",
+                "customs_code": "0101.10.00",
+                "customs_code_label": "HS Code",
+                "quantity": Decimal("2"),
+                "unit": "NMB",
+                "unit_price": Decimal("1500"),
+                "amount": Decimal("3000"),
+                "origin_country": "FR",
+                "evidence_document_id": link.id,
+                "evidence_page": 1,
+            },
+        )
+        cases.create_goods_line(org=org, actor=actor, revision_id=revision.id, data={"invoice_line_ids": [line.id]})

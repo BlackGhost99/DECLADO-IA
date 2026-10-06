@@ -610,7 +610,7 @@ class FileView(APIView):
     def as_view(cls, **kwargs):
         return xframe_options_sameorigin(super().as_view(**kwargs))
 
-    def get(self, request, token):
+    def get(self, request, token, name=None):
         doc, disposition = documents.resolve_access(token, request.user)
         response = FileResponse(
             get_storage().open(doc.object_key),

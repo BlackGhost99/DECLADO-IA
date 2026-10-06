@@ -43,7 +43,7 @@ urlpatterns = [
     path("documents/<uuid:document_id>", cases.DocumentDetailView.as_view()),
     path("documents/<uuid:document_id>/download", cases.DocumentDownloadView.as_view()),
     path("documents/<uuid:document_id>/preview", cases.DocumentPreviewView.as_view()),
-    path("files/<str:token>", cases.FileView.as_view()),
+    path("files/<str:token>/<str:name>", cases.FileView.as_view()),
     path("tariffs/editions", tariffs.EditionListView.as_view()),
     path("tariffs/editions/<uuid:edition_id>/publish", tariffs.PublishEditionView.as_view()),
     path("tariffs/editions/<uuid:edition_id>/withdraw", tariffs.WithdrawEditionView.as_view()),
