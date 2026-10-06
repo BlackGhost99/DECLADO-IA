@@ -34,6 +34,9 @@ class Session:
     def post(self, url, data=None, **headers):
         return self.client.post(url, data or {}, format="json", **self._headers(headers))
 
+    def upload(self, url, data, **headers):
+        return self.client.post(url, data, format="multipart", **self._headers(headers))
+
     def put(self, url, data=None, **headers):
         return self.client.put(url, data or {}, format="json", **self._headers(headers))
 

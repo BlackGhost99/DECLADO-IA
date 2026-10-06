@@ -6,7 +6,7 @@ __pycache__/
 .ruff_cache/
 backend/staticfiles/
 # Node
-node_modules/
+node_modules
 frontend/dist/
 # Secrets et environnements locaux : ne jamais committer
 .env

@@ -25,6 +25,8 @@ class AuditEvent(models.Model):
     event_type = models.CharField(max_length=100)
     entity_type = models.CharField(max_length=100)
     entity_id = models.CharField(max_length=64)
+    # Rattachement facultatif à un objet englobant (ex. « case:<uuid> ») pour l'historique d'un dossier.
+    scope = models.CharField(max_length=100, blank=True, db_index=True)
     previous = models.JSONField(null=True, blank=True)
     current = models.JSONField(null=True, blank=True)
     request_id = models.CharField(max_length=64, blank=True)

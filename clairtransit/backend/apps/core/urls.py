@@ -2,6 +2,7 @@ from django.urls import path
 
 from apps.accounts import api as accounts
 from apps.audit import api as audit
+from apps.cases import api as cases
 from apps.clients import api as clients
 from apps.organizations import api as organizations
 from apps.tariffs import api as tariffs
@@ -21,6 +22,28 @@ urlpatterns = [
     path("importers", clients.ImporterListView.as_view()),
     path("importers/<uuid:pk>", clients.ImporterDetailView.as_view()),
     path("audit-events", audit.AuditEventListView.as_view()),
+    path("cases", cases.CaseListView.as_view()),
+    path("cases/<uuid:case_id>", cases.CaseDetailView.as_view()),
+    path("cases/<uuid:case_id>/assign", cases.CaseAssignView.as_view()),
+    path("cases/<uuid:case_id>/revisions", cases.CaseRevisionsView.as_view()),
+    path("cases/<uuid:case_id>/documents", cases.CaseDocumentsView.as_view()),
+    path("cases/<uuid:case_id>/documents/reuse", cases.CaseDocumentReuseView.as_view()),
+    path("cases/<uuid:case_id>/audit", cases.CaseAuditView.as_view()),
+    path("case-documents/<uuid:link_id>/replace", cases.CaseDocumentReplaceView.as_view()),
+    path("revisions/<uuid:revision_id>", cases.RevisionDetailView.as_view()),
+    path("revisions/<uuid:revision_id>/invoices", cases.InvoiceCreateView.as_view()),
+    path("revisions/<uuid:revision_id>/goods-lines", cases.GoodsLineCreateView.as_view()),
+    path("invoices/<uuid:invoice_id>", cases.InvoiceDetailView.as_view()),
+    path("invoices/<uuid:invoice_id>/lines", cases.InvoiceLineCreateView.as_view()),
+    path("invoice-lines/<uuid:line_id>", cases.InvoiceLineDetailView.as_view()),
+    path("goods-lines/<uuid:goods_id>", cases.GoodsLineDetailView.as_view()),
+    path("goods-lines/<uuid:goods_id>/code-checks", cases.CodeCheckView.as_view()),
+    path("goods-lines/<uuid:goods_id>/decisions", cases.DecisionView.as_view()),
+    path("documents/limits", cases.DocumentLimitsView.as_view()),
+    path("documents/<uuid:document_id>", cases.DocumentDetailView.as_view()),
+    path("documents/<uuid:document_id>/download", cases.DocumentDownloadView.as_view()),
+    path("documents/<uuid:document_id>/preview", cases.DocumentPreviewView.as_view()),
+    path("files/<str:token>", cases.FileView.as_view()),
     path("tariffs/editions", tariffs.EditionListView.as_view()),
     path("tariffs/editions/<uuid:edition_id>/publish", tariffs.PublishEditionView.as_view()),
     path("tariffs/editions/<uuid:edition_id>/withdraw", tariffs.WithdrawEditionView.as_view()),

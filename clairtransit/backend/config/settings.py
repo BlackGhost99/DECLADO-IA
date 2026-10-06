@@ -33,6 +33,8 @@ INSTALLED_APPS = [
     "apps.audit",
     "apps.clients",
     "apps.tariffs",
+    "apps.documents",
+    "apps.cases",
 ]
 
 MIDDLEWARE = [
@@ -136,3 +138,9 @@ LOGGING = {
 
 # Stockage privé des sources et pièces : jamais servi directement par le serveur web.
 PRIVATE_STORAGE_ROOT = Path(env("PRIVATE_STORAGE_ROOT", default=str(BASE_DIR / "var" / "private")))
+
+# Pièces des dossiers (DOC-01) : limites configurables, à réviser après mesure.
+DOCUMENT_MAX_BYTES = env.int("DOCUMENT_MAX_BYTES", default=50 * 1024 * 1024)
+DOCUMENT_LINK_TTL_SECONDS = env.int("DOCUMENT_LINK_TTL_SECONDS", default=300)
+# Au-delà, Django écrit le fichier reçu sur disque plutôt qu'en mémoire.
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
