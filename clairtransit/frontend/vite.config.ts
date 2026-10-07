@@ -15,5 +15,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./tests/setup.ts"],
+    // Les écrans complets rendus sous jsdom dépassent les 5 s par défaut sur un runner partagé.
+    testTimeout: 30000,
   },
 });
