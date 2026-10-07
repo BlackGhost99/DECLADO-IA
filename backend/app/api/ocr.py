@@ -126,6 +126,13 @@ async def ocr_process(
 
         logger.exception(f"Unexpected error in OCR process: {e}")
         raise HTTPException(status_code=500, detail=f"OCR error: {str(e)}") from e
+    finally:
+        # Ne pas laisser la copie temporaire du document téléversé dans le dossier temp
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                logger.warning(f"Could not remove temp file: {tmp_path}")
 
 
 @router.post("/process_declaration", tags=["OCR"])

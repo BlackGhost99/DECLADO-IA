@@ -40,7 +40,7 @@ imutils==0.5.4
 # Machine Learning & NLP
 # ==========================================
 # Core ML
-scikit-learn==1.4.0
+scikit-learn==1.7.2  # version qui a produit models/hs_classifier.joblib (1.4.0 ne le relit pas)
 numpy==1.26.3
 pandas==2.2.0
 scipy==1.12.0

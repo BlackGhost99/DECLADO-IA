@@ -22,13 +22,14 @@ def test_normalize_amounts_and_currency_and_dates():
 def test_run_document_on_small_image(tmp_path):
     # Create a simple synthetic image with text using PIL
     try:
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageFont
     except Exception:
         pytest.skip("Pillow not available")
 
-    img = Image.new("RGB", (600, 200), color=(255, 255, 255))
+    # Police de 40 px : la police bitmap par défaut (11 px) est illisible pour Tesseract.
+    img = Image.new("RGB", (1000, 200), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
-    draw.text((10, 80), "Invoice 123 total 45.67 USD", fill=(0, 0, 0))
+    draw.text((20, 70), "Invoice 123 total 45.67 USD", fill=(0, 0, 0), font=ImageFont.load_default(size=40))
     fp = tmp_path / "sample.png"
     img.save(fp)
 

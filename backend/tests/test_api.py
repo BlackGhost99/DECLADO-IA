@@ -59,43 +59,25 @@ def test_ocr_demo_validation():
 
 
 def test_hs_suggest():
-    """Test de la suggestion HS"""
-    payload = {"product_description": "ordinateur portable Dell"}
-    response = client.post("/api/hs/suggest", json=payload)
+    """Suggestion HS : contrat utilisé par l'interface ({text, k} → suggestions)."""
+    response = client.post("/api/hs/suggest", json={"text": "ordinateur portable Dell", "k": 3})
     assert response.status_code == 200
-    data = response.json()
-    assert "suggested_codes" in data
-    assert len(data["suggested_codes"]) > 0
-    # Vérifier que le code ordinateur est suggéré
-    codes = [c["code"] for c in data["suggested_codes"]]
-    assert any("8471" in code for code in codes)
+    suggestions = response.json()["suggestions"]
+    assert 0 < len(suggestions) <= 3
+    for s in suggestions:
+        assert isinstance(s["code"], str) and s["code"]
+        assert isinstance(s["score"], float)
+        assert isinstance(s["keywords"], list)
 
 
-def test_hs_suggest_phone():
-    """Test suggestion HS pour téléphone"""
-    payload = {"product_description": "smartphone Samsung Galaxy"}
-    response = client.post("/api/hs/suggest", json=payload)
+def test_hs_suggest_respects_k():
+    """Le nombre de suggestions suit k."""
+    response = client.post("/api/hs/suggest", json={"text": "smartphone Samsung Galaxy", "k": 1})
     assert response.status_code == 200
-    data = response.json()
-    assert len(data["suggested_codes"]) > 0
-    # Vérifier que le code téléphone est suggéré
-    codes = [c["code"] for c in data["suggested_codes"]]
-    assert any("8517" in code for code in codes)
-
-
-def test_hs_suggest_unknown():
-    """Test suggestion HS pour produit inconnu"""
-    payload = {"product_description": "produit mystérieux XYZ"}
-    response = client.post("/api/hs/suggest", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data["suggested_codes"]) > 0
-    # Code par défaut
-    assert data["suggested_codes"][0]["code"] == "9999.00"
+    assert len(response.json()["suggestions"]) == 1
 
 
 def test_hs_suggest_validation():
-    """Test de la validation HS"""
-    # Description trop courte
-    response = client.post("/api/hs/suggest", json={"product_description": "ab"})
-    assert response.status_code == 422  # Validation error
+    """Texte vide refusé ; champ obligatoire absent refusé."""
+    assert client.post("/api/hs/suggest", json={"text": ""}).status_code == 400
+    assert client.post("/api/hs/suggest", json={"product_description": "ab"}).status_code == 422

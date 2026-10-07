@@ -107,21 +107,10 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api")
 for name, module in _loaded_optional.items():
     if hasattr(module, "router"):
-        # Use /api prefix for most; keep previous behavior selectively
-        prefix = (
-            "/api"
-            if name
-            in {
-                "ocr",
-                "hs_classification",
-                "exchange_rates",
-                "customs_calculation",
-                "declaration_auto",
-                "export",
-                "export_sydonia",
-            }
-            else ""
-        )
+        # Préfixe /api pour les routeurs qui ne le portent pas déjà : customs_calculation,
+        # declaration_auto, export et export_sydonia déclarent eux-mêmes /api/..., et un
+        # second préfixe les servait sous /api/api/... (404 pour l'interface).
+        prefix = "/api" if name in {"ocr", "hs_classification", "exchange_rates"} else ""
         try:
             app.include_router(module.router, prefix=prefix)
         except Exception as e:

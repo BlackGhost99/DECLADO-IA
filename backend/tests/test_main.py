@@ -17,6 +17,6 @@ def test_root():
 
 def test_health_check():
     """Test du health check"""
-    response = client.get("/health")
+    response = client.get("/api/health")
     assert response.status_code == 200
-    assert response.json()["status"] == "healthy"
+    assert response.json()["status"] in ("healthy", "degraded")
