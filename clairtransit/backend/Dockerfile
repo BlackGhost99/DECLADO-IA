@@ -8,7 +8,11 @@ RUN apt-get update \
 COPY requirements.txt requirements-dev.txt ./
 RUN pip install --no-cache-dir -r requirements-dev.txt
 COPY . .
-RUN useradd --create-home app && chown -R app /app
+# Le volume des pièces (compose : /var/clairtransit/private) hérite à sa création du
+# propriétaire de ce dossier ; sans lui, il appartient à root et l'application ne peut pas écrire.
+RUN useradd --create-home app \
+    && mkdir -p /var/clairtransit/private \
+    && chown -R app /app /var/clairtransit
 USER app
 EXPOSE 8000
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
