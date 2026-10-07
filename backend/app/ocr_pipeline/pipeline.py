@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import time
 from pathlib import Path
 
 try:
@@ -18,6 +20,8 @@ from .pdf_utils import extract_pdf_text_and_tables, iter_pdf_pages_as_images
 from .preprocessing import preprocess_for_ocr
 from .table_extraction import detect_tables_by_lines
 from .types import DocumentResult, NormalizedFields, PageResult
+
+logger = logging.getLogger(__name__)
 
 
 def _require_cv2() -> None:
@@ -51,6 +55,29 @@ def _compute_cer(hyp: str, ref: str) -> float:
     return dist / m
 
 
+def _ocr_page(img: np.ndarray, page_index: int, lang: str) -> PageResult:
+    """Prétraite et lit une page ; journalise la durée de chaque étape."""
+    t0 = time.perf_counter()
+    proc = preprocess_for_ocr(img)
+    t1 = time.perf_counter()
+    txt, words = ocr_image(proc, lang=lang)
+    t2 = time.perf_counter()
+    h, w = proc.shape[:2]
+    tables = detect_tables_by_lines(proc)
+    logger.info(
+        "OCR page %d (%dx%d) : prétraitement %.2f s, tesseract %.2f s, tableaux %.2f s",
+        page_index,
+        w,
+        h,
+        t1 - t0,
+        t2 - t1,
+        time.perf_counter() - t2,
+    )
+    return PageResult(
+        page_index=page_index, width=w, height=h, text=txt, words=words, tables=tables
+    )
+
+
 def run_document(path: str, lang: str = "eng+fra") -> dict:
     """Run OCR pipeline on a document (image or PDF). Return normalized JSON dict."""
     p = Path(path)
@@ -64,21 +91,7 @@ def run_document(path: str, lang: str = "eng+fra") -> dict:
             if not text.strip():
                 try:
                     for idx2, pil_img in iter_pdf_pages_as_images(str(p)):
-                        img = _pil_to_cv(pil_img)
-                        proc = preprocess_for_ocr(img)
-                        txt, words = ocr_image(proc, lang=lang)
-                        h, w = proc.shape[:2]
-                        tables_img = detect_tables_by_lines(proc)
-                        pages.append(
-                            PageResult(
-                                page_index=idx2,
-                                width=w,
-                                height=h,
-                                text=txt,
-                                words=words,
-                                tables=tables_img,
-                            )
-                        )
+                        pages.append(_ocr_page(_pil_to_cv(pil_img), idx2, lang))
                 except Exception as e:
                     # Poppler not installed - can't convert PDF to images
                     warnings.append(f"Erreur conversion PDF en images: {str(e)}")
@@ -112,14 +125,7 @@ def run_document(path: str, lang: str = "eng+fra") -> dict:
     else:
         # Image file
         pil_img = Image.open(str(p))
-        img = _pil_to_cv(pil_img)
-        proc = preprocess_for_ocr(img)
-        txt, words = ocr_image(proc, lang=lang)
-        h, w = proc.shape[:2]
-        tables_img = detect_tables_by_lines(proc)
-        pages.append(
-            PageResult(page_index=0, width=w, height=h, text=txt, words=words, tables=tables_img)
-        )
+        pages.append(_ocr_page(_pil_to_cv(pil_img), 0, lang))
 
     # Normalization from concatenated text
     full_text = "\n".join(pg.text for pg in pages)

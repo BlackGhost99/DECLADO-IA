@@ -18,6 +18,10 @@ TESSERACT_PATHS = [
 
 logger = logging.getLogger(__name__)
 
+# Tesseract parallélise par OpenMP ; sur une petite page, l'attente active des fils
+# coûte plus qu'elle ne rapporte (lenteur constatée sur Windows). Réglable par l'environnement.
+os.environ.setdefault("OMP_THREAD_LIMIT", "1")
+
 for tess_path in TESSERACT_PATHS:
     if os.path.exists(tess_path):
         pytesseract.pytesseract.tesseract_cmd = tess_path

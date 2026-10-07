@@ -62,6 +62,9 @@ def enhance_contrast(img: np.ndarray) -> np.ndarray:
 def preprocess_for_ocr(img: np.ndarray) -> np.ndarray:
     """Full preprocessing chain suitable for OCR."""
     _require_cv2()
+    # Débruitage à la résolution d'origine : sur l'image agrandie, il coûtait jusqu'à
+    # 36 fois plus (fastNlMeans est proportionnel au nombre de pixels).
+    img = denoise(img)
     # Upscale small images to help OCR (target min dimension ~1200px)
     h, w = img.shape[:2]
     scale = 1.0
@@ -70,8 +73,7 @@ def preprocess_for_ocr(img: np.ndarray) -> np.ndarray:
         scale = target_min / float(min(h, w))
         img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_CUBIC)
 
-    img1 = denoise(img)
-    img2 = deskew(img1)
+    img2 = deskew(img)
     img3 = enhance_contrast(img2)
     img4 = binarize(img3)
     return img4
