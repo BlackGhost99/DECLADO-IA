@@ -15,3 +15,5 @@ frontend/dist/
 /data/
 *.tsbuildinfo
 backend/var/
+# Fichiers d'exécution de Celery beat (worker -B)
+celerybeat-schedule*
