@@ -1,156 +1,61 @@
-# GitHub Actions CI/CD
-
-name: CI/CD Pipeline
+name: ClairTransit CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main]
   pull_request:
-    branches: [ main, develop ]
 
 jobs:
-  # ==========================================
-  # Backend Python Tests
-  # ==========================================
-  backend-tests:
-    name: Backend Tests
-    runs-on: windows-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-        cache: 'pip'
-    
-    - name: Install dependencies
-      run: |
-        cd backend
-        pip install -r requirements.txt
-    
-    - name: Lint with ruff
-      run: |
-        cd backend
-        ruff check app/
-    
-    - name: Format check with black
-      run: |
-        cd backend
-        black --check app/
-    
-    - name: Type check with mypy
-      run: |
-        cd backend
-        mypy app/
-      continue-on-error: true
-    
-    - name: Run tests
-      run: |
-        cd backend
-        pytest --cov=app --cov-report=xml
-    
-    - name: Upload coverage
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./backend/coverage.xml
-        flags: backend
-
-  # ==========================================
-  # Frontend Tests
-  # ==========================================
-  frontend-tests:
-    name: Frontend Tests
-    runs-on: windows-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
-    
-    - name: Install dependencies
-      run: |
-        cd frontend
-        npm ci
-    
-    - name: Lint
-      run: |
-        cd frontend
-        npm run lint
-    
-    - name: Format check
-      run: |
-        cd frontend
-        npm run format:check
-    
-    - name: Type check
-      run: |
-        cd frontend
-        npm run type-check
-    
-    - name: Run tests
-      run: |
-        cd frontend
-        npm test
-
-  # ==========================================
-  # Security Scan
-  # ==========================================
-  security:
-    name: Security Scan
+  backend:
     runs-on: ubuntu-latest
-    
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: clairtransit
+          POSTGRES_PASSWORD: clairtransit
+          POSTGRES_DB: clairtransit
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U clairtransit" --health-interval 5s --health-retries 10
+    env:
+      DJANGO_DEBUG: "true"
+      DATABASE_URL: postgres://clairtransit:clairtransit@localhost:5432/clairtransit
+    defaults:
+      run:
+        working-directory: backend
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Run Bandit (Python security)
-      run: |
-        pip install bandit
-        bandit -r backend/app -f json -o bandit-report.json
-      continue-on-error: true
-    
-    - name: Run npm audit (Node security)
-      run: |
-        cd frontend
-        npm audit --audit-level=moderate
-      continue-on-error: true
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Tesseract (OCR des scans, lot 3)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng
+      - run: pip install -r requirements-dev.txt
+      - name: Style
+        run: ruff check . && ruff format --check .
+      - name: Migrations à jour
+        run: python manage.py makemigrations --check --dry-run
+      - name: Migrations applicables
+        run: python manage.py migrate --noinput
+      - name: Tests (droits, isolation, journal, extraction)
+        run: python -m pytest -rs
 
-  # ==========================================
-  # Build Test (ne pas publier)
-  # ==========================================
-  build-test:
-    name: Test Build
-    runs-on: windows-latest
-    needs: [backend-tests, frontend-tests]
-    
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-    
-    - name: Build frontend
-      run: |
-        cd frontend
-        npm ci
-        npm run build
-    
-    - name: Test backend packaging
-      run: |
-        cd backend
-        pip install -r requirements.txt
-        pip install pyinstaller
-        python -c "import PyInstaller; print('PyInstaller OK')"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

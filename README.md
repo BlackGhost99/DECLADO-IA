@@ -1,337 +1,115 @@
-# 🚀 DECLADO-IA
+# ClairTransit
 
-**Système d'Extraction Automatisée de Factures & Calculs Douaniers – Zone CEMAC**
+Application web de préparation des dossiers douaniers pour les sociétés de transit (périmètre initial Gabon/CEMAC).
+Les spécifications V1 sont dans [`docs/specifications/`](docs/specifications/). État actuel : **lots 0 (socle), 1 (référentiel), 2 (dossiers et pièces) et 3 (extraction et aide au classement)** livrés,
+voir [`docs/lots/`](docs/lots/).
 
-[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![Node](https://img.shields.io/badge/node-18.19-green.svg)](https://nodejs.org/)
-[![Electron](https://img.shields.io/badge/electron-28.1-blue.svg)](https://www.electronjs.org/)
-[![FastAPI](https://img.shields.io/badge/fastapi-0.109-green.svg)](https://fastapi.tiangolo.com/)
+Un dossier « validé » dans ClairTransit signifie validé en interne par la société de transit, jamais accepté par la Douane.
 
----
+## Pile technique
 
-## 📘 Vue d'ensemble
+| Élément | Version verrouillée |
+|---|---|
+| Python / Django (LTS) / DRF | 3.13 / 5.2.18 / 3.18.1 |
+| PostgreSQL | 16 (17 compatible) |
+| Celery / Redis | 5.6.3 / Redis 7 |
+| Node / React / Vite / TypeScript | 22.22+ ou 24 / 19.3.0 / 8.3.3 / 6.0.3 |
 
-DECLADO-IA est une application desktop Windows qui automatise l'extraction de données depuis des factures et calcule automatiquement tous les droits et taxes douaniers conformément à la réglementation CEMAC.
+Versions Python : `backend/requirements.txt` (directes) et `backend/requirements.lock` (complètes). Node : `frontend/package-lock.json`.
 
-### ✨ Fonctionnalités principales
+## Démarrage rapide (machine locale)
 
-- 🔍 **OCR automatisé** : Extraction de texte et tableaux depuis PDF et images
-- 🤖 **Classification HS intelligente** : Suggestions de codes douaniers via IA/ML
-- 💰 **Calculs douaniers complets** : DD, TVA, TCI, CCI, redevances CEMAC
-- 📄 **Export multi-format** : PDF, XML (eSAD), CSV/JSON
-- 🔒 **Sécurité renforcée** : Base de données chiffrée (SQLCipher)
-- 📡 **Fonctionnement offline-first** : Tous les traitements en local
-- 🌐 **Multi-entreprises & utilisateurs** : Gestion complète des accès
-
----
-
-## 🏗️ Architecture
-
-```
-DECLADO-IA/
-├── backend/          # API FastAPI (Python)
-│   ├── app/
-│   │   ├── api/          # Endpoints REST
-│   │   ├── core/         # Configuration, sécurité
-│   │   ├── db/           # Modèles SQLAlchemy
-│   │   ├── models/       # Schémas Pydantic
-│   │   └── services/     # Logique métier
-│   │       ├── ocr/      # Tesseract + OpenCV
-│   │       ├── ml/       # Classification HS
-│   │       └── tax_engine/ # Calculs douaniers
-│   └── tests/
-├── frontend/         # Application Electron + React
-│   ├── src/
-│   │   ├── components/   # Composants React
-│   │   ├── pages/        # Pages principales
-│   │   ├── services/     # API calls
-│   │   └── store/        # State management (Zustand)
-│   └── electron/         # Process Electron
-├── ml/               # Machine Learning
-│   ├── training/         # Scripts d'entraînement
-│   ├── models/           # Modèles ONNX
-│   └── data/             # Datasets
-├── data/             # Données (versionnées avec DVC)
-│   ├── raw/              # Factures brutes
-│   ├── processed/        # Données traitées
-│   ├── exports/          # Exports générés
-│   └── referentials/     # SH, TEC, taux BEAC
-├── docs/             # Documentation
-├── scripts/          # Scripts de build
-└── tests/            # Tests d'intégration
-```
-
----
-
-## 🚀 Démarrage rapide
-
-### Prérequis
-
-- **Windows 10/11** (64-bit)
-- **Python 3.11** ([pyenv-win](https://github.com/pyenv-win/pyenv-win) recommandé)
-- **Node.js 18.19+** ([nvm-windows](https://github.com/coreybutler/nvm-windows) recommandé)
-- **Tesseract OCR** ([installation](https://github.com/UB-Mannheim/tesseract/wiki))
-- **Git** ([Git for Windows](https://git-scm.com/download/win))
-
-### Installation
-
-```powershell
-# 1. Cloner le dépôt
-git clone https://github.com/votre-org/declado-ia.git
-cd declado-ia
-
-# 2. Copier les fichiers de configuration
-cp .env.example .env
-cp secrets.example.json secrets.json
-
-# 3. Configurer les secrets (éditer .env et secrets.json)
-notepad .env
-
-# 4. Backend Python
-cd backend
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-
-# 5. Frontend Node/Electron
-cd ..\frontend
-npm install
-
-# 6. Pre-commit hooks (optionnel)
-cd ..
-pip install pre-commit
-pre-commit install
-```
-
-### Configuration de Tesseract
-
-```powershell
-# Installer Tesseract OCR depuis :
-# https://github.com/UB-Mannheim/tesseract/wiki
-
-# Dans .env, configurer le chemin :
-# TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
-```
-
-### Lancement en développement
-
-```powershell
-# Terminal 1 - Backend API
-cd backend
-.\venv\Scripts\Activate.ps1
-uvicorn app.main:app --reload
-
-# Terminal 2 - Frontend Electron
-cd frontend
-npm run electron:dev
-```
-
-L'application Electron se lance avec hot-reload activé.
-
----
-
-## 📦 Build & Packaging
-
-### Build de production
-
-```powershell
-# Backend (exécutable PyInstaller)
-python scripts/build_backend.py
-
-# Frontend (installateur Windows)
-cd frontend
-npm run electron:build:win
-```
-
-Les fichiers sont générés dans :
-- `frontend/release/` : Installateurs NSIS et portable
-- `dist/backend/` : Backend standalone (si nécessaire)
-
-### Signature du code
-
-Pour signer les builds Windows :
-
-1. Obtenir un certificat Code Signing
-2. Configurer `secrets.json` :
-
-```json
-{
-  "code_signing": {
-    "certificate_path": "C:\\path\\to\\cert.pfx",
-    "certificate_password": "YOUR_PASSWORD"
-  }
-}
-```
-
-Voir [`docs/BUILD.md`](docs/BUILD.md) pour plus de détails.
-
----
-
-## 🧪 Tests
-
-```powershell
-# Tests Backend (Pytest)
-cd backend
-pytest
-
-# Avec coverage
-pytest --cov=app --cov-report=html
-
-# Tests Frontend (Vitest)
-cd frontend
-npm test
-
-# Tests avec UI
-npm run test:ui
-```
-
----
-
-## 📚 Documentation
-
-- **[Guide de démarrage](docs/GETTING_STARTED.md)** (à créer)
-- **[Architecture technique](docs/ARCHITECTURE.md)** (à créer)
-- **[Configuration DVC](docs/DVC_SETUP.md)**
-- **[Gestion des secrets](docs/SECRETS_MANAGEMENT.md)**
-- **[Instructions de build](docs/BUILD.md)**
-- **[API Documentation](docs/API.md)** (à créer)
-
----
-
-## 🔧 Outils & Technologies
-
-### Backend
-- **FastAPI** : Framework API REST
-- **SQLAlchemy** : ORM pour base de données
-- **SQLCipher** : Chiffrement base de données
-- **Tesseract** : OCR open-source
-- **OpenCV** : Traitement d'images
-- **scikit-learn** : Classification ML
-- **ONNX Runtime** : Inférence modèles ML
-
-### Frontend
-- **Electron** : Application desktop
-- **React 18** : UI framework
-- **TypeScript** : Typage statique
-- **Vite** : Build tool
-- **Zustand** : State management
-- **TanStack Query** : Data fetching
-
-### DevOps
-- **DVC** : Versioning données & modèles ML
-- **MLflow** : Tracking expériences ML
-- **Pre-commit** : Hooks qualité code
-- **Black/Ruff** : Formatage Python
-- **ESLint/Prettier** : Formatage JavaScript
-
----
-
-## 🤝 Contribution
-
-### Workflow Git
+Prérequis : Python 3.13, Node 22.22+ (ou 24), PostgreSQL 16, Redis, et Tesseract pour l'OCR (`apt install tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng`, facultatif : sans lui, l'OCR échoue proprement).
 
 ```bash
-# Créer une branche feature
-git checkout -b feature/ma-fonctionnalite
+# 1. Base de données (une fois)
+sudo -u postgres psql -c "CREATE ROLE clairtransit LOGIN PASSWORD 'clairtransit' CREATEDB;"
+sudo -u postgres createdb -O clairtransit clairtransit
 
-# Faire vos modifications et commits
-git add .
-git commit -m "feat: ajouter fonctionnalité X"
+# 2. API
+cd backend
+python3.13 -m venv .venv && . .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env
+python manage.py migrate
+python manage.py seed_demo          # deux sociétés fictives + comptes de test
+python manage.py runserver 127.0.0.1:8000
 
-# Pousser et créer une PR
-git push origin feature/ma-fonctionnalite
-```
-
-### Conventions de commits
-
-Utiliser [Conventional Commits](https://www.conventionalcommits.org/) :
-
-- `feat:` Nouvelle fonctionnalité
-- `fix:` Correction de bug
-- `docs:` Documentation
-- `style:` Formatage code
-- `refactor:` Refactoring
-- `test:` Tests
-- `chore:` Tâches de maintenance
-
-### Standards de code
-
-```powershell
-# Formater le code Python
-black backend/
-
-# Linter Python
-ruff check backend/
-
-# Formater le code TypeScript
+# 3. Interface (autre terminal)
 cd frontend
-npm run format
-
-# Linter TypeScript
-npm run lint
+npm ci
+npm run dev                          # http://127.0.0.1:5173
 ```
 
-Les pre-commit hooks vérifient automatiquement ces standards.
+Worker (nécessaire dès le lot 3 pour les extractions) : `cd backend && celery -A config worker -B -l info` (`-B` relance la boîte d'envoi toutes les 30 s).
 
----
+## Démarrage avec Docker
 
-## 📊 Roadmap
+```bash
+docker compose -f infra/compose.yaml up --build
+docker compose -f infra/compose.yaml exec backend python manage.py seed_demo
+```
 
-### Phase 1 - MVP (8-10 semaines) ✅
-- [x] Setup projet
-- [ ] OCR de base + extraction
-- [ ] Classification HS (TF-IDF + SVM)
-- [ ] Calculs douaniers CEMAC
-- [ ] Interface Electron basique
-- [ ] Export PDF
+Interface : http://127.0.0.1:5173 — API : http://127.0.0.1:8000/api/v1/health — administration : http://127.0.0.1:8000/admin/.
 
-### Phase 2 - Améliorations (8-12 semaines)
-- [ ] Documents requis automatiques
-- [ ] Export XML eSAD
-- [ ] Multi-utilisateurs
-- [ ] Historique & recherche
-- [ ] Modèles OCR par fournisseur
+## Comptes de démonstration
 
-### Phase 3 - ML Avancé (12-16 semaines)
-- [ ] Modèle transformer (ONNX)
-- [ ] Questions dynamiques
-- [ ] Interface web supervision
-- [ ] Connecteurs ERP/WMS
+Créés par `seed_demo` (refusé hors `DJANGO_DEBUG=true`). Mot de passe commun : `demo-ClairTransit-2026`
+(modifiable via `--password` ou `DEMO_PASSWORD`). Il ne protège que des données fictives ; ne jamais le réutiliser.
 
----
+| Compte | Société | Rôles |
+|---|---|---|
+| declarant@alpha.demo | Transit Alpha (démo) | Déclarant |
+| validateur@alpha.demo | Transit Alpha (démo) | Validateur |
+| admin@alpha.demo | Transit Alpha (démo) | Administrateur |
+| declarant@beta.demo | Transit Bêta (démo) | Déclarant |
+| validateur@beta.demo | Transit Bêta (démo) | Validateur |
+| admin@beta.demo | Transit Bêta (démo) | Administrateur + Déclarant |
+| multi@demo.demo | les deux | Déclarant (choix de la société à la connexion) |
+| referentiel@demo.demo | aucune | Gestionnaire du référentiel (import, anomalies, publication) |
 
-## 🐛 Support & Issues
+`seed_demo` crée aussi un dossier fictif pour Transit Alpha : une facture PDF synthétique et une ligne « HS Code 0101.10.00 »,
+prêtes à contrôler dans l'onglet Dossiers. Lancez-le après avoir publié une édition pour qu'elle soit présélectionnée
+(sinon, choisissez l'édition dans le dossier).
 
-- **Bugs** : [GitHub Issues](https://github.com/votre-org/declado-ia/issues)
-- **Support** : support@declado-ia.com
-- **Sécurité** : security@declado-ia.com
+Pour un compte d'administration technique : `python manage.py createsuperuser`. Il n'ouvre aucun accès métier aux sociétés.
 
----
+## Charger un référentiel
 
-## 📄 Licence
+Les sources tarifaires ne sont pas dans le dépôt. Avec le jeu synthétique F :
 
-Copyright © 2025 DECLADO-IA. Tous droits réservés.
+```bash
+cd backend
+python manage.py import_tariff_csv ../fixtures/synthetic/referentiel-f.csv --label "Jeu F (CSV fictif)"
+python manage.py import_tariff_text ../fixtures/synthetic/referentiel-f.txt --label "Jeu F (texte fictif)"
+```
 
-Ce logiciel est propriétaire. Toute utilisation, reproduction ou distribution non autorisée est strictement interdite.
+Puis publier pour consultation en tant que `referentiel@demo.demo` (`POST /api/v1/tariffs/editions/<id>/publish`,
+`{"mode": "consultation"}`). Classeur .xlsx original : `python manage.py import_tariff_xlsx <fichier.xlsx> --label "…"`. Commandes pour les sources réelles : [`docs/lots/lot-1.md`](docs/lots/lot-1.md).
 
----
+## Vérifications
 
-## 👥 Équipe
+```bash
+cd backend && ruff check . && ruff format --check . && python manage.py makemigrations --check --dry-run && python -m pytest
+cd frontend && npm run typecheck && npm test && npm run build
+```
 
-- **Chef de Projet** : [Nom]
-- **Lead Dev Backend** : [Nom]
-- **Lead Dev Frontend** : [Nom]
-- **ML Engineer** : [Nom]
+La CI GitHub Actions (`.github/workflows/ci.yml`) exécute les mêmes commandes avec PostgreSQL 16.
 
----
+## Organisation du dépôt
 
-## 🙏 Remerciements
-
-- Communauté Tesseract OCR
-- FastAPI & Electron communities
-- Zone CEMAC pour les référentiels douaniers
-
----
-
-**Made with ❤️ for CEMAC Customs**
+```text
+backend/            API Django/DRF
+  config/           réglages, URL, Celery
+  apps/core/        modèles de base, erreurs structurées, request_id, outbox
+  apps/accounts/    utilisateurs (identité globale)
+  apps/organizations/ sociétés, affiliations, rôles, société active
+  apps/clients/     importateurs (socle CLI-01)
+  apps/audit/       journal append-only
+  apps/tariffs/     référentiel tarifaire versionné (imports, recherche, anomalies)
+  tests/            tests d'API, d'isolation et de droits
+frontend/           React/TypeScript (Vite)
+infra/compose.yaml  environnement de développement complet
+docs/               spécifications, décisions (ADR), lots, exploitation
+fixtures/synthetic/ jeux de données fictifs
+```

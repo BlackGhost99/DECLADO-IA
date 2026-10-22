@@ -1,6 +1,0 @@
-{
-  "description": "Aggregate OCR Character Error Rate (CER) baseline computed from available ground truths (*.gt.txt). Updated by evaluation script.",
-  "num_samples": 0,
-  "cer_mean": null,
-  "cer_median": null
-}

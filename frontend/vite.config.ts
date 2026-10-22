@@ -1,22 +1,21 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
+/// <reference types="vitest/config" />
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
-// https://vitejs.dev/config/
+// L'API est servie sous le même domaine (/api/v1) ; en développement Vite la relaie.
+const apiTarget = process.env.VITE_API_PROXY ?? "http://127.0.0.1:8000";
+
 export default defineConfig({
   plugins: [react()],
-  base: './',
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
   server: {
+    host: "127.0.0.1",
     port: 5173,
-    strictPort: true,
+    proxy: { "/api": { target: apiTarget, changeOrigin: false } },
   },
-  build: {
-    outDir: 'dist',
-    emptyOutDir: true,
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./tests/setup.ts"],
+    // Les écrans complets rendus sous jsdom dépassent les 5 s par défaut sur un runner partagé.
+    testTimeout: 30000,
   },
 });

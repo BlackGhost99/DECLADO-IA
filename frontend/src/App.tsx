@@ -1,106 +1,66 @@
-﻿import { useState, useEffect, useCallback } from 'react';
-import './App.css';
-import MainLayout from './layouts/MainLayout';
-import { SettingsProvider } from './contexts/SettingsContext';
+import { useCallback, useEffect, useState } from "react";
+import { api, ApiError, type Me } from "./api";
+import { LoginForm } from "./LoginForm";
+import { OrganizationPicker } from "./OrganizationPicker";
+import { Reference } from "./Reference";
+import { Workspace } from "./Workspace";
 
-declare global {
-  interface Window {
-    electronAPI?: {
-      getBackendUrl: () => Promise<string>;
-      checkBackendStatus: () => Promise<{ status: string; data?: unknown; message?: string }>;
-      platform: string;
-      versions: {
-        node: string;
-        chrome: string;
-        electron: string;
-      };
-    };
-  }
-}
+export default function App() {
+  const [me, setMe] = useState<Me | null>(null);
+  const [loading, setLoading] = useState(true);
 
-function App() {
-  const [backendUrl, setBackendUrl] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const checkHealth = useCallback(async () => {
-    if (!backendUrl) return;
-
+  const refresh = useCallback(async () => {
     try {
-      const response = await fetch(`${backendUrl}/api/health`);
-      await response.json();
-      setError(null);
+      setMe(await api.me());
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(`Impossible de joindre le backend: ${message}`);
+      if (!(err instanceof ApiError && err.status === 401)) throw err;
+      setMe(null);
+    } finally {
+      setLoading(false);
     }
-  }, [backendUrl]);
-
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        if (window.electronAPI) {
-          const url = await window.electronAPI.getBackendUrl();
-          setBackendUrl(url);
-        } else {
-          setBackendUrl('http://127.0.0.1:8000');
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        setError(`Erreur d''initialisation: ${message}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeApp();
   }, []);
 
   useEffect(() => {
-    if (backendUrl) {
-      checkHealth();
-    }
-  }, [backendUrl, checkHealth]);
+    void refresh();
+  }, [refresh]);
 
-  if (loading) {
-    return (
-      <div className="app">
-        <header className="app-header">
-          <h1>DECLADO-IA</h1>
-          <p>Système d&apos;Extraction de Factures & Calculs Douaniers CEMAC</p>
-        </header>
-        <main className="app-main">
-          <div className="app-loading">
-            <div className="spinner"></div>
-            <p>Chargement...</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  if (loading) return <p className="center">Chargement…</p>;
+  if (!me) return <LoginForm onLoggedIn={setMe} />;
 
-  if (error) {
-    return (
-      <div className="app">
-        <header className="app-header">
-          <h1>DECLADO-IA</h1>
-          <p>Système d&apos;Extraction de Factures & Calculs Douaniers CEMAC</p>
-        </header>
-        <main className="app-main">
-          <div className="error-message">
-            <h2>❌ Erreur de connexion</h2>
-            <p>{error}</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  const active = me.memberships.find((m) => m.organization.id === me.active_organization_id);
+  const logout = async () => {
+    await api.logout();
+    setMe(null);
+  };
 
   return (
-    <SettingsProvider backendUrl={backendUrl}>
-      <MainLayout backendUrl={backendUrl} />
-    </SettingsProvider>
+    <div className="shell">
+      <header className="topbar">
+        <strong>ClairTransit</strong>
+        {active && (
+          <span className="org">
+            {active.organization.name}
+            {active.organization.is_demo && <span className="badge">Démonstration</span>}
+          </span>
+        )}
+        <span className="spacer" />
+        {me.memberships.length > 1 && active && (
+          <OrganizationPicker me={me} onChange={setMe} compact />
+        )}
+        <span>{me.email}</span>
+        <button type="button" onClick={logout}>
+          Se déconnecter
+        </button>
+      </header>
+      <main>
+        {active ? (
+          <Workspace key={active.organization.id} membership={active} me={me} />
+        ) : me.memberships.length === 0 && me.is_reference_manager ? (
+          <Reference />
+        ) : (
+          <OrganizationPicker me={me} onChange={setMe} />
+        )}
+      </main>
+    </div>
   );
 }
-
-export default App;

@@ -1,0 +1,8 @@
+﻿CODE SH;LIBELLE;DDI;TVA;UNITE;TAUX
+01011000;Chevaux reproducteurs de race pure (fictif);5;18;NMB;25
+01019000;Autres;30;;NMB;
+01011000;Chevaux reproducteurs (doublon fictif);5;18;NMB;25
+0101900;Code tronqué fictif;10;18;KGM;30
+3004AB00;Code invalide fictif;10;18;KGM;30
+30049000;Autres mdicaments fictifs;0;0;KGM;0
+02013000;Viande dsossée fictive;30;18;KGM;54
