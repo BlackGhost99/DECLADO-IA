@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cases } from "../src/Cases";
 import { CaseDetailView, decimalInput } from "../src/CaseDetail";
+import { addDecimals, fmtAmount, fmtQty } from "../src/ui";
 
 const membership = {
   organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville" },
@@ -86,6 +87,15 @@ describe("Dossiers", () => {
     expect(decimalInput("1 500,25")).toBe("1500.25");
     expect(decimalInput("")).toBeNull();
     expect(decimalInput("0101")).toBe("0101");
+    expect(fmtAmount("61187.5")).toBe("61\u202f187,50");
+    expect(fmtAmount("-27.5")).toBe("-27,50");
+    expect(fmtAmount("12.345")).toBe("12,345");
+    expect(fmtAmount(null)).toBe("");
+    expect(fmtQty("2.500")).toBe("2,5");
+    expect(addDecimals(["57500.00", "3400", "287.5"])).toBe("61187.50");
+    expect(addDecimals(["0.1", "0.2"])).toBe("0.3");
+    expect(addDecimals(["-10.05", "2"])).toBe("-8.05");
+    expect(fmtQty("1000")).toBe("1\u202f000");
   });
 
   it("ouvre un dossier depuis la liste", async () => {
@@ -127,7 +137,9 @@ describe("Dossiers", () => {
   it("réunit les manques et les codes à traiter dans les contrôles", async () => {
     mockApi();
     render(<CaseDetailView caseId="c1" tab="controles" membership={membership} me={{ id: "u1" }} />);
-    expect(await screen.findByText("Liste des contrôles (3)")).toBeInTheDocument();
+    // 3 points du serveur, plus la facture absente (bloquante) et les trois pièces habituelles (informations).
+    expect(await screen.findByText("Liste des contrôles (7)")).toBeInTheDocument();
+    expect(screen.getAllByText("Facture commerciale manquante dans le dossier").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Bloquant").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Marchandise 1 \(Chevaux fictifs\) : à valider 0101\.10\.00/).length).toBeGreaterThan(0);
   });

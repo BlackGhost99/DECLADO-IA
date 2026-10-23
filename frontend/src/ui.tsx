@@ -15,6 +15,23 @@ export const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("fr-FR"
 export const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 
+/**
+ * Montant décimal (texte) affiché à la française : « 61187.5 » → « 61 187,50 ».
+ * Le calcul se fait sur le texte, jamais en nombre flottant ; une valeur inconnue reste inconnue.
+ */
+export function fmtAmount(value: string | null | undefined, decimals = 2): string {
+  if (value === null || value === undefined || value === "") return "";
+  const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value.trim());
+  if (!m) return value;
+  const [, sign, int, frac = ""] = m;
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f");
+  const dec = decimals > 0 ? `,${(frac + "0".repeat(decimals)).slice(0, Math.max(decimals, frac.replace(/0+$/, "").length))}` : frac.replace(/0+$/, "") ? `,${frac.replace(/0+$/, "")}` : "";
+  return `${sign}${grouped}${dec}`;
+}
+
+/** Quantité : groupée, sans décimales ajoutées. */
+export const fmtQty = (value: string | null | undefined) => fmtAmount(value, 0);
+
 export function relativeTime(iso: string, now = Date.now()): string {
   const minutes = Math.round((now - new Date(iso).getTime()) / 60000);
   if (minutes < 1) return "à l'instant";
@@ -237,3 +254,17 @@ export function goodsStatus(g: GoodsLine): { tone: Tone; label: string; code: st
   return { tone: "amber", label: "À vérifier", code: check.observed_code ?? "" };
 }
 
+/** Somme exacte de montants décimaux écrits en texte (jamais en flottant). */
+export function addDecimals(values: string[]): string {
+  const scale = Math.max(0, ...values.map((v) => (v.split(".")[1] ?? "").length));
+  const toInt = (v: string) => {
+    const [i, f = ""] = v.replace(/^-/, "").split(".");
+    const n = BigInt(i + f.padEnd(scale, "0"));
+    return v.startsWith("-") ? -n : n;
+  };
+  const sum = values.reduce((acc, v) => acc + toInt(v), 0n);
+  const neg = sum < 0n;
+  const digits = (neg ? -sum : sum).toString().padStart(scale + 1, "0");
+  const out = scale ? `${digits.slice(0, -scale)}.${digits.slice(-scale)}` : digits;
+  return neg ? `-${out}` : out;
+}

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, ApiError, type CaseSummary, type Importer, type Me, type Membership } from "./api";
 import { Icon } from "./Icon";
 import { navigate } from "./router";
-import { errorText, fmtDate, PageHeader, personName, StateChip, type EditionOption } from "./ui";
+import { errorText, fmtDate, initials, PageHeader, personName, relativeTime, StateChip, type EditionOption } from "./ui";
 
 export const canEditCases = (m: Membership) => m.roles.some((r) => r === "declarant" || r === "validator");
 
@@ -85,18 +85,22 @@ export function Cases({ membership, me, initialQuery = "" }: { membership: Membe
   );
 }
 
+const MODE_SHORT: Record<string, string> = { demo: "Démonstration", historical: "Simulation", operational: "Opérationnel" };
+
 export function CaseTable({ cases, progress }: { cases: CaseSummary[]; progress?: Record<string, ReactNode> }) {
   return (
     <div className="table-wrap">
-      <table className="data">
+      <table className={`data${progress ? " case-table-compact" : ""}`}>
         <thead>
           <tr>
             <th scope="col">N° dossier</th>
             <th scope="col">Importateur / titre</th>
+            {!progress && <th scope="col">Type</th>}
             {progress && <th scope="col">Progression</th>}
             <th scope="col">Agent</th>
             <th scope="col">Statut</th>
-            <th scope="col">Créé le</th>
+            <th scope="col">Créé</th>
+            <th scope="col"><span className="visually-hidden">Ouvrir</span></th>
           </tr>
         </thead>
         <tbody>
@@ -107,16 +111,29 @@ export function CaseTable({ cases, progress }: { cases: CaseSummary[]; progress?
                   {c.reference}
                 </button>
               </td>
-              <td>
+              <td className="importer-cell" title={c.title || undefined}>
                 {c.importer?.name ?? <em className="muted">importateur à renseigner</em>}
-                {c.title && <div className="muted small">{c.title}</div>}
+                {c.title && !progress && <div className="muted small">{c.title}</div>}
               </td>
+              {!progress && <td>{MODE_SHORT[c.mode] ?? c.mode}</td>}
               {progress && <td>{progress[c.id] ?? <span className="muted">…</span>}</td>}
-              <td>{personName(c.assigned_to) || <span className="muted">non affecté</span>}</td>
+              <td className="agent-cell" title={personName(c.assigned_to) || undefined}>
+                {personName(c.assigned_to) ? (
+                  progress ? <span className="avatar small-avatar">{initials(personName(c.assigned_to))}</span> : personName(c.assigned_to)
+                ) : (
+                  <span className="muted">non affecté</span>
+                )}
+              </td>
               <td>
                 <StateChip state={c.state} label={c.state_label} />
               </td>
-              <td>{fmtDate(c.created_at)}</td>
+              <td title={fmtDate(c.created_at)} className="nowrap muted">{relativeTime(c.created_at)}</td>
+              <td>
+                <button type="button" className="icon-button" onClick={() => navigate(`/dossiers/${c.id}`)} title={`Ouvrir ${c.reference}`}>
+                  <Icon name="chevronRight" size={18} />
+                  <span className="visually-hidden">Ouvrir {c.reference}</span>
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

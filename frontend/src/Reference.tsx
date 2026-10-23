@@ -27,33 +27,66 @@ const PUBLICATION: Record<string, { label: string; tone: Tone }> = {
 };
 
 /** Recherche tarifaire : code, préfixe ou mots, avec la fiche du code à droite. */
-export function TariffSearch() {
+export function TariffSearch({ initialQuery = "" }: { initialQuery?: string }) {
   return (
     <>
+      <nav className="breadcrumb" aria-label="Fil d'Ariane">
+        <span>Marchandises</span>
+        <Icon name="chevronRight" size={14} />
+        <span>Recherche tarifaire</span>
+      </nav>
       <PageHeader
         title="Recherche tarifaire"
-        subtitle="Cherchez un code SH par son numéro ou par des mots. Chaque résultat dit pourquoi il est proposé, sans IA."
+        subtitle={
+          <>
+            <strong className="subtitle-strong">Retrouvez le bon code SH dans le tarif.</strong>
+            <span className="block">
+              Cherchez par numéro, préfixe ou mots. Chaque résultat dit pourquoi il est proposé (sans IA) ; un code ne devient un
+              classement qu'une fois confirmé par un agent dans le dossier.
+            </span>
+          </>
+        }
       />
-      <TariffExplorer />
+      <TariffExplorer initialQuery={initialQuery} />
     </>
   );
 }
 
-export function TariffExplorer() {
-  const [q, setQ] = useState("");
+const chapterOf = (code: string | null) => (code ? code.replace(/\D/g, "").slice(0, 2) : "");
+
+export function TariffExplorer({ initialQuery = "" }: { initialQuery?: string }) {
+  const [q, setQ] = useState(initialQuery);
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [detail, setDetail] = useState<NodeDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [chapter, setChapter] = useState("");
+  const [declarableOnly, setDeclarableOnly] = useState(false);
 
-  async function search(event: FormEvent) {
-    event.preventDefault();
+  async function run(text: string) {
     setError(null);
     try {
-      setResults((await api.searchTariffs(q)).results);
+      const found = (await api.searchTariffs(text)).results;
+      setResults(found);
+      setChapter("");
+      const first = found.find((r) => r.declarable) ?? found[0];
+      if (first) void open(first.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Recherche impossible.");
     }
   }
+
+  useEffect(() => {
+    if (initialQuery) void run(initialQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery]);
+
+  async function search(event: FormEvent) {
+    event.preventDefault();
+    await run(q);
+  }
+
+  const chapters = [...new Set((results ?? []).map((r) => chapterOf(r.code)).filter(Boolean))].sort();
+  const shown = (results ?? []).filter((r) => (!chapter || chapterOf(r.code) === chapter) && (!declarableOnly || r.declarable));
 
   async function open(id: string) {
     setDetail(await api.tariffNode(id));
@@ -70,6 +103,23 @@ export function TariffExplorer() {
           </label>
           <button type="submit" className="btn-primary">Rechercher</button>
         </form>
+        {results && results.length > 0 && (
+          <div className="table-tools spaced">
+            <label className="filter-mini">
+              <Icon name="filter" size={16} />
+              <select aria-label="Chapitre" value={chapter} onChange={(e) => setChapter(e.target.value)}>
+                <option value="">Tous les chapitres</option>
+                {chapters.map((c) => (
+                  <option key={c} value={c}>Chapitre {c}</option>
+                ))}
+              </select>
+            </label>
+            <label className="check-inline">
+              <input type="checkbox" checked={declarableOnly} onChange={(e) => setDeclarableOnly(e.target.checked)} /> Codes déclarables seulement
+            </label>
+            <span className="muted small">{shown.length} résultat(s)</span>
+          </div>
+        )}
         {error && <p role="alert" className="error">⚠ {error}</p>}
         {results === null && <p className="empty">Saisissez un code ou des mots pour interroger le tarif.</p>}
         {results && results.length === 0 && <p className="empty">Aucun résultat dans les éditions publiées.</p>}
@@ -77,11 +127,14 @@ export function TariffExplorer() {
           <div className="table-wrap">
             <table className="data selectable">
               <thead>
-                <tr><th scope="col">Code SH</th><th scope="col">Libellé</th><th scope="col">Pourquoi</th><th scope="col">Édition</th></tr>
+                <tr>
+                  <th scope="col">Code SH</th><th scope="col">Libellé</th><th scope="col">Chapitre</th><th scope="col">Pourquoi</th>
+                  <th scope="col">État</th>
+                </tr>
               </thead>
               <tbody>
-                {results.map((r) => (
-                  <tr key={r.id} className={detail?.id === r.id ? "selected" : undefined}>
+                {shown.map((r) => (
+                  <tr key={r.id} className={detail?.id === r.id ? "selected" : undefined} onClick={() => void open(r.id)}>
                     <td>
                       <button type="button" className="link code" onClick={() => void open(r.id)}>{r.code_display}</button>
                     </td>
@@ -89,13 +142,19 @@ export function TariffExplorer() {
                       {r.label || <em className="muted">libellé absent de la source</em>}
                       {r.label_damaged && <Chip tone="amber">libellé abîmé</Chip>}
                     </td>
+                    <td className="small">{chapterOf(r.code) || "—"}</td>
                     <td className="small muted">{r.reason}</td>
-                    <td className="small">{r.edition.label}</td>
+                    <td>
+                      {r.declarable ? <Chip tone="blue">déclarable</Chip> : <Chip tone="gray">regroupement</Chip>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        )}
+        {results && results.length > 0 && (
+          <p className="muted small">Édition interrogée : {[...new Set(results.map((r) => r.edition.label))].join(", ")}.</p>
         )}
       </section>
       <section className="card side-panel" aria-label="Détail du code tarifaire">
@@ -193,6 +252,42 @@ function NodePanel({ detail, onOpen }: { detail: NodeDetail; onOpen: (id: string
         </>
       )}
 
+      <h3>Version et validité</h3>
+      <dl className="kv">
+        <dt>Version</dt>
+        <dd>
+          {detail.edition.label}{" "}
+          <Chip tone={PUBLICATION[detail.edition.publication_state]?.tone ?? "gray"}>
+            {detail.edition.publication_state === "operational" ? "Actuelle" : "Historique"}
+          </Chip>
+        </dd>
+        <dt>Date d'effet</dt>
+        <dd>{detail.edition.publication_state === "operational" ? "voir l'édition" : <em className="muted">non vérifiée</em>}</dd>
+        <dt>Date de fin</dt>
+        <dd>—</dd>
+      </dl>
+      <h3>Historique des versions</h3>
+      <table className="data compact">
+        <thead>
+          <tr><th scope="col">Édition</th><th scope="col">État</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{detail.edition.label}</td>
+            <td><Chip tone={PUBLICATION[detail.edition.publication_state]?.tone ?? "gray"}>{PUBLICATION[detail.edition.publication_state]?.label}</Chip></td>
+          </tr>
+          {detail.same_code_in_other_editions.map((o) => (
+            <tr key={o.id}>
+              <td>
+                <button type="button" className="link" onClick={() => onOpen(o.id)}>{o.edition.label}</button>
+              </td>
+              <td><Chip tone={PUBLICATION[o.edition.publication_state]?.tone ?? "gray"}>{PUBLICATION[o.edition.publication_state]?.label}</Chip></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {detail.same_code_in_other_editions.length === 0 && <p className="muted small">Ce code n'existe que dans cette édition.</p>}
+
       {detail.issues.length > 0 && (
         <>
           <h3>Anomalies</h3>
@@ -235,20 +330,6 @@ function NodePanel({ detail, onOpen }: { detail: NodeDetail; onOpen: (id: string
           </ul>
         </>
       )}
-      {detail.same_code_in_other_editions.length > 0 && (
-        <>
-          <h3>Même code dans d'autres éditions</h3>
-          <ul className="plain">
-            {detail.same_code_in_other_editions.map((o) => (
-              <li key={o.id}>
-                <button type="button" className="link" onClick={() => onOpen(o.id)}>
-                  {o.edition.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
       {record && (
         <div className="evidence" role="region" aria-label="Preuve">
           <h3>Preuve : {record.location}</h3>
@@ -280,6 +361,7 @@ function NodePanel({ detail, onOpen }: { detail: NodeDetail; onOpen: (id: string
 export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
   const [editions, setEditions] = useState<Edition[] | null>(null);
   const [runs, setRuns] = useState<ImportRunInfo[] | null>(null);
+  const [tab, setTab] = useState<"tarif" | "taxes" | "versions" | "import">("tarif");
 
   useEffect(() => {
     api.editions().then(setEditions, () => setEditions([]));
@@ -294,19 +376,94 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
 
   return (
     <>
-      <PageHeader title="Référentiel tarifaire" subtitle="Les éditions du tarif, leur source et leur état. Un taux n'est utilisé que s'il est vérifié." />
-      <div className={`stats ${runs ? "stats-3" : "stats-2"}`}>
+      <nav className="breadcrumb" aria-label="Fil d'Ariane">
+        <span>Référentiel</span>
+        <Icon name="chevronRight" size={14} />
+        <span>Administration tarifaire</span>
+      </nav>
+      <PageHeader
+        title="Administration tarifaire"
+        subtitle="Le tarif douanier et les règles fiscales applicables. Un taux n'est utilisé que s'il est daté, sourcé et vérifié."
+      />
+      <div role="tablist" className="tabs" aria-label="Sections du référentiel">
+        {(
+          [
+            ["tarif", "Tarif douanier", "file"],
+            ["taxes", "Taxes et règles", "layers"],
+            ["versions", "Versions", "history"],
+            ["import", "Import Excel", "upload"],
+          ] as const
+        ).map(([key, label, icon]) => (
+          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}>
+            <Icon name={icon} size={18} /> {label}
+          </button>
+        ))}
+      </div>
+      <div className="stats stats-3">
         <StatCard
           icon="file"
           tone="green"
-          label="Édition en vigueur"
+          label="Version active"
           value={operational ? operational.label : "aucune"}
-          hint={operational ? undefined : "les éditions publiées sont en consultation historique"}
+          hint={operational ? "en vigueur" : "les éditions publiées sont en consultation historique"}
         />
-        <StatCard icon="clock" tone="blue" label="Dernière publication" value={latest?.published_at ? fmtDate(latest.published_at) : "—"} hint={latest?.label} />
-        {runs && <StatCard icon="book" tone="green" label="Lignes tarifaires" value={lines ?? "—"} hint={lines ? (operational ?? latest)?.label : undefined} />}
+        <StatCard icon="clock" tone="blue" label="Dernière mise à jour" value={latest?.published_at ? fmtDate(latest.published_at) : "—"} hint={latest?.label} />
+        <StatCard
+          icon="book"
+          tone="green"
+          label="Lignes tarifaires"
+          value={lines ?? "—"}
+          hint={lines ? (operational ?? latest)?.label : canSeeImports ? "aucun import" : "visible du gestionnaire du référentiel"}
+        />
       </div>
 
+      {tab === "tarif" && (
+        <>
+          <div className="action-bar">
+            <button type="button" className="btn-primary" disabled={!canSeeImports} onClick={() => setTab("import")}>
+              <Icon name="plus" /> Importer un nouveau tarif
+            </button>
+            <button type="button" className="btn-secondary" disabled title="La comparaison de versions arrive avec la deuxième édition vérifiée.">
+              <Icon name="refresh" /> Comparer les versions
+            </button>
+            <button type="button" className="btn-secondary" disabled title="L'export du tarif arrive dans une prochaine version.">
+              <Icon name="upload" /> Exporter
+            </button>
+          </div>
+          <TariffExplorer />
+        </>
+      )}
+
+      {tab === "taxes" && (
+        <section className="card" aria-labelledby="taxes-title">
+          <h2 id="taxes-title" className="card-title">Taxes et règles</h2>
+          <p className="note-amber small">
+            Aucune règle fiscale n'est encore saisie : aucun taux n'est appliqué à un dossier. Les colonnes de taux du classeur 2016 restent
+            des observations brutes, visibles dans la fiche de chaque code.
+          </p>
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr><th scope="col">Code</th><th scope="col">Taxe</th><th scope="col">Assiette</th><th scope="col">Taux</th><th scope="col">Source</th><th scope="col">État</th></tr>
+              </thead>
+              <tbody>
+                {TAX_RULES.map(([code, label, base]) => (
+                  <tr key={code}>
+                    <td><strong>{code}</strong></td>
+                    <td>{label}</td>
+                    <td className="small">{base}</td>
+                    <td><em className="muted">non saisi</em></td>
+                    <td><em className="muted">à fournir</em></td>
+                    <td><Chip tone="gray">À définir</Chip></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tab === "versions" && (
       <section className="card" aria-labelledby="editions-title">
         <h2 id="editions-title" className="card-title">Éditions</h2>
         {editions === null ? (
@@ -342,31 +499,48 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
           </div>
         )}
       </section>
-
-      {runs && runs.length > 0 && (
-        <section className="card" aria-labelledby="imports-title">
-          <h2 id="imports-title" className="card-title">Imports</h2>
-          <div className="table-wrap">
-            <table className="data">
-              <thead>
-                <tr><th scope="col">Source</th><th scope="col">Importé le</th><th scope="col">Lignes tarifaires</th><th scope="col">Anomalies ouvertes</th></tr>
-              </thead>
-              <tbody>
-                {runs.map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.source}</td>
-                    <td>{fmtDate(r.started_at)}</td>
-                    <td>{r.counts.tariff_lines ?? "—"}</td>
-                    <td>{r.open_issues > 0 ? <Chip tone="amber">{r.open_issues}</Chip> : <Chip tone="green">0</Chip>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
       )}
 
-      <TariffExplorer />
+      {tab === "import" && (
+        <section className="card" aria-labelledby="imports-title">
+          <h2 id="imports-title" className="card-title">Import Excel</h2>
+          <p className="muted small">
+            Un import crée une nouvelle édition en brouillon : chaque ligne garde sa cellule source, et rien n'est publié sans vérification.
+            L'import se lance aujourd'hui par le gestionnaire du référentiel (commande <code>import_tariff_xlsx</code>) ; le dépôt depuis cet écran arrive ensuite.
+          </p>
+          {!canSeeImports ? (
+            <p className="empty">Les imports sont visibles du gestionnaire du référentiel.</p>
+          ) : !runs || runs.length === 0 ? (
+            <p className="empty">Aucun import.</p>
+          ) : (
+            <div className="table-wrap">
+              <table className="data">
+                <thead>
+                  <tr><th scope="col">Source</th><th scope="col">Importé le</th><th scope="col">Lignes tarifaires</th><th scope="col">Anomalies ouvertes</th></tr>
+                </thead>
+                <tbody>
+                  {runs.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.source}</td>
+                      <td>{fmtDate(r.started_at)}</td>
+                      <td>{r.counts.tariff_lines ?? "—"}</td>
+                      <td>{r.open_issues > 0 ? <Chip tone="amber">{r.open_issues}</Chip> : <Chip tone="green">0</Chip>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
     </>
   );
 }
+
+const TAX_RULES: [string, string, string][] = [
+  ["DD", "Droit de douane (TEC CEMAC)", "valeur en douane (CIF)"],
+  ["TCI", "Taxe communautaire d'intégration", "valeur en douane"],
+  ["CCI", "Contribution communautaire d'intégration", "valeur en douane"],
+  ["RS", "Redevance statistique", "valeur en douane"],
+  ["TVA", "Taxe sur la valeur ajoutée", "valeur en douane + droits"],
+];

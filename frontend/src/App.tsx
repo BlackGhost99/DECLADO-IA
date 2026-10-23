@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Administration } from "./Administration";
-import { api, ApiError, ROLE_LABELS, type Me, type Membership } from "./api";
+import { api, ApiError, ROLE_LABELS, type Me, type Membership, type OrgAuditEvent } from "./api";
 import { CaseDetailView, CASE_TABS } from "./CaseDetail";
 import { CasePicker, Cases, NewCasePage } from "./Cases";
 import { Dashboard } from "./Dashboard";
 import { Icon, Logo, type IconName } from "./Icon";
+import { CemacMap } from "./Illustrations";
 import { LoginForm } from "./LoginForm";
 import { OrganizationPicker } from "./OrganizationPicker";
 import { ReferenceAdmin, TariffSearch } from "./Reference";
 import { currentCase, navigate, useRoute, type Route } from "./router";
-import { initials } from "./ui";
+import { eventIcon, eventLabel, initials, relativeTime } from "./ui";
 
 export default function App() {
   const [me, setMe] = useState<Me | null>(null);
@@ -83,6 +84,75 @@ const NAV_ADMIN: NavItem[] = [
   { path: "administration", label: "Administration", icon: "settings" },
 ];
 
+const CEMAC = ["Gabon", "Cameroun", "Congo", "RCA", "Guinée équatoriale", "Tchad"];
+
+/** Pays de la CEMAC : seul le Gabon est ouvert ; les autres sont annoncés, jamais simulés. */
+function CountryMenu() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="menu-wrap">
+      <button type="button" className="country" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)}>
+        <span className="flag-ga" aria-hidden="true" />
+        Gabon
+        <Icon name="chevronDown" size={16} />
+      </button>
+      {open && (
+        <ul className="menu" role="menu" aria-label="Pays">
+          {CEMAC.map((c) => (
+            <li key={c} role="menuitem" aria-disabled={c !== "Gabon"} className={c === "Gabon" ? "current" : "disabled"}>
+              {c}
+              <small>{c === "Gabon" ? "actif" : "à venir"}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Cloche : les derniers événements de la société (journal réel), visibles des responsables. */
+function Notifications({ membership }: { membership: Membership }) {
+  const allowed = membership.roles.some((r) => r === "org_admin" || r === "validator");
+  const [open, setOpen] = useState(false);
+  const [events, setEvents] = useState<OrgAuditEvent[] | null>(null);
+  useEffect(() => {
+    if (open && allowed && events === null) api.auditEvents().then((p) => setEvents(p.results.slice(0, 8)), () => setEvents([]));
+  }, [open, allowed, events]);
+  return (
+    <div className="menu-wrap">
+      <button type="button" className="icon-button bell" aria-expanded={open} onClick={() => setOpen(!open)} title="Notifications">
+        <Icon name="bell" size={22} />
+        <span className="visually-hidden">Notifications</span>
+      </button>
+      {open && (
+        <div className="menu menu-wide" role="dialog" aria-label="Notifications">
+          <strong className="menu-title">Activité récente</strong>
+          {!allowed ? (
+            <p className="muted small">Les notifications personnelles arrivent dans une prochaine version.</p>
+          ) : events === null ? (
+            <p className="muted small">Chargement…</p>
+          ) : events.length === 0 ? (
+            <p className="muted small">Aucune activité.</p>
+          ) : (
+            <ul className="activity">
+              {events.map((e) => (
+                <li key={e.id}>
+                  <span className="activity-icon"><Icon name={eventIcon(e.event_type)} size={16} /></span>
+                  <span>
+                    <strong>{eventLabel(e.event_type)}</strong>
+                    <small>{e.actor_email ?? "système"}</small>
+                  </span>
+                  <time dateTime={e.at}>{relativeTime(e.at)}</time>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function isActive(item: NavItem, route: Route): boolean {
   const [first, , tab] = route.parts;
   if (item.caseTab) return first === "dossiers" && tab === item.caseTab;
@@ -155,8 +225,15 @@ function Layout({
           ))}
         </nav>
         <div className="sidebar-foot">
-          <strong>CEMAC</strong>
-          <span>Gabon · Cameroun · Congo · RCA · Guinée équatoriale · Tchad</span>
+          <CemacMap />
+          <div>
+            <strong>CEMAC</strong>
+            <ul>
+              {CEMAC.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       </aside>
 
@@ -178,10 +255,8 @@ function Layout({
           <div className="topbar-right">
             {active?.organization.is_demo && <span className="demo-flag">Démonstration · données fictives</span>}
             {active && me.memberships.length > 1 && <OrganizationPicker me={me} onChange={onChangeOrg} compact />}
-            <span className="country" title="Territoire des dossiers">
-              <span className="flag-ga" aria-hidden="true" />
-              Gabon
-            </span>
+            {active && <Notifications membership={active} />}
+            <CountryMenu />
             <span className="user">
               <span className="avatar">{initials(name)}</span>
               <span className="user-text">
@@ -230,7 +305,7 @@ function Page({ route, me, active }: { route: Route; me: Me; active: Membership 
     case "nouveau":
       return <NewCasePage membership={active} />;
     case "recherche":
-      return <TariffSearch />;
+      return <TariffSearch initialQuery={route.query.get("q") ?? ""} />;
     case "referentiel":
       return <ReferenceAdmin canSeeImports={me.is_reference_manager} />;
     case "administration":
