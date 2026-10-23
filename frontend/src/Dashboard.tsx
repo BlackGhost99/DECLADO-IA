@@ -66,7 +66,7 @@ export function Dashboard({ membership, me }: { membership: Membership; me: Pick
           <h1>ClairTransit</h1>
           <p className="hero-sub">Assistant de préparation douanière</p>
           <p className="hero-text">
-            Des documents reçus au dossier préparé : chaque information garde sa source, chaque décision son auteur.
+            Transformez vos documents d’import en dossiers de dédouanement structurés, traçables et prêts à être vérifiés.
           </p>
         </div>
         <div className="hero-side">
