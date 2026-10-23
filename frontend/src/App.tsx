@@ -244,7 +244,7 @@ function Layout({
               <Icon name="search" />
               <input
                 aria-label="Rechercher un dossier"
-                placeholder="Rechercher un dossier, une référence…"
+                placeholder="Rechercher un dossier, un importateur, un B/L…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -256,18 +256,15 @@ function Layout({
             {active?.organization.is_demo && <span className="demo-flag">Démonstration · données fictives</span>}
             {active && me.memberships.length > 1 && <OrganizationPicker me={me} onChange={onChangeOrg} compact />}
             {active && <Notifications membership={active} />}
-            <CountryMenu />
             <span className="user">
               <span className="avatar">{initials(name)}</span>
               <span className="user-text">
                 <strong>{name}</strong>
-                <small>
-                  {roleLabel}
-                  {active && ` · ${active.organization.name}`}
-                </small>
+                <small>{roleLabel}</small>
               </span>
             </span>
-            <button type="button" className="icon-button" onClick={onLogout} title="Se déconnecter">
+            <CountryMenu />
+            <button type="button" className="icon-button" onClick={onLogout} title={active ? `${active.organization.name} · Se déconnecter` : "Se déconnecter"}>
               <Icon name="logout" />
               <span className="visually-hidden">Se déconnecter</span>
             </button>
