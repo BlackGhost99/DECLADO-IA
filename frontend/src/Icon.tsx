@@ -21,8 +21,11 @@ const PATHS: Record<string, string> = {
   history: "M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2",
   eye: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
   arrowRight: "M5 12h14M13 6l6 6-6 6",
+  arrowUpRight: "M7 17L17 7M9 7h8v8",
+  arrowDownRight: "M7 7l10 10M17 9v8H9",
   arrowLeft: "M19 12H5M11 6l-6 6 6 6",
   chevronRight: "M9 6l6 6-6 6",
+  chevronLeft: "M15 6l-6 6 6 6",
   x: "M6 6l12 12M18 6L6 18",
   logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
   edit: "M4 20h4L19 9l-4-4L4 16zM14 6l4 4",
@@ -45,6 +48,12 @@ const PATHS: Record<string, string> = {
   percent: "M19 5L5 19M6.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
   message: "M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z",
   layers: "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17l9 5 9-5",
+  globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z",
+  flag: "M5 21V4M5 4h11l-2 4 2 4H5",
+  cloudUpload: "M7 18a5 5 0 0 1-.6-10A6 6 0 0 1 18 9a4.5 4.5 0 0 1-1 9M12 21v-9M8.5 15.5L12 12l3.5 3.5",
+  save: "M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zM8 3v5h7V3M8 21v-7h8v7",
+  menu: "M4 6h16M4 12h16M4 18h16",
+  minus: "M5 12h14",
   list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   fileSheet: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M8 12h8v6H8zM12 12v6M8 15h8",
   archive: "M3 4h18v4H3zM5 8v12h14V8M10 12h4",
@@ -77,9 +86,10 @@ export function Icon({ name, size = 20, className }: { name: IconName; size?: nu
 export function Logo({ size = 40 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
-      <path d="M20 3l15 8-15 8-15-8z" fill="#9BD34D" />
-      <path d="M5 11l15 8v18L5 29z" fill="#3E9B3A" />
-      <path d="M35 11l-15 8v18l15-8z" fill="#2B7A2F" />
+      <path d="M20 3l15 8-15 8-15-8z" fill="#9FCB3B" />
+      <path d="M5 11l15 8v18L5 29z" fill="#D6E37C" />
+      <path d="M35 11l-15 8v18l15-8z" fill="#1FA04D" />
+      <path d="M5 11l15 8 15-8M20 19v18" fill="none" stroke="#04362c" strokeWidth="1.4" />
     </svg>
   );
 }

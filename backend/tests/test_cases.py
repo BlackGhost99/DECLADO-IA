@@ -431,3 +431,29 @@ def test_deactivated_member_loses_access(prepared, session):
     resp = prepared["s"].get(f"/api/v1/cases/{prepared['case']['id']}")
     assert resp.status_code == 403
     assert Membership.objects.filter(user__email="validateur@a.test", roles__contains=[Role.VALIDATOR]).exists()
+
+
+def test_preparation_fields_on_creation_and_update(world, session):
+    """Écran « Nouveau dossier » : transport, bureau, pays et priorité restent vides tant qu'ils sont inconnus."""
+    s = session("declarant@a.test")
+    blank = create_case(s)["revision"]
+    assert blank["transport_mode"] == "" and blank["origin_country"] == "" and blank["priority"] == "normal"
+    case = create_case(
+        s,
+        client_reference="NIF-0001",
+        transport_mode="sea",
+        entry_office="Port d'Owendo",
+        origin_country="cn",
+        provenance_country="CN",
+        priority="high",
+    )
+    rev = case["revision"]
+    assert rev["transport_mode_label"] == "Maritime" and rev["origin_country"] == "CN"
+    assert rev["entry_office"] == "Port d'Owendo" and rev["priority_label"] == "Haute"
+    resp = s.patch(f"/api/v1/revisions/{rev['id']}", {"transport_mode": "air", "origin_country": "", "row_version": 1})
+    assert resp.status_code == 200, resp.content
+    assert resp.json()["transport_mode"] == "air" and resp.json()["origin_country"] == ""
+    assert s.post("/api/v1/cases", {"origin_country": "Chine"}).status_code == 400
+    assert s.post("/api/v1/cases", {"transport_mode": "teleport"}).status_code == 400
+    event = AuditEvent.objects.filter(event_type="revision.updated").latest("at")
+    assert event.current["transport_mode"] == "air"

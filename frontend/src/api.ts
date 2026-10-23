@@ -518,6 +518,14 @@ export interface Revision {
   territory: string;
   planned_declaration_date: string | null;
   regime: string;
+  client_reference?: string;
+  transport_mode?: string;
+  transport_mode_label?: string;
+  entry_office?: string;
+  origin_country?: string;
+  provenance_country?: string;
+  priority?: string;
+  priority_label?: string;
   is_editable: boolean;
   row_version: number;
   target_edition: (EditionBrief & { warning: string | null }) | null;

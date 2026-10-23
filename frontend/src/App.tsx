@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import { Administration } from "./Administration";
 import { api, ApiError, ROLE_LABELS, type Me, type Membership, type OrgAuditEvent } from "./api";
 import { CaseDetailView, CASE_TABS } from "./CaseDetail";
-import { CasePicker, Cases, NewCasePage } from "./Cases";
+import { CasePicker, Cases } from "./Cases";
+import { NewCasePage } from "./NewCase";
 import { Dashboard } from "./Dashboard";
 import { Icon, Logo, type IconName } from "./Icon";
-import { CemacMap } from "./Illustrations";
+import cemacMap from "./assets/cemac-map.png";
 import { LoginForm } from "./LoginForm";
 import { OrganizationPicker } from "./OrganizationPicker";
 import { ReferenceAdmin, TariffSearch } from "./Reference";
@@ -153,6 +154,46 @@ function Notifications({ membership }: { membership: Membership }) {
   );
 }
 
+/** Utilisateur connecté : société, changement de société et déconnexion. */
+function UserMenu({
+  name,
+  roleLabel,
+  me,
+  active,
+  onChangeOrg,
+  onLogout,
+}: {
+  name: string;
+  roleLabel: string;
+  me: Me;
+  active: Membership | null;
+  onChangeOrg: (me: Me) => void;
+  onLogout: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="menu-wrap">
+      <button type="button" className="user" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="avatar">{initials(name)}</span>
+        <span className="user-text">
+          <strong>{name}</strong>
+          <small>{roleLabel}</small>
+        </span>
+        <Icon name="chevronDown" size={18} className="user-chevron" />
+      </button>
+      {open && (
+        <div className="menu menu-right user-menu" role="menu" aria-label="Compte">
+          {active && <p className="menu-title">{active.organization.name}</p>}
+          {active && me.memberships.length > 1 && <OrganizationPicker me={me} onChange={onChangeOrg} compact />}
+          <button type="button" role="menuitem" onClick={onLogout}>
+            <Icon name="logout" size={16} /> Se déconnecter
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function isActive(item: NavItem, route: Route): boolean {
   const [first, , tab] = route.parts;
   if (item.caseTab) return first === "dossiers" && tab === item.caseTab;
@@ -218,6 +259,7 @@ function Layout({
                   >
                     <Icon name={item.icon} />
                     {item.label}
+                    {NAV_ADMIN.includes(item) && <Icon name="chevronRight" size={16} className="nav-chevron" />}
                   </button>
                 </li>
               ))}
@@ -225,7 +267,7 @@ function Layout({
           ))}
         </nav>
         <div className="sidebar-foot">
-          <CemacMap />
+          <img src={cemacMap} alt="" width={98} height={120} />
           <div>
             <strong>CEMAC</strong>
             <ul>
@@ -254,22 +296,13 @@ function Layout({
           )}
           <div className="topbar-right">
             {active?.organization.is_demo && <span className="demo-flag">Démonstration · données fictives</span>}
-            {active && me.memberships.length > 1 && <OrganizationPicker me={me} onChange={onChangeOrg} compact />}
             {active && <Notifications membership={active} />}
-            <span className="user">
-              <span className="avatar">{initials(name)}</span>
-              <span className="user-text">
-                <strong>{name}</strong>
-                <small>{roleLabel}</small>
-              </span>
-            </span>
-            <CountryMenu />
-            <button type="button" className="icon-button" onClick={onLogout} title={active ? `${active.organization.name} · Se déconnecter` : "Se déconnecter"}>
-              <Icon name="logout" />
-              <span className="visually-hidden">Se déconnecter</span>
-            </button>
+            <UserMenu name={name} roleLabel={roleLabel} me={me} active={active} onChangeOrg={onChangeOrg} onLogout={onLogout} />
           </div>
         </header>
+        <div className="country-slot">
+          <CountryMenu />
+        </div>
         <main className="content">{children(route)}</main>
       </div>
     </div>
@@ -300,7 +333,7 @@ function Page({ route, me, active }: { route: Route; me: Me; active: Membership 
       }
       return <Cases membership={active} me={me} initialQuery={route.query.get("q") ?? ""} />;
     case "nouveau":
-      return <NewCasePage membership={active} />;
+      return <NewCasePage membership={active} me={me} />;
     case "recherche":
       return <TariffSearch initialQuery={route.query.get("q") ?? ""} />;
     case "referentiel":

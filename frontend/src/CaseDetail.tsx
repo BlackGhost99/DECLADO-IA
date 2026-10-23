@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   api,
   ApiError,
@@ -64,6 +64,15 @@ export const CASE_TABS: { key: string; label: string; icon: IconName }[] = [
   { key: "calculs", label: "Calculs", icon: "calculator" },
   { key: "validation", label: "Validation", icon: "shield" },
   { key: "export", label: "Export", icon: "upload" },
+  { key: "historique", label: "Historique", icon: "history" },
+];
+
+/** Onglets de la fiche dossier (en-tête « Dossier … — importateur »), comme sur la maquette Documents. */
+const DOSSIER_TABS: { key: string; label: string; icon: IconName }[] = [
+  { key: "apercu", label: "Aperçu", icon: "eye" },
+  { key: "documents", label: "Documents", icon: "file" },
+  { key: "donnees", label: "Données extraites", icon: "edit" },
+  { key: "controles", label: "Vérifications", icon: "checkCircle" },
   { key: "historique", label: "Historique", icon: "history" },
 ];
 
@@ -181,60 +190,76 @@ export function CaseDetailView({
   const go = (key: string) => navigate(`/dossiers/${detail.id}/${key}`);
   const tabInfo = CASE_TABS.find((t) => t.key === tab);
   const heading = TAB_HEADINGS[tab]?.(detail.reference) ?? TAB_HEADINGS.apercu(detail.reference);
+  const dossierView = DOSSIER_TABS.some((t) => t.key === tab && t.key !== "controles");
 
   return (
     <div className={`case-detail case-detail-${tab}`}>
+      {tab !== "marchandises" && (<>
       <nav className="breadcrumb" aria-label="Fil d'Ariane">
         <button type="button" className="link" onClick={() => navigate("/dossiers")}>
-          <Icon name="arrowLeft" size={16} /> Mes dossiers
+          {dossierView && <Icon name="arrowLeft" size={14} />} Mes dossiers
         </button>
         <Icon name="chevronRight" size={14} />
-        <button type="button" className="link code" onClick={() => go("apercu")}>{detail.reference}</button>
-        {tabInfo && tab !== "apercu" && (
+        <button type="button" className="link" onClick={() => go("apercu")}>{detail.reference}</button>
+        {tabInfo && !dossierView && (
           <>
             <Icon name="chevronRight" size={14} />
             <span>{tabInfo.label}</span>
           </>
         )}
       </nav>
-      <div className="case-header">
-        <div className="case-heading">
-          <h1 id="case-title">
-            {heading.title}
-            {heading.title === "Dossier" && (
-              <>
-                {" "}<span className="code">{detail.reference}</span>
-                {detail.importer && <> — {detail.importer.name}</>}
-              </>
-            )}
-          </h1>
-          <p className="page-subtitle">{heading.subtitle}</p>
-          <p className="case-meta">
-            <span><Icon name="file" size={16} /> {detail.title || "Importation"}</span>
-            <span><Icon name="layers" size={16} /> {rev.mode_label}</span>
-            <span><Icon name="mapPin" size={16} /> {rev.territory === "GA" ? "Gabon" : rev.territory || "territoire ?"}</span>
-            <span><Icon name="user" size={16} /> Créé le {fmtDate(detail.created_at)} par {personName(detail.created_by)}</span>
-          </p>
+      {dossierView ? (
+        <div className="case-head case-head-dossier">
+          <div>
+            <h1 id="case-title">
+              Dossier {detail.reference}
+              {detail.importer && <> — {detail.importer.name}</>}
+              <StateChip state={rev.state} label={rev.state_label} />
+            </h1>
+            <p className="case-meta">
+              <span><Icon name="file" size={17} /> Importation</span>
+              <span><Icon name="layers" size={17} /> {rev.mode_label}</span>
+              <span><Icon name="mapPin" size={17} /> {rev.territory === "GA" ? "Gabon" : rev.territory || "territoire ?"}</span>
+              <span><Icon name="user" size={17} /> Créé le {fmtDate(detail.created_at)} par {personName(detail.created_by)}</span>
+            </p>
+          </div>
+          <CaseActions canTake={canEdit && !detail.assigned_to} onTake={() => act(() => api.assignCase(detail.id, me.id, detail.row_version))} go={go} />
         </div>
-        <aside className="case-aside" aria-label="Résumé du dossier">
-          <StateChip state={rev.state} label={rev.state_label} />
-          <strong className="code">{detail.reference}</strong>
-          <span>{detail.importer?.name ?? <em className="muted">importateur à renseigner</em>}</span>
-          <small>
-            Révision {rev.revision_no} · Agent : {personName(detail.assigned_to) || "non affecté"}
-          </small>
-          <CaseActions
-            canTake={canEdit && !detail.assigned_to}
-            onTake={() => act(() => api.assignCase(detail.id, me.id, detail.row_version))}
-            go={go}
-          />
-        </aside>
-      </div>
+      ) : (
+        <div className="case-head case-head-section">
+          <div className="case-head-main">
+            <h1 id="case-title">{heading.title}</h1>
+            <p className="page-subtitle">{heading.subtitle}</p>
+            {(tab === "calculs" || tab === "export" || tab === "validation") && (
+              <div className="head-stepper" aria-label="Étapes du dossier">
+                <Stepper steps={steps} onSelect={go} />
+              </div>
+            )}
+          </div>
+          <aside className="case-aside" aria-label="Résumé du dossier">
+            <StateChip state={rev.state} label={rev.state_label} />
+            <strong>{detail.reference}</strong>
+            <span>{detail.importer?.name ?? <em className="muted">importateur à renseigner</em>}</span>
+            <small>{rev.transport_mode_label ? <>{rev.transport_mode_label} <i /> </> : null}Importation <i /> {rev.territory === "GA" ? "Gabon" : rev.territory || "territoire ?"}</small>
+            <CaseActions canTake={canEdit && !detail.assigned_to} onTake={() => act(() => api.assignCase(detail.id, me.id, detail.row_version))} go={go} />
+          </aside>
+        </div>
+      )}
       {error && <p role="alert" className="error">⚠ {error}</p>}
+      </>)}
 
-      {/* La barre latérale sert de navigation entre les sections ; la frise ne reste que sur l'aperçu et l'export. */}
-      {(tab === "apercu" || tab === "export") && (
-        <section className={tab === "export" ? "stepper-card export-stepper" : "card stepper-card"} aria-label="Étapes du dossier">
+      {dossierView && (
+        <div role="tablist" className="tabs case-tabs" aria-label="Sections du dossier">
+          {DOSSIER_TABS.map((t) => (
+            <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => go(t.key)}>
+              <Icon name={t.icon} size={19} />
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {tab === "apercu" && (
+        <section className="card stepper-card" aria-label="Étapes du dossier">
           <Stepper steps={steps} onSelect={go} />
         </section>
       )}
@@ -243,9 +268,33 @@ export function CaseDetailView({
         {tab === "apercu" && (
           <Overview detail={detail} editions={editions} editable={editable} act={act} go={go} />
         )}
-        {tab === "documents" && <DocumentsTab caseId={detail.id} revision={rev} editable={editable} onChange={reload} />}
+        {tab === "documents" && (
+          <DocumentsTab caseId={detail.id} revision={rev} importer={detail.importer?.name ?? null} editable={editable} onChange={reload} go={go} />
+        )}
         {tab === "donnees" && <Invoices revision={rev} editable={editable} act={act} />}
-        {tab === "marchandises" && <GoodsTab revision={rev} editions={editions} editable={editable} act={act} />}
+        {tab === "marchandises" && (
+          <GoodsTab
+            revision={rev}
+            editions={editions}
+            editable={editable}
+            act={act}
+            head={
+              <>
+                <nav className="breadcrumb" aria-label="Fil d'Ariane">
+                  <button type="button" className="link" onClick={() => go("apercu")}>{detail.reference}</button>
+                  <Icon name="chevronRight" size={14} />
+                  <span>Marchandises</span>
+                </nav>
+                <h1 id="case-title" className="goods-title">Marchandises</h1>
+                <p className="goods-sub">Classez les marchandises du dossier {detail.reference}</p>
+                <p className="goods-text">
+                  Les codes présents sur les factures sont contrôlés dans le tarif en vigueur. Chaque code retenu doit être confirmé par un agent, avec un motif.
+                </p>
+                {error && <p role="alert" className="error">⚠ {error}</p>}
+              </>
+            }
+          />
+        )}
         {tab === "controles" && <Controls detail={detail} go={go} />}
         {tab === "calculs" && <Calculation detail={detail} go={go} />}
         {tab === "validation" && <ValidationPage detail={detail} go={go} />}
@@ -401,16 +450,41 @@ function Completeness({ revision }: { revision: Revision }) {
 
 // ---- Documents : la pièce au centre, les données lues à droite --------------------------------
 
+/** Pictogramme de pièce, coloré selon son rôle dans le dossier. */
+const DOC_TONES: Record<string, string> = { invoice: "red", packing_list: "red", transport: "blue", insurance: "blue", origin: "green" };
+
+function DocGlyph({ usage, mime }: { usage: string; mime: string }) {
+  const tone = DOC_TONES[usage] ?? "gray";
+  const sheet = !mime.includes("pdf") && !mime.startsWith("image/");
+  return (
+    <svg className={`doc-glyph doc-glyph-${tone}`} viewBox="0 0 26 32" width={26} height={32} aria-hidden="true">
+      <path d="M3 0h14l9 9v20a3 3 0 0 1-3 3H3a3 3 0 0 1-3-3V3a3 3 0 0 1 3-3z" fill="currentColor" />
+      <path d="M17 0v6a3 3 0 0 0 3 3h6z" fill="#fff" fillOpacity=".45" />
+      {usage === "insurance" ? (
+        <path d="M13 12l6 2.2v4.3c0 3.6-2.6 5.7-6 6.5-3.4-.8-6-2.9-6-6.5v-4.3z" fill="#fff" />
+      ) : usage === "origin" || sheet ? (
+        <path d="M7.5 14h11M7.5 18h11M7.5 22h7" stroke="#fff" strokeWidth="2" strokeLinecap="round" fill="none" />
+      ) : (
+        <path d="M13 12c1.2 0 1.2 2.5 0 6-1 3-3.5 6.2-5.2 6.2-1.4 0-.7-2.2 2.6-3.3 2.6-.9 6.3-1.3 7.8-.4 1.4.8.5 2-1 1.2-1.6-.8-3.3-3.2-4.6-6-.9-2-.8-3.7.4-3.7z" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinejoin="round" />
+      )}
+    </svg>
+  );
+}
+
 function DocumentsTab({
   caseId,
   revision,
+  importer,
   editable,
   onChange,
+  go,
 }: {
   caseId: string;
   revision: Revision;
+  importer: string | null;
   editable: boolean;
   onChange: () => Promise<void>;
+  go: (tab: string) => void;
 }) {
   const active = revision.documents.filter((d) => !d.replaced_by_id);
   const replaced = revision.documents.filter((d) => d.replaced_by_id);
@@ -442,18 +516,15 @@ function DocumentsTab({
                   className={`doc-item${selected?.id === link.id ? " selected" : ""}`}
                   onClick={() => { setSelectedId(link.id); setHighlight(null); }}
                 >
-                  <span className={`doc-type doc-${link.document.mime.includes("pdf") ? "pdf" : link.document.mime.startsWith("image/") ? "img" : "xls"}`}>
-                    {link.document.mime.includes("pdf") ? "PDF" : link.document.mime.startsWith("image/") ? "IMG" : "XLS"}
-                  </span>
+                  <DocGlyph usage={link.usage} mime={link.document.mime} />
                   <span className="doc-text">
                     <strong>{link.usage_label}</strong>
                     <span>{link.document.original_name}</span>
                     <small>
-                      {fmtDate(link.created_at)} · {formatBytes(link.document.bytes)}
+                      {fmtDate(link.created_at)} • {formatBytes(link.document.bytes)}
                       {link.document.readability !== "ok" && ` · ${link.document.readability_label}`}
                     </small>
                   </span>
-                  {link.latest_extraction?.status === "succeeded" && <Icon name="checkCircle" size={16} className="doc-ok" />}
                 </button>
               </li>
             ))}
@@ -492,16 +563,16 @@ function DocumentsTab({
         {selected ? <Viewer link={selected} highlight={highlight} /> : <p className="empty">Ajoutez une pièce pour l'afficher ici.</p>}
       </section>
 
-      <section className="card" aria-labelledby="extracted-title">
+      <div className="doc-side">
         {selected ? (
-          <ExtractedPanel link={selected} revision={revision} editable={editable} onChange={onChange} onSource={setHighlight} />
+          <ExtractedPanel link={selected} revision={revision} importer={importer} editable={editable} onChange={onChange} onSource={setHighlight} go={go} />
         ) : (
-          <>
+          <section className="card" aria-labelledby="extracted-title">
             <h2 id="extracted-title" className="card-title">Données extraites</h2>
             <p className="empty">Aucune pièce sélectionnée.</p>
-          </>
+          </section>
         )}
-      </section>
+      </div>
     </div>
   );
 }
@@ -690,7 +761,7 @@ function fieldStatus(value: unknown, origin: string | undefined, flagged: boolea
   if (value === null || value === undefined || value === "") return { tone: "gray", label: "Inconnu" };
   if (flagged) return { tone: "amber", label: "À vérifier" };
   if (origin === "manual") return { tone: "blue", label: "Saisi" };
-  return { tone: "green", label: "Lu" };
+  return { tone: "green", label: "Extrait" };
 }
 
 function SourceLink({ source, onSource }: { source?: FieldSource; onSource: (h: Highlight) => void }) {
@@ -705,18 +776,24 @@ function SourceLink({ source, onSource }: { source?: FieldSource; onSource: (h: 
   );
 }
 
+const PREVIEW_LINES = 3;
+
 function ExtractedPanel({
   link,
   revision,
+  importer,
   editable,
   onChange,
   onSource,
+  go,
 }: {
   link: CaseDocument;
   revision: Revision;
+  importer: string | null;
   editable: boolean;
   onChange: () => Promise<void>;
   onSource: (h: Highlight) => void;
+  go: (tab: string) => void;
 }) {
   const invoiceId = link.latest_extraction?.invoice_id;
   const invoice: Invoice | undefined =
@@ -724,97 +801,116 @@ function ExtractedPanel({
   const canRead = link.usage === "invoice" || Boolean(link.latest_extraction);
   const run = link.latest_extraction;
   const done = run?.status === "succeeded";
+  const currency = invoice?.currency ? ` (${invoice.currency})` : "";
 
   return (
     <>
-      <div className="card-head">
-        <h2 id="extracted-title" className="card-title">{link.usage === "invoice" ? "Données extraites de la facture" : `Données extraites · ${link.usage_label}`}</h2>
-        {run && (
-          <Chip tone={done ? "green" : run.status === "failed" ? "red" : "blue"} icon={done ? "checkCircle" : run.status === "failed" ? "alert" : "clock"}>
-            {done ? "Extraction terminée" : run.status_label}
-          </Chip>
-        )}
-      </div>
-      {done && run.finished_at && (
-        <p className="muted small processed">
-          <Icon name="checkCircle" size={16} /> Traité le {fmtDateTime(run.finished_at)} · lecture {run.attempt} ·{" "}
-          {run.parser === "ocr" ? "OCR" : "texte du PDF"}
-          {run.warnings.length > 0 && ` · ${run.warnings.length} avertissement(s)`}
-        </p>
-      )}
-      {canRead ? (
-        done ? (
-          <details className="read-options small">
-            <summary>Options de lecture</summary>
-            <ExtractionControls link={link} editable={editable} onDone={onChange} />
-          </details>
-        ) : (
-          <ExtractionControls link={link} editable={editable} onDone={onChange} />
-        )
-      ) : (
-        <p className="muted small">La lecture automatique concerne les factures. Cette pièce est conservée telle quelle.</p>
-      )}
-      {invoice ? (
-        <>
-          <h3>Informations générales</h3>
-          <dl className="field-list">
-            {(
-              [
-                ["supplier_name", "Fournisseur", invoice.supplier_name],
-                ["invoice_number", "N° facture", invoice.invoice_number],
-                ["invoice_date", "Date de facture", invoice.invoice_date ? fmtDate(invoice.invoice_date) : ""],
-                ["currency", "Devise", invoice.currency],
-                ["declared_total", "Montant total", fmtAmount(invoice.declared_total)],
-                ["incoterm", "Incoterm", invoice.incoterm],
-              ] as [string, string, string | null][]
-            ).map(([field, label, value]) => {
-              const flagged = (invoice.review_flags ?? []).some((f) => f.field === field);
-              const status = fieldStatus(value, invoice.field_origins?.[field], flagged);
-              return (
-                <div key={field} className="field-row">
-                  <dt>{label}</dt>
-                  <dd>
-                    <span className="field-value">{value || "—"}</span>
-                    <SourceLink source={invoice.field_sources?.[field]} onSource={onSource} />
-                    <Flags flags={invoice.review_flags} field={field} />
-                  </dd>
-                  <Chip tone={status.tone}>{status.label}</Chip>
-                </div>
-              );
-            })}
-          </dl>
-          <h3>Détail des marchandises ({invoice.lines.length} ligne{invoice.lines.length > 1 ? "s" : ""})</h3>
-          <div className="table-wrap">
-            <table className="data compact">
-              <thead>
-                <tr>
-                  <th scope="col">#</th><th scope="col">Description</th><th scope="col">Code SH lu</th>
-                  <th scope="col">Qté</th><th scope="col" className="num">PU</th><th scope="col" className="num">Montant</th><th scope="col">Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.lines.map((ln) => {
-                  const status = fieldStatus(ln.description_raw || ln.amount, ln.entry_origin, (ln.review_flags ?? []).length > 0);
-                  const code = ln.codes.find((c) => c.code_kind === "customs") ?? ln.codes[0];
-                  return (
-                    <tr key={ln.id}>
-                      <td>{ln.ordinal}</td>
-                      <td>{ln.description_raw || <em className="muted">inconnue</em>}</td>
-                      <td className="code">{code?.raw_code ?? "—"}</td>
-                      <td className="nowrap">{fmtQty(ln.quantity) || "?"} {ln.unit}</td>
-                      <td className="num">{ln.unit_price ? fmtAmount(ln.unit_price) : "—"}</td>
-                      <td className="num">{ln.amount ? fmtAmount(ln.amount) : <em className="muted">inconnu</em>}</td>
-                      <td><Chip tone={status.tone}>{status.label}</Chip></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      <section className="card extracted-card" aria-labelledby="extracted-title">
+        <div className="extracted-head">
+          <div className="card-head">
+            <h2 id="extracted-title" className="card-title">{link.usage === "invoice" ? "Données extraites de la facture" : `Données extraites · ${link.usage_label}`}</h2>
+            {run && (
+              <Chip tone={done ? "green" : run.status === "failed" ? "red" : "blue"} icon={done ? "checkCircle" : run.status === "failed" ? "alert" : "clock"}>
+                {done ? "Extraction terminée" : run.status_label}
+              </Chip>
+            )}
           </div>
-          <TotalsPanel totals={invoice.totals_check} currency={invoice.currency} />
-        </>
-      ) : (
-        link.latest_extraction?.status === "succeeded" && <p className="muted small">Aucune facture structurée dans cette lecture.</p>
+          {canRead && done && run.finished_at ? (
+            <details className="read-options">
+              <summary>
+                <span className="processed">
+                  <span className="processed-dot"><Icon name="check" size={15} /></span>
+                  <span title={`Lecture ${run.attempt} · ${run.parser === "ocr" ? "OCR" : "texte du PDF"}${run.warnings.length ? ` · ${run.warnings.length} avertissement(s)` : ""}`}>
+                    Traité le {fmtDateTime(run.finished_at)}
+                  </span>
+                </span>
+                <span className="btn-outline-small"><Icon name="settings" size={14} /> Options de lecture</span>
+              </summary>
+              <ExtractionControls link={link} editable={editable} onDone={onChange} />
+            </details>
+          ) : canRead ? (
+            <ExtractionControls link={link} editable={editable} onDone={onChange} />
+          ) : (
+            <p className="muted small">La lecture automatique concerne les factures. Cette pièce est conservée telle quelle.</p>
+          )}
+        </div>
+        {invoice ? (
+          <>
+            <h3 className="extracted-sub">Informations générales</h3>
+            <dl className="field-list">
+              {(
+                [
+                  ["supplier_name", "Fournisseur", invoice.supplier_name],
+                  ["importer", "Importateur", importer ?? ""],
+                  ["invoice_number", "N° facture", invoice.invoice_number],
+                  ["invoice_date", "Date de facture", invoice.invoice_date ? fmtDate(invoice.invoice_date) : ""],
+                  ["currency", "Devise", invoice.currency],
+                  ["declared_total", "Montant total", fmtAmount(invoice.declared_total)],
+                  ["incoterm", "Incoterm", invoice.incoterm],
+                ] as [string, string, string | null][]
+              ).map(([field, label, value]) => {
+                const flagged = (invoice.review_flags ?? []).some((f) => f.field === field);
+                // L'importateur vient de la fiche du dossier, pas de la lecture de la facture.
+                const status = field === "importer"
+                  ? value ? { tone: "green" as Tone, label: "Confirmé" } : { tone: "gray" as Tone, label: "Inconnu" }
+                  : fieldStatus(value, invoice.field_origins?.[field], flagged);
+                return (
+                  <div key={field} className="field-row">
+                    <dt>{label}</dt>
+                    <dd>
+                      <span className="field-value">{value || "—"}</span>
+                      {field === "importer" ? (
+                        value && <span className="source-link source-static">Fiche du dossier</span>
+                      ) : (
+                        <SourceLink source={invoice.field_sources?.[field]} onSource={onSource} />
+                      )}
+                      <Flags flags={invoice.review_flags} field={field} />
+                    </dd>
+                    <Chip tone={status.tone} icon={status.tone === "amber" ? "alert" : status.tone === "green" ? "checkCircle" : undefined}>{status.label}</Chip>
+                  </div>
+                );
+              })}
+            </dl>
+          </>
+        ) : (
+          done && <p className="muted small">Aucune facture structurée dans cette lecture.</p>
+        )}
+      </section>
+      {invoice && (
+        <section className="card goods-preview" aria-labelledby="goods-preview-title">
+          <div className="card-head">
+            <h2 id="goods-preview-title" className="card-title">
+              Détail des marchandises <span>({invoice.lines.length} ligne{invoice.lines.length > 1 ? "s" : ""})</span>
+            </h2>
+            <button type="button" className="btn-secondary btn-small" onClick={() => go("donnees")}>Voir toutes les lignes</button>
+          </div>
+          <table className="data compact goods-mini">
+            <thead>
+              <tr>
+                <th scope="col">#</th><th scope="col">Description</th><th scope="col">Code SH</th>
+                <th scope="col" className="num">Qté</th><th scope="col" className="num">Prix unitaire{currency}</th>
+                <th scope="col" className="num">Montant{currency}</th><th scope="col">Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoice.lines.slice(0, PREVIEW_LINES).map((ln) => {
+                const status = fieldStatus(ln.description_raw || ln.amount, ln.entry_origin, (ln.review_flags ?? []).length > 0);
+                const code = ln.codes.find((c) => c.code_kind === "customs") ?? ln.codes[0];
+                return (
+                  <tr key={ln.id}>
+                    <td>{ln.ordinal}</td>
+                    <td title={ln.description_raw}><span className="line-desc">{ln.description_raw || <em className="muted">inconnue</em>}</span></td>
+                    <td className="code">{code?.raw_code ?? "—"}</td>
+                    <td className="num">{fmtQty(ln.quantity) || "?"}</td>
+                    <td className="num">{ln.unit_price ? fmtAmount(ln.unit_price) : "—"}</td>
+                    <td className="num">{ln.amount ? fmtAmount(ln.amount) : <em className="muted">inconnu</em>}</td>
+                    <td><Chip tone={status.tone}>{status.label}</Chip></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
       )}
     </>
   );
@@ -1080,13 +1176,38 @@ function lineIndex(revision: Revision): Map<string, LineInfo> {
 
 const STATUS_FILTERS = ["Tous", "Validé", "À valider", "À vérifier", "À contrôler", "À recontrôler", "À revoir"];
 
-function GoodsTab({ revision, editions, editable, act }: { revision: Revision; editions: EditionOption[]; editable: boolean; act: Act }) {
+/** Résultat du contrôle, en deux mots sous le code : jamais un taux de confiance inventé. */
+function checkBadge(g: GoodsLine): { tone: Tone; text: string } | null {
+  const check = g.latest_check;
+  if (g.decision?.is_current) return { tone: "green", text: "confirmé" };
+  if (!check) return null;
+  if (check.recognition_status === "recognized") return { tone: "green", text: "dans le tarif" };
+  if (check.recognition_status === "incomplete") return { tone: "amber", text: "incomplet" };
+  return { tone: "red", text: "introuvable" };
+}
+
+function GoodsTab({
+  revision,
+  editions,
+  editable,
+  act,
+  head,
+}: {
+  revision: Revision;
+  editions: EditionOption[];
+  editable: boolean;
+  act: Act;
+  head: ReactNode;
+}) {
   const goods = revision.goods_lines;
   const lines = lineIndex(revision);
   const [selectedId, setSelectedId] = useState<string | null>(goods[0]?.id ?? null);
+  const [panel, setPanel] = useState(true);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("Tous");
+  const [menu, setMenu] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
   const selected = goods.find((g) => g.id === selectedId) ?? goods[0] ?? null;
   const freeInvoices = revision.invoices.filter((i) => i.lines.some((ln) => ln.goods_line_ids.length === 0));
   const freeCount = freeInvoices.reduce((n, i) => n + i.lines.filter((ln) => ln.goods_line_ids.length === 0).length, 0);
@@ -1096,7 +1217,9 @@ function GoodsTab({ revision, editions, editable, act }: { revision: Revision; e
   const toValidate = all.filter((s) => s.label === "À valider").length;
   const toCheck = all.filter((s) => s.tone === "amber" || s.tone === "red").length - toValidate;
   const noCheck = all.filter((s) => s.label === "À contrôler").length;
+  const recognized = goods.filter((g) => g.latest_check?.recognition_status === "recognized" || g.decision?.is_current).length;
   const editionId = revision.target_edition?.id ?? editions[0]?.id ?? "";
+  const currencies = [...new Set([...lines.values()].map((l) => l.currency).filter(Boolean))];
   const shown = goods.filter((g) => {
     const s = statuses.get(g.id)!;
     if (filter !== "Tous" && s.label !== filter) return false;
@@ -1104,6 +1227,9 @@ function GoodsTab({ revision, editions, editable, act }: { revision: Revision; e
     return !q || g.description.toLowerCase().includes(q) || s.code.includes(q);
   });
   const targets = checked.size ? goods.filter((g) => checked.has(g.id)) : goods;
+  const checkAll = () => act(async () => {
+    for (const g of targets) await api.checkCode(g.id, editionId);
+  });
 
   function toggle(id: string) {
     const next = new Set(checked);
@@ -1113,136 +1239,182 @@ function GoodsTab({ revision, editions, editable, act }: { revision: Revision; e
   }
 
   return (
-    <>
-      {editable && (
-        <div className="action-bar">
-          {freeCount > 0 && (
+    <div className={`goods-page${panel ? "" : " goods-page-full"}`}>
+      <div className="goods-main">
+        {head}
+        <div className="goods-actions">
+          {editable && (
             <button
               type="button"
               className="btn-primary"
+              disabled={freeCount === 0}
+              title={freeCount === 0 ? "Toutes les lignes de facture ont leur marchandise." : undefined}
               onClick={() => void act(async () => {
                 for (const inv of freeInvoices) await api.goodsFromInvoice(inv.id);
               })}
             >
-              <Icon name="plus" /> Préparer les marchandises ({freeCount})
+              <Icon name="plus" size={18} /> Préparer les marchandises{freeCount ? ` (${freeCount})` : ""}
             </button>
           )}
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={!goods.length || !editionId}
-            onClick={() => void act(async () => {
-              for (const g of targets) await api.checkCode(g.id, editionId);
-            })}
-          >
-            <Icon name="search" /> Contrôler {checked.size ? `la sélection (${checked.size})` : "tous les codes"}
-          </button>
+          {editable && (
+            <button type="button" className="btn-secondary" disabled={!goods.length || !editionId} onClick={() => void checkAll()}>
+              <Icon name="search" size={18} /> Contrôler {checked.size ? `la sélection (${checked.size})` : "tous les codes"}
+            </button>
+          )}
           <button type="button" className="btn-secondary" onClick={() => navigate("/recherche")}>
-            <Icon name="book" /> Consulter le tarif
+            <Icon name="book" size={18} /> Consulter le tarif
           </button>
-        </div>
-      )}
-      <div className="split-panel">
-        <div>
-          <section className="card" aria-labelledby="goods-title">
-            <div className="card-head">
-              <h2 id="goods-title" className="card-title">Liste des marchandises ({goods.length})</h2>
-              <div className="table-tools">
-                <label className="search-mini">
-                  <Icon name="search" size={16} />
-                  <input aria-label="Rechercher une marchandise" placeholder="Rechercher un article…" value={search} onChange={(e) => setSearch(e.target.value)} />
-                </label>
-                <label className="filter-mini">
-                  <Icon name="filter" size={16} />
-                  <select aria-label="Filtrer par statut" value={filter} onChange={(e) => setFilter(e.target.value)}>
-                    {STATUS_FILTERS.map((f) => (
-                      <option key={f}>{f}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-            <p className="muted small">
-              Un code retrouvé dans le tarif n'est pas un classement validé : il attend votre confirmation motivée.
-            </p>
-            {goods.length === 0 ? (
-              <p className="empty">
-                Aucune marchandise. {freeCount ? `${freeCount} ligne(s) de facture peuvent être préparées.` : "Elles se préparent à partir des lignes de facture."}
-              </p>
-            ) : (
-              <div className="table-wrap">
-                <table className="data selectable">
-                  <thead>
-                    <tr>
-                      <th scope="col">
-                        <input
-                          type="checkbox"
-                          aria-label="Tout sélectionner"
-                          checked={checked.size === goods.length && goods.length > 0}
-                          onChange={(e) => setChecked(e.target.checked ? new Set(goods.map((g) => g.id)) : new Set())}
-                        />
-                      </th>
-                      <th scope="col">#</th><th scope="col">Description</th><th scope="col">Quantité</th>
-                      <th scope="col">Valeur</th><th scope="col">Code</th><th scope="col">Statut</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shown.map((g) => {
-                      const s = statuses.get(g.id)!;
-                      const f = goodsFigures(g, lines);
-                      return (
-                        <tr key={g.id} className={selected?.id === g.id ? "selected" : undefined} onClick={() => setSelectedId(g.id)}>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            <input type="checkbox" aria-label={`Sélectionner la marchandise ${g.ordinal}`} checked={checked.has(g.id)} onChange={() => toggle(g.id)} />
-                          </td>
-                          <td>{g.ordinal}</td>
-                          <td>
-                            <div className="goods-cell">
-                              <span className="goods-thumb"><Icon name="box" size={20} /></span>
-                              <span>
-                                <button type="button" className="row-button" onClick={() => setSelectedId(g.id)}>
-                                  {g.description || <em className="muted">désignation ?</em>}
-                                </button>
-                                <span className="block muted small">
-                                  {g.sources.map((src) => `facture ${src.invoice_ordinal}, ligne ${src.line_ordinal}`).join(" · ")}
-                                  {f.reference && ` · réf. ${f.reference}`}
-                                  {` · origine ${g.origin_country || "?"}`}
-                                </span>
-                              </span>
-                            </div>
-                          </td>
-                          <td className="nowrap">{f.qty ? <>{f.qty}<span className="block muted small">{f.unit || "unité ?"}</span></> : <em className="muted">inconnue</em>}</td>
-                          <td className="nowrap">{f.value ? <>{f.value}<span className="block muted small">{f.currency}</span></> : <em className="muted">inconnue</em>}</td>
-                          <td className="code nowrap">{s.code || "—"}</td>
-                          <td><Chip tone={s.tone}>{s.label}</Chip></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+          <span className="menu-wrap">
+            <button type="button" className="btn-secondary goods-more" aria-label="Plus d'actions" aria-expanded={more} onClick={() => setMore(!more)}>
+              <Icon name="more" size={18} className="rotate-90" />
+            </button>
+            {more && (
+              <ul className="menu" role="menu">
+                <li role="menuitem"><button type="button" onClick={() => { setMore(false); setPanel(!panel); }}>{panel ? "Masquer" : "Afficher"} la proposition</button></li>
+                <li role="menuitem"><button type="button" onClick={() => { setMore(false); setChecked(new Set()); setFilter("Tous"); setSearch(""); }}>Réinitialiser la liste</button></li>
+              </ul>
             )}
-          </section>
-          <section className="card" aria-labelledby="goods-summary">
-            <h2 id="goods-summary" className="card-title">Résumé de la classification</h2>
-            <div className="stats stats-4 flat">
-              <StatCard icon="box" tone="green" label="Marchandises" value={goods.length} hint={`${validated} validée(s) · ${freeCount} ligne(s) à préparer`} />
-              <StatCard icon="search" tone="blue" label="Codes à contrôler" value={noCheck} hint="aucun contrôle contre le tarif" />
-              <StatCard icon="alert" tone="amber" label="À vérifier ou valider" value={toCheck + toValidate} hint={`${toValidate} code(s) retrouvé(s) à confirmer`} />
-              <StatCard icon="checkCircle" tone="green" label="Codes validés" value={`${validated} / ${goods.length}`} hint="confirmés avec un motif" />
-            </div>
-          </section>
+          </span>
         </div>
-        <section className="card side-panel" aria-label="Proposition tarifaire">
-          <h2 className="card-title">Proposition tarifaire</h2>
+
+        <section className="card goods-list" aria-labelledby="goods-title">
+          <div className="card-head">
+            <h2 id="goods-title" className="card-title">Liste des marchandises ({goods.length})</h2>
+            <div className="table-tools">
+              <label className="search-mini">
+                <Icon name="search" size={15} />
+                <input aria-label="Rechercher une marchandise" placeholder="Rechercher un article…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              </label>
+              <label className="filter-mini">
+                <Icon name="filter" size={15} />
+                <select aria-label="Filtrer par statut" value={filter} onChange={(e) => setFilter(e.target.value)}>
+                  {STATUS_FILTERS.map((f) => (
+                    <option key={f} value={f}>{f === "Tous" ? "Filtrer" : f}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+          {goods.length === 0 ? (
+            <p className="empty">
+              Aucune marchandise. {freeCount ? `${freeCount} ligne(s) de facture peuvent être préparées.` : "Elles se préparent à partir des lignes de facture."}
+            </p>
+          ) : (
+            <div className="goods-scroll">
+              <table className="data selectable goods-table">
+                <thead>
+                  <tr>
+                    <th scope="col">
+                      <input
+                        type="checkbox"
+                        aria-label="Tout sélectionner"
+                        checked={checked.size === goods.length && goods.length > 0}
+                        onChange={(e) => setChecked(e.target.checked ? new Set(goods.map((g) => g.id)) : new Set())}
+                      />
+                    </th>
+                    <th scope="col">#</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Quantité</th>
+                    <th scope="col">Valeur{currencies.length === 1 ? ` (${currencies[0]})` : ""}</th>
+                    <th scope="col">Code</th>
+                    <th scope="col">Statut</th>
+                    <th scope="col"><span className="visually-hidden">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((g) => {
+                    const s = statuses.get(g.id)!;
+                    const f = goodsFigures(g, lines);
+                    const badge = checkBadge(g);
+                    return (
+                      <tr key={g.id} className={selected?.id === g.id ? "selected" : undefined} onClick={() => { setSelectedId(g.id); setPanel(true); }}>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" aria-label={`Sélectionner la marchandise ${g.ordinal}`} checked={checked.has(g.id)} onChange={() => toggle(g.id)} />
+                        </td>
+                        <td>{g.ordinal}</td>
+                        <td>
+                          <div className="goods-cell">
+                            <span className="goods-thumb"><Icon name="box" size={24} /></span>
+                            <span className="goods-desc">
+                              <button type="button" className="row-button" onClick={() => setSelectedId(g.id)}>
+                                {g.description || <em className="muted">désignation ?</em>}
+                              </button>
+                              {f.reference && <small>Réf. : {f.reference}</small>}
+                              <small>Origine : {g.origin_country || "inconnue"}</small>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="goods-qty">{f.qty ? <>{f.qty}<small>{f.unit || "unité ?"}</small></> : <em className="muted">inconnue</em>}</td>
+                        <td className="goods-value">
+                          {f.value ? <>{f.value}{currencies.length !== 1 && <small>{f.currency}</small>}</> : <em className="muted">inconnue</em>}
+                        </td>
+                        <td className="goods-code">
+                          <span className="code">{s.code || "—"}</span>
+                          {badge && <Chip tone={badge.tone} icon={badge.tone === "green" ? "checkCircle" : "alert"}>{badge.text}</Chip>}
+                        </td>
+                        <td><Chip tone={s.tone} icon={s.tone === "amber" ? "alert" : s.tone === "green" ? "check" : undefined}>{s.label}</Chip></td>
+                        <td className="menu-wrap" onClick={(e) => e.stopPropagation()}>
+                          <button type="button" className="kebab" aria-label={`Actions marchandise ${g.ordinal}`} onClick={() => setMenu(menu === g.id ? null : g.id)}>
+                            <Icon name="more" size={18} />
+                          </button>
+                          {menu === g.id && (
+                            <ul className="menu menu-right" role="menu">
+                              <li role="menuitem"><button type="button" onClick={() => { setMenu(null); setSelectedId(g.id); setPanel(true); }}>Voir la proposition</button></li>
+                              {editable && editionId && (
+                                <li role="menuitem"><button type="button" onClick={() => { setMenu(null); void act(() => api.checkCode(g.id, editionId)); }}>Contrôler le code</button></li>
+                              )}
+                              <li role="menuitem"><button type="button" onClick={() => navigate(`/recherche?q=${encodeURIComponent(s.code || g.description)}`)}>Consulter le tarif</button></li>
+                            </ul>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="goods-note">Un code retrouvé dans le tarif n'est pas un classement validé : il attend votre confirmation motivée.</p>
+        </section>
+
+        <section className="card goods-summary" aria-labelledby="goods-summary">
+          <h2 id="goods-summary" className="card-title">Résumé de la classification</h2>
+          <div className="goods-tiles">
+            <div className="goods-tile">
+              <span className="tile-icon tile-green"><Icon name="box" size={20} /></span>
+              <span><strong>{goods.length}</strong><b>marchandises</b><small>{validated} validée(s) · {freeCount} ligne(s) à préparer</small></span>
+            </div>
+            <div className="goods-tile">
+              <span className="tile-icon tile-blue"><Icon name="search" size={20} /></span>
+              <span><strong>{goods.length ? `${recognized} / ${goods.length}` : "—"}</strong><b>codes dans le tarif</b><small>{noCheck} pas encore contrôlé(s)</small></span>
+            </div>
+            <div className="goods-tile">
+              <span className="tile-icon tile-amber"><Icon name="alert" size={20} /></span>
+              <span><strong>{toCheck + toValidate}</strong><b>éléments à vérifier</b><small>{toValidate} code(s) à confirmer</small></span>
+            </div>
+            <div className="goods-tile">
+              <span className="tile-icon tile-green-solid"><Icon name="check" size={20} /></span>
+              <span><strong>{validated}</strong><b>code{validated > 1 ? "s" : ""} validé{validated > 1 ? "s" : ""}</b><small>Validation requise avant export du dossier</small></span>
+            </div>
+          </div>
+        </section>
+      </div>
+      {panel && (
+        <section className="card goods-panel" aria-label="Proposition tarifaire">
+          <div className="card-head">
+            <h2 className="card-title">Proposition tarifaire</h2>
+            <button type="button" className="icon-button" aria-label="Fermer la proposition" onClick={() => setPanel(false)}>
+              <Icon name="x" size={18} />
+            </button>
+          </div>
           {selected ? (
             <GoodsCard key={selected.id} goods={selected} revision={revision} lines={lines} editions={editions} editable={editable} act={act} />
           ) : (
             <p className="empty">Sélectionnez une marchandise.</p>
           )}
         </section>
-      </div>
-    </>
+      )}
+    </div>
   );
 }
 
@@ -1257,8 +1429,8 @@ function TariffRates({ nodeId }: { nodeId: string }) {
   return (
     <div className="rates">
       <div className="card-head">
-        <h3>Droits et taxes lus dans le tarif</h3>
-        <Chip tone="amber">non vérifiés</Chip>
+        <h3>Droits et taxes lus dans le tarif (Gabon)</h3>
+        <span title="Taux bruts de l'édition, non vérifiés : ils ne sont pas appliqués au calcul."><Icon name="info" size={17} /></span>
       </div>
       {items.length === 0 ? (
         <p className="muted small">Aucune colonne de taux dans cette édition.</p>
@@ -1275,6 +1447,7 @@ function TariffRates({ nodeId }: { nodeId: string }) {
               <td>Total estimé</td>
               <td className="num">non calculé</td>
             </tr>
+
           </tbody>
         </table>
       )}
@@ -1331,10 +1504,26 @@ function GoodsCard({
     void navigator.clipboard?.writeText(shownCode).then(() => setCopied(true), () => undefined);
   }
 
+  const recheck = editable && (
+    <div className="check-row">
+      <label>
+        Contrôler contre
+        <select value={edition} onChange={(e) => setEdition(e.target.value)}>
+          {editions.map((e) => (
+            <option key={e.id} value={e.id}>{e.label}</option>
+          ))}
+        </select>
+      </label>
+      <button type="button" className="btn-secondary" disabled={!edition} onClick={() => void act(() => api.checkCode(goods.id, edition))}>
+        Contrôler le code présent
+      </button>
+    </div>
+  );
+
   return (
-    <div aria-label={`Marchandise ${goods.ordinal}`}>
+    <div className="goods-card" aria-label={`Marchandise ${goods.ordinal}`}>
       <div className="goods-head">
-        <span className="goods-icon"><Icon name="box" size={30} /></span>
+        <span className="goods-photo"><Icon name="box" size={34} /></span>
         <div>
           <strong>{goods.description || <em className="muted">désignation ?</em>}</strong>
           <dl className="mini-facts">
@@ -1348,14 +1537,14 @@ function GoodsCard({
 
       <div className="code-box">
         <div className="card-head">
-          <span className="muted small">{decision ? "Code validé" : check?.node ? "Code retrouvé dans le tarif" : "Code présent"}</span>
+          <span>{decision ? "Code validé" : check?.node ? "Code retrouvé dans le tarif" : "Code présent sur la facture"}</span>
           <Chip tone={status.tone}>{status.label}</Chip>
         </div>
         {shownCode ? (
           <div className="code-line">
             <span className="code big-code">{shownCode}</span>
             <button type="button" className="icon-button" onClick={copy} title="Copier le code">
-              <Icon name="copy" size={18} />
+              <Icon name="copy" size={17} />
               <span className="visually-hidden">Copier le code</span>
             </button>
             {copied && <span className="muted small">copié</span>}
@@ -1363,9 +1552,9 @@ function GoodsCard({
         ) : (
           <p className="big-line muted">Aucun code douanier</p>
         )}
-        {check?.node && <p className="small">{check.node.full_path}</p>}
+        {check?.node && <p className="code-path">{check.node.full_path}</p>}
         {decision && (
-          <p className="small">
+          <p className="code-path">
             {decision.action_label} ({decision.edition.label}) par {decision.actor.email} le {new Date(decision.at).toLocaleString("fr-FR")}.
             Motif : {decision.reason}
             {!decision.is_current && " Données modifiées depuis : décision à revoir."}
@@ -1373,23 +1562,12 @@ function GoodsCard({
         )}
       </div>
 
-      {editable && (
-        <div className="check-row">
-          <label>
-            Contrôler contre
-            <select value={edition} onChange={(e) => setEdition(e.target.value)}>
-              {editions.map((e) => (
-                <option key={e.id} value={e.id}>{e.label}</option>
-              ))}
-            </select>
-          </label>
-          <button type="button" className="btn-secondary" disabled={!edition} onClick={() => void act(() => api.checkCode(goods.id, edition))}>
-            Contrôler le code présent
-          </button>
-        </div>
-      )}
-      {check && (
-        <div className="check-result" aria-label="Résultat du contrôle">
+      {check ? (
+        <details className="check-result" open aria-label="Résultat du contrôle">
+          <summary>
+            <span>Points relevés par le contrôle</span>
+            <Icon name="chevronDown" size={16} />
+          </summary>
           <div className="check-title">
             <strong>{check.recognition_label}</strong>
             <span className="muted small">{CONFIRMATION[check.human_confirmation]}</span>
@@ -1399,8 +1577,7 @@ function GoodsCard({
               Lu « {check.observed_code} » dans « {check.observed_field} » · {check.target_edition_label} · contrôlé le {fmtDateTime(check.checked_at)}
             </p>
           )}
-          <h3>Points relevés</h3>
-          <ul className="check-list small">
+          <ul className="check-list">
             {check.findings.map((x) => (
               <li key={x.code + x.message} className={`sev-${x.severity}`}>
                 <Icon name={x.severity === "info" ? "info" : x.severity === "error" || x.severity === "blocking" ? "alert" : "checkCircle"} size={16} />
@@ -1408,55 +1585,59 @@ function GoodsCard({
               </li>
             ))}
           </ul>
-          <p className="note-amber small">
-            Un code retrouvé dans le tarif doit être confirmé par un agent, avec un motif. Vérifiez la désignation et les notes avant de confirmer.
-          </p>
-          {editable && check.is_current && check.recognition_status === "recognized" && check.human_confirmation === "pending" && (
-            <form className="decide-form" onSubmit={(e) => { e.preventDefault(); decide("confirm"); }}>
-              <label>
-                Motif de la confirmation
-                <input required value={reason} onChange={(e) => setReason(e.target.value)} placeholder="ex. conforme à la désignation de la facture" />
-              </label>
-              <button type="submit" className="btn-primary btn-block">
-                <Icon name="check" /> Confirmer le code
-              </button>
-            </form>
-          )}
-          {editable && check.is_current && check.recognition_status === "incomplete" && subdivisions.length > 0 && (
-            <form className="decide-form" onSubmit={(e) => { e.preventDefault(); decide("complete"); }}>
-              <label>
-                Subdivision
-                <select required value={subdivision} onChange={(e) => setSubdivision(e.target.value)}>
-                  <option value="">Choisir…</option>
-                  {subdivisions.map((s) => (
-                    <option key={s.id} value={s.id}>{s.code_display} {s.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Motif
-                <input required value={reason} onChange={(e) => setReason(e.target.value)} />
-              </label>
-              <button type="submit" className="btn-primary btn-block">Compléter le code</button>
-            </form>
-          )}
-        </div>
+        </details>
+      ) : (
+        recheck
+      )}
+      <p className="goods-warning">
+        <Icon name="alert" size={20} />
+        Un code retrouvé dans le tarif doit être confirmé par un agent, avec un motif. Vérifiez la désignation et les notes avant de confirmer.
+      </p>
+      {check && editable && check.is_current && check.recognition_status === "recognized" && check.human_confirmation === "pending" && (
+        <form className="decide-form" onSubmit={(e) => { e.preventDefault(); decide("confirm"); }}>
+          <label>
+            Motif de la confirmation
+            <input required value={reason} onChange={(e) => setReason(e.target.value)} placeholder="ex. conforme à la désignation de la facture" />
+          </label>
+          <button type="submit" className="btn-primary btn-block">
+            <Icon name="check" size={18} /> Valider le code
+          </button>
+        </form>
+      )}
+      {check && editable && check.is_current && check.recognition_status === "incomplete" && subdivisions.length > 0 && (
+        <form className="decide-form" onSubmit={(e) => { e.preventDefault(); decide("complete"); }}>
+          <label>
+            Subdivision
+            <select required value={subdivision} onChange={(e) => setSubdivision(e.target.value)}>
+              <option value="">Choisir…</option>
+              {subdivisions.map((s) => (
+                <option key={s.id} value={s.id}>{s.code_display} {s.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Motif
+            <input required value={reason} onChange={(e) => setReason(e.target.value)} />
+          </label>
+          <button type="submit" className="btn-primary btn-block">Compléter le code</button>
+        </form>
       )}
       <div className="actions-row two">
         <button type="button" className="btn-secondary" onClick={() => document.getElementById(`proposals-${goods.id}`)?.setAttribute("open", "")}>
-          <Icon name="edit" size={18} /> Changer le code
+          <Icon name="edit" size={17} /> Changer le code
         </button>
         <button type="button" className="btn-secondary" onClick={() => navigate(`/recherche?q=${encodeURIComponent(shownCode || goods.description)}`)}>
-          <Icon name="external" size={18} /> Consulter le tarif
+          <Icon name="external" size={17} /> Consulter le tarif
         </button>
       </div>
+      {check?.node && <TariffRates nodeId={check.node.id} />}
+      {check && recheck}
       {(editable || goods.latest_check) && (
         <details id={`proposals-${goods.id}`} open={Boolean(check && check.recognition_status !== "recognized")} className="proposals-box">
           <summary>Autres codes possibles (recherche dans le tarif, sans IA)</summary>
           <ProposalsPanel goods={goods} editionId={edition} editable={editable} act={act} />
         </details>
       )}
-      {check?.node && <TariffRates nodeId={check.node.id} />}
     </div>
   );
 }
@@ -1532,22 +1713,22 @@ function Calculation({ detail, go }: { detail: CaseDetail; go: (tab: string) => 
   const origins = [...new Set(goods.map((g) => g.origin_country).filter(Boolean))].join(", ");
   const units = [...new Set(revision.invoices.flatMap((i) => i.lines.map((l) => l.unit)).filter(Boolean))].join(", ");
   return (
-    <div className="grid-2-1">
+    <div className="section-layout">
       <div>
-        <section className="card" aria-labelledby="calc-title">
+        <section className="card calc-card" aria-labelledby="calc-title">
           <div className="card-head">
             <h2 id="calc-title" className="card-title">Détail du calcul en douane</h2>
-            <span className="chip chip-gray">Montants en devise de facture</span>
+            <span className="calc-currency">Montants en <strong>devise de facture</strong></span>
           </div>
-          <div className="stats stats-4 flat">
+          <div className="stats stats-4 flat calc-stats">
             <StatCard icon="box" tone="green" label="Valeur marchandise" value={goodsValue || "inconnue"} hint="somme des lignes de facture" />
             <StatCard icon="truck" tone="blue" label="Frais facturés" value={fees || "inconnus"} hint="fret, assurance, emballage… lus sur la facture, non répartis" />
             <StatCard icon="file" tone="blue" label="Total facture" value={total || "inconnu"} hint={incoterms ? `imprimé · ${incoterms}` : "total imprimé"} />
             <StatCard icon="calculator" tone="gray" label="Base de calcul" value="non calculée" hint="valeur en douane (CIF)" />
           </div>
-          <h3>Droits et taxes applicables</h3>
+          <h3 className="calc-h3">Droits et taxes applicables</h3>
           <div className="table-wrap">
-            <table className="data">
+            <table className="data calc-taxes">
               <thead>
                 <tr><th scope="col">Code</th><th scope="col">Libellé</th><th scope="col">Taux</th><th scope="col">Base de calcul</th><th scope="col" className="num">Montant</th></tr>
               </thead>
@@ -1568,14 +1749,12 @@ function Calculation({ detail, go }: { detail: CaseDetail; go: (tab: string) => 
             <span>Total des droits et taxes</span>
             <strong>non calculé</strong>
           </div>
-          <p className="note-amber small">
-            Le moteur de calcul n'est pas encore construit. Les taux du classeur 2016 sont des copies d'un fichier « 2015 » absent et
-            ne sont pas vérifiés : aucun montant n'est calculé avec eux. Le calcul arrivera avec des règles datées et sourcées.
+          <p className="calc-note">
+            <Icon name="info" size={15} /> Moteur de calcul à venir : les taux du classeur 2016 ne sont pas vérifiés, aucun montant n'est calculé avec eux.
           </p>
-        </section>
-        <div className="grid-1-1">
-          <section className="card" aria-labelledby="recap-title">
-            <h2 id="recap-title" className="card-title">Récapitulatif</h2>
+          <div className="calc-bottom">
+          <section aria-labelledby="recap-title">
+            <h2 id="recap-title" className="calc-h3">Récapitulatif</h2>
             <dl className="recap">
               <div><dt>Valeur marchandise (lignes)</dt><dd>{goodsValue || unknown()}</dd></div>
               <div><dt>Frais facturés</dt><dd>{fees || unknown()}</dd></div>
@@ -1589,21 +1768,22 @@ function Calculation({ detail, go }: { detail: CaseDetail; go: (tab: string) => 
               <strong>non calculé</strong>
             </div>
           </section>
-          <section className="card" aria-labelledby="more-title">
-            <h2 id="more-title" className="card-title">Informations complémentaires</h2>
+          <section className="calc-more" aria-labelledby="more-title">
+            <h2 id="more-title">Informations complémentaires</h2>
             <dl className="recap icons">
               <div><dt><Icon name="tag" size={16} /> Position tarifaire</dt><dd>{codes.length ? codes.join(", ") : unknown(goods.length ? "à valider" : "aucune marchandise")}</dd></div>
               <div><dt><Icon name="file" size={16} /> Régime douanier</dt><dd>{revision.regime || unknown("à renseigner")}</dd></div>
-              <div><dt><Icon name="mapPin" size={16} /> Pays d'origine</dt><dd>{origins || unknown()}</dd></div>
-              <div><dt><Icon name="ship" size={16} /> Pays d'expédition</dt><dd>{unknown()}</dd></div>
+              <div><dt><Icon name="mapPin" size={16} /> Pays d'origine</dt><dd>{origins || revision.origin_country || unknown()}</dd></div>
+              <div><dt><Icon name="ship" size={16} /> Pays d'expédition</dt><dd>{revision.provenance_country || unknown()}</dd></div>
               <div><dt><Icon name="scale" size={16} /> Unité</dt><dd>{units || unknown()}</dd></div>
               <div><dt><Icon name="box" size={16} /> Articles</dt><dd>{goods.length}</dd></div>
               <div><dt><Icon name="layers" size={16} /> Nombre de colis</dt><dd>{unknown("liste de colisage non lue")}</dd></div>
             </dl>
           </section>
-        </div>
+          </div>
+        </section>
       </div>
-      <div>
+      <div className="section-side">
         <SideAlerts detail={detail} go={go} />
         <ValidationActions detail={detail} go={go} />
       </div>
@@ -1801,7 +1981,8 @@ function ExportPage({ detail, go }: { detail: CaseDetail; go: (tab: string) => v
             <div><dt>Système cible</dt><dd>{unknown("à confirmer")}</dd></div>
             <div><dt>Type de déclaration</dt><dd>Importation</dd></div>
             <div><dt>Territoire</dt><dd>{rev.territory === "GA" ? "Gabon" : rev.territory}</dd></div>
-            <div><dt>Bureau de douane</dt><dd>{unknown("à renseigner")}</dd></div>
+            <div><dt>Bureau de douane</dt><dd>{rev.entry_office || unknown("à renseigner")}</dd></div>
+            <div><dt>Mode de transport</dt><dd>{rev.transport_mode_label || unknown("à renseigner")}</dd></div>
             <div><dt>Régime douanier</dt><dd>{rev.regime || unknown("à renseigner")}</dd></div>
             <div><dt>Devise</dt><dd>{currencies || unknown()}</dd></div>
             <div><dt>Nombre d'articles</dt><dd>{rev.goods_lines.length}</dd></div>

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cases } from "../src/Cases";
 import { CaseDetailView, decimalInput } from "../src/CaseDetail";
 import { addDecimals, fmtAmount, fmtQty } from "../src/ui";
+import { guessUsage } from "../src/NewCase";
 
 const membership = {
   organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville" },
@@ -98,6 +99,15 @@ describe("Dossiers", () => {
     expect(fmtQty("1000")).toBe("1\u202f000");
   });
 
+  it("devine le rôle d'une pièce d'après son nom, sans rien imposer", () => {
+    expect(guessUsage("INV-2026-0017.pdf")).toBe("invoice");
+    expect(guessUsage("Facture FE-0417.pdf")).toBe("invoice");
+    expect(guessUsage("BL-2026-0456.pdf")).toBe("transport");
+    expect(guessUsage("Packing-List-0017.pdf")).toBe("packing_list");
+    expect(guessUsage("CO-EU-2026-0009.pdf")).toBe("origin");
+    expect(guessUsage("photo.jpg")).toBe("other");
+  });
+
   it("ouvre un dossier depuis la liste", async () => {
     // Vue équipe par défaut : chaque dossier est une carte du tableau par état.
     mockApi();
@@ -133,7 +143,7 @@ describe("Dossiers", () => {
     expect(screen.getAllByText("0101.10.00").length).toBeGreaterThan(0);
     expect(screen.getAllByText("À valider").length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText(/motif de la confirmation/i), { target: { value: "Conforme à la facture" } });
-    fireEvent.click(screen.getByRole("button", { name: "Confirmer le code" }));
+    fireEvent.click(screen.getByRole("button", { name: "Valider le code" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith("/decisions"))).toBe(true));
     const call = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/decisions"))!;
     expect(JSON.parse(String(call[1]!.body))).toEqual({

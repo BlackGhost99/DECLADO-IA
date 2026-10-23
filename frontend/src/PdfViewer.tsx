@@ -24,6 +24,22 @@ async function loadPdf(url: string): Promise<PdfDoc> {
   return (await pdfjs.getDocument({ url, withCredentials: true }).promise) as unknown as PdfDoc;
 }
 
+/** Impression de la pièce telle quelle, sans quitter le dossier. */
+function printPdf(url: string) {
+  const frame = document.createElement("iframe");
+  frame.style.display = "none";
+  frame.src = url;
+  frame.onload = () => {
+    try {
+      frame.contentWindow?.print();
+    } catch {
+      window.open(url, "_blank", "noreferrer");
+    }
+  };
+  document.body.appendChild(frame);
+  setTimeout(() => frame.remove(), 60000);
+}
+
 export function PdfViewer({
   url,
   name,
@@ -73,7 +89,7 @@ export function PdfViewer({
       if (!alive || !canvasRef.current) return;
       const canvas = canvasRef.current;
       const base = p.getViewport({ scale: 1 });
-      const width = (canvas.parentElement?.parentElement?.clientWidth ?? 600) - 24;
+      const width = (canvas.parentElement?.parentElement?.clientWidth ?? 600) - 12;
       const scale = (width / base.width) * zoom;
       const viewport = p.getViewport({ scale: scale * (window.devicePixelRatio || 1) });
       canvas.width = viewport.width;
@@ -100,26 +116,36 @@ export function PdfViewer({
   return (
     <>
       <div className="viewer-bar">
-        <span className="viewer-name" title={name}><Icon name="list" size={18} /> {name}</span>
+        <span className="viewer-name" title={name}><Icon name="menu" size={20} /> {name}</span>
+        <label className="viewer-pagebox">
+          <span className="visually-hidden">Page</span>
+          <input
+            type="number"
+            min={1}
+            max={pages}
+            value={page}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (n >= 1 && n <= pages) setPage(n);
+            }}
+          />
+          <span aria-live="polite">/ {pages}</span>
+        </label>
         <span className="viewer-tools">
-          <button type="button" className="icon-button" disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label="Page précédente">
-            <Icon name="arrowLeft" size={16} />
-          </button>
-          <span className="viewer-page" aria-live="polite">{page} / {pages}</span>
-          <button type="button" className="icon-button" disabled={page >= pages} onClick={() => setPage(page + 1)} aria-label="Page suivante">
-            <Icon name="arrowRight" size={16} />
-          </button>
-          <span className="viewer-sep" />
           <button type="button" className="icon-button" disabled={zoom <= 0.6} onClick={() => setZoom(Math.round((zoom - 0.2) * 10) / 10)} aria-label="Réduire">
-            <Icon name="zoomOut" size={18} />
+            <Icon name="minus" size={18} />
           </button>
-          <span className="viewer-page">{Math.round(zoom * 100)} %</span>
+          <span className="viewer-zoom">{Math.round(zoom * 100)}%</span>
           <button type="button" className="icon-button" disabled={zoom >= 2.4} onClick={() => setZoom(Math.round((zoom + 0.2) * 10) / 10)} aria-label="Agrandir">
-            <Icon name="zoomIn" size={18} />
+            <Icon name="plus" size={18} />
           </button>
-          <span className="viewer-sep" />
+        </span>
+        <span className="viewer-tools">
           <button type="button" className="icon-button" onClick={onDownload} aria-label="Télécharger">
             <Icon name="download" size={18} />
+          </button>
+          <button type="button" className="icon-button" onClick={() => printPdf(url)} aria-label="Imprimer">
+            <Icon name="printer" size={18} />
           </button>
           <a className="icon-button" href={url} target="_blank" rel="noreferrer" aria-label="Ouvrir dans un nouvel onglet">
             <Icon name="external" size={18} />
