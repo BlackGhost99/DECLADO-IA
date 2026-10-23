@@ -205,66 +205,166 @@ export function NewCasePage({ membership }: { membership: Membership }) {
     }
   }
 
+  const selectedImporter = importers.find((i) => i.id === form.importer_id) ?? null;
+  const selectedEdition = editions.find((e) => e.id === form.target_edition_id) ?? null;
+  const importerNif = selectedImporter?.identifiers?.nif ?? selectedImporter?.identifiers?.NIF ?? "—";
+
   return (
     <>
-      <PageHeader title="Nouveau dossier" subtitle="Déposez la facture : ClairTransit la lit et remplit le dossier. Vous vérifiez ensuite les points signalés." />
-      <form className="new-case" onSubmit={submit} aria-labelledby="new-case-title">
+      <nav className="breadcrumb" aria-label="Fil d’Ariane">
+        <button type="button" className="link" onClick={() => navigate("/dossiers")}>
+          Mes dossiers
+        </button>
+        <Icon name="chevronRight" size={14} />
+        <span>Nouveau dossier</span>
+      </nav>
+      <PageHeader
+        title="Nouveau dossier"
+        subtitle="Créez un nouveau dossier d’importation avec l’assistance de ClairTransit."
+      />
+      <form className="new-case-shell" onSubmit={submit} aria-labelledby="new-case-title">
         <h2 id="new-case-title" className="visually-hidden">Nouveau dossier</h2>
-        <label className={`dropzone${file ? " has-file" : ""}`}>
-          <span className="dropzone-icon"><Icon name="upload" size={30} /></span>
-          <strong>{file ? file.name : "Choisissez la facture"}</strong>
-          <span className="muted">PDF, scan (PNG, JPG) ou Excel · facultatif, vous pourrez ajouter des pièces ensuite</span>
-          <input
-            type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.xlsx"
-            aria-label="Facture"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-        </label>
 
-        <section className="card">
-          <h2 className="card-title">Pour qui ?</h2>
-          <div className="form-grid">
-            <label>
-              Importateur
-              <select value={form.importer_id} onChange={(e) => setForm({ ...form, importer_id: e.target.value })}>
-                <option value="">Plus tard</option>
-                {importers.map((i) => (
-                  <option key={i.id} value={i.id}>{i.name}</option>
-                ))}
-              </select>
+        <div className="new-case-main">
+          <ol className="new-case-steps" aria-label="Étapes de création du dossier">
+            <li className="active">
+              <span className="new-case-step-dot">1</span>
+              <strong>Informations du client</strong>
+            </li>
+            <li>
+              <span className="new-case-step-dot">2</span>
+              <strong>Type d’importation</strong>
+            </li>
+            <li>
+              <span className="new-case-step-dot">3</span>
+              <strong>Documents initiaux</strong>
+            </li>
+            <li>
+              <span className="new-case-step-dot">4</span>
+              <strong>Confirmation</strong>
+            </li>
+          </ol>
+
+          <section className="card new-case-card">
+            <div className="new-case-section-head">
+              <div>
+                <h2>1. Informations du client</h2>
+                <p>Renseignez les informations disponibles. Les éléments manquants pourront être complétés dans le dossier.</p>
+              </div>
+            </div>
+            <div className="form-grid new-case-form-grid">
+              <label>
+                Importateur / Client
+                <select value={form.importer_id} onChange={(e) => setForm({ ...form, importer_id: e.target.value })}>
+                  <option value="">À renseigner plus tard</option>
+                  {importers.map((i) => (
+                    <option key={i.id} value={i.id}>{i.name}</option>
+                  ))}
+                </select>
+                {selectedImporter && (
+                  <span className="input-help">
+                    NIF : {importerNif}
+                  </span>
+                )}
+              </label>
+              <label>
+                Titre du dossier
+                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="ex. Générateurs avril" />
+              </label>
+              <label>
+                Type d’opération
+                <input value="Importation" readOnly aria-readonly="true" />
+              </label>
+              <label>
+                Territoire
+                <input value="Gabon" readOnly aria-readonly="true" />
+              </label>
+              <label>
+                Date de déclaration prévue
+                <input type="date" value={form.planned_declaration_date} onChange={(e) => setForm({ ...form, planned_declaration_date: e.target.value })} />
+              </label>
+              <label>
+                Tarif utilisé
+                <select value={form.target_edition_id} onChange={(e) => setForm({ ...form, target_edition_id: e.target.value })}>
+                  <option value="">À choisir plus tard</option>
+                  {editions.map((e) => (
+                    <option key={e.id} value={e.id}>{e.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section className="card new-case-card">
+            <div className="new-case-section-head">
+              <div>
+                <h2>3. Documents initiaux</h2>
+                <p>Ajoutez la facture principale pour lancer la lecture du dossier.</p>
+              </div>
+              <span className="chip chip-green">{file ? "1 fichier" : "0 fichier"}</span>
+            </div>
+            <label className={`dropzone new-case-dropzone${file ? " has-file" : ""}`}>
+              <span className="dropzone-icon"><Icon name="upload" size={30} /></span>
+              <strong>{file ? file.name : "Glissez-déposez votre facture ici"}</strong>
+              <span className="muted">ou cliquez pour parcourir vos fichiers</span>
+              <small>PDF, JPG, PNG, Excel · la pièce peut aussi être ajoutée après création</small>
+              <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.xlsx"
+                aria-label="Facture"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
             </label>
-            <label>
-              Titre
-              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="ex. Générateurs avril" />
-            </label>
-            <label>
-              Date de déclaration prévue <span className="muted small">(facultatif)</span>
-              <input type="date" value={form.planned_declaration_date} onChange={(e) => setForm({ ...form, planned_declaration_date: e.target.value })} />
-            </label>
-            <label>
-              Tarif utilisé
-              <select value={form.target_edition_id} onChange={(e) => setForm({ ...form, target_edition_id: e.target.value })}>
-                <option value="">Plus tard</option>
-                {editions.map((e) => (
-                  <option key={e.id} value={e.id}>{e.label}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </section>
-        {error && <p role="alert" className="error">⚠ {error}</p>}
-        <div className="actions-row">
-          <button type="button" className="btn-secondary" onClick={() => navigate("/dossiers")}>Annuler</button>
-          <button type="submit" className="btn-primary" disabled={busy !== null}>
-            {busy ?? (file ? "Créer et lire la facture" : "Créer le dossier")}
-            {!busy && <Icon name="arrowRight" />}
-          </button>
+          </section>
+
+          {error && <p role="alert" className="error">⚠ {error}</p>}
         </div>
+
+        <aside className="new-case-side" aria-label="Résumé du dossier">
+          <section className="card new-case-summary-card">
+            <div className="card-head">
+              <h2 className="card-title">Résumé du dossier</h2>
+              <span className="chip chip-green">Brouillon</span>
+            </div>
+            <dl className="summary-list">
+              <div><dt>Importateur / Client</dt><dd>{selectedImporter?.name ?? "À renseigner"}</dd></div>
+              <div><dt>NIF / Référence</dt><dd>{importerNif}</dd></div>
+              <div><dt>Type d’opération</dt><dd>Importation</dd></div>
+              <div><dt>Territoire</dt><dd><span className="flag-inline"><span className="flag-ga" /> Gabon</span></dd></div>
+              <div><dt>Date prévue</dt><dd>{form.planned_declaration_date || "À renseigner"}</dd></div>
+              <div><dt>Tarif</dt><dd>{selectedEdition?.label ?? "À choisir"}</dd></div>
+            </dl>
+          </section>
+
+          <section className="card new-case-summary-card">
+            <div className="card-head">
+              <h2 className="card-title">Documents initiaux</h2>
+              <span className="chip chip-green">{file ? "1 fichier" : "0 fichier"}</span>
+            </div>
+            {file ? (
+              <div className="new-case-file-row">
+                <span className="doc-type doc-pdf">DOC</span>
+                <span>
+                  <strong>{file.name}</strong>
+                  <small>Facture commerciale</small>
+                </span>
+                <Icon name="checkCircle" size={18} />
+              </div>
+            ) : (
+              <p className="note-blue small">Vous pourrez ajouter les autres documents après la création du dossier.</p>
+            )}
+          </section>
+
+          <div className="new-case-actions">
+            <button type="button" className="btn-secondary" onClick={() => navigate("/dossiers")}>Annuler</button>
+            <button type="submit" className="btn-primary" disabled={busy !== null}>
+              {busy ?? (file ? "Créer et lire la facture" : "Créer le dossier")}
+              {!busy && <Icon name="arrowRight" />}
+            </button>
+          </div>
+        </aside>
       </form>
     </>
-  );
-}
 
 const TAB_TITLES: Record<string, string> = {
   documents: "Documents",
