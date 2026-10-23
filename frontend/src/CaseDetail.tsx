@@ -97,7 +97,9 @@ function CaseActions({ canTake, onTake, go }: { canTake: boolean; onTake: () => 
       {open && (
         <ul className="menu menu-right" role="menu" aria-label="Actions du dossier">
           {canTake && <li role="menuitem"><button type="button" onClick={pick(onTake)}><Icon name="user" size={16} /> Prendre le dossier</button></li>}
+          <li role="menuitem"><button type="button" onClick={pick(() => go("apercu"))}><Icon name="eye" size={16} /> Aperçu du dossier</button></li>
           <li role="menuitem"><button type="button" onClick={pick(() => go("documents"))}><Icon name="upload" size={16} /> Ajouter un document</button></li>
+          <li role="menuitem"><button type="button" onClick={pick(() => go("donnees"))}><Icon name="edit" size={16} /> Données extraites</button></li>
           <li role="menuitem"><button type="button" onClick={pick(() => go("controles"))}><Icon name="checkCircle" size={16} /> Voir les contrôles</button></li>
           <li role="menuitem"><button type="button" onClick={pick(() => go("historique"))}><Icon name="history" size={16} /> Voir l'historique</button></li>
         </ul>
@@ -181,7 +183,7 @@ export function CaseDetailView({
   const heading = TAB_HEADINGS[tab]?.(detail.reference) ?? TAB_HEADINGS.apercu(detail.reference);
 
   return (
-    <>
+    <div className={`case-detail case-detail-${tab}`}>
       <nav className="breadcrumb" aria-label="Fil d'Ariane">
         <button type="button" className="link" onClick={() => navigate("/dossiers")}>
           <Icon name="arrowLeft" size={16} /> Mes dossiers
@@ -230,20 +232,14 @@ export function CaseDetailView({
       </div>
       {error && <p role="alert" className="error">⚠ {error}</p>}
 
-      <section className="card stepper-card" aria-label="Étapes du dossier">
-        <Stepper steps={steps} onSelect={go} />
-      </section>
+      {/* La barre latérale sert de navigation entre les sections ; la frise ne reste que sur l'aperçu et l'export. */}
+      {(tab === "apercu" || tab === "export") && (
+        <section className={tab === "export" ? "stepper-card export-stepper" : "card stepper-card"} aria-label="Étapes du dossier">
+          <Stepper steps={steps} onSelect={go} />
+        </section>
+      )}
 
-      <div role="tablist" className="tabs" aria-label="Sections du dossier">
-        {CASE_TABS.map((t) => (
-          <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => go(t.key)}>
-            <Icon name={t.icon} size={18} />
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div role="tabpanel">
+      <div>
         {tab === "apercu" && (
           <Overview detail={detail} editions={editions} editable={editable} act={act} go={go} />
         )}
@@ -256,7 +252,7 @@ export function CaseDetailView({
         {tab === "export" && <ExportPage detail={detail} go={go} />}
         {tab === "historique" && <History caseId={detail.id} version={tick} />}
       </div>
-    </>
+    </div>
   );
 }
 

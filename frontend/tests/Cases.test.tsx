@@ -99,10 +99,21 @@ describe("Dossiers", () => {
   });
 
   it("ouvre un dossier depuis la liste", async () => {
+    // Vue équipe par défaut : chaque dossier est une carte du tableau par état.
     mockApi();
     render(<Cases membership={membership} me={{ id: "u1" }} />);
-    fireEvent.click(await screen.findByRole("button", { name: "DOS-2026-0001" }));
+    fireEvent.click(await screen.findByRole("button", { name: /DOS-2026-0001/ }));
     expect(window.location.hash).toBe("#/dossiers/c1");
+  });
+
+  it("range les dossiers par état réel et sépare les archives", async () => {
+    mockApi();
+    render(<Cases membership={membership} me={{ id: "u1" }} />);
+    await screen.findByRole("button", { name: /DOS-2026-0001/ });
+    for (const label of ["Brouillons", "En préparation", "À corriger", "À valider", "Validés en interne"])
+      expect(screen.getByRole("region", { name: label })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Archives/ }));
+    expect(await screen.findByText("Aucun dossier archivé.")).toBeInTheDocument();
   });
 
   it("liste les manques du dossier dans l'aperçu, sans calcul ni export inventés", async () => {
