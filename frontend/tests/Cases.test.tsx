@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cases } from "../src/Cases";
-import { decimalInput } from "../src/CaseDetail";
+import { CaseDetailView, decimalInput } from "../src/CaseDetail";
 
 const membership = {
   organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville" },
@@ -64,7 +64,22 @@ function json(status: number, body: unknown) {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  window.location.hash = "";
 });
+
+function mockApi() {
+  return vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+    const url = String(input);
+    if (url.includes("/cases?")) return json(200, { results: [detail], states: [["draft", "Brouillon"]] });
+    if (url.endsWith("/cases/c1")) return json(200, detail);
+    if (url.endsWith("/importers")) return json(200, { count: 0, results: [] });
+    if (url.endsWith("/tariffs/editions")) return json(200, [revision.target_edition]);
+    if (url.endsWith("/documents/limits")) return json(200, { max_bytes: 52428800, accepted: ["PDF (.pdf)"] });
+    if (url.endsWith("/audit")) return json(200, { results: [] });
+    if (url.endsWith("/decisions")) return json(201, revision.goods_lines[0]);
+    return json(404, {});
+  });
+}
 
 describe("Dossiers", () => {
   it("garde les codes en texte et convertit la virgule décimale", () => {
@@ -73,25 +88,29 @@ describe("Dossiers", () => {
     expect(decimalInput("0101")).toBe("0101");
   });
 
-  it("affiche le contrôle du code présent et envoie une confirmation motivée liée au contrôle", async () => {
-    document.cookie = "csrftoken=tok";
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
-      const url = String(input);
-      if (url.includes("/cases?")) return json(200, { results: [detail], states: [["draft", "Brouillon"]] });
-      if (url.endsWith("/cases/c1")) return json(200, detail);
-      if (url.endsWith("/importers")) return json(200, { count: 0, results: [] });
-      if (url.endsWith("/tariffs/editions")) return json(200, [revision.target_edition]);
-      if (url.endsWith("/documents/limits")) return json(200, { max_bytes: 52428800, accepted: ["PDF (.pdf)"] });
-      if (url.endsWith("/audit")) return json(200, { results: [] });
-      if (url.endsWith("/decisions")) return json(201, revision.goods_lines[0]);
-      return json(404, {});
-    });
+  it("ouvre un dossier depuis la liste", async () => {
+    mockApi();
     render(<Cases membership={membership} me={{ id: "u1" }} />);
     fireEvent.click(await screen.findByRole("button", { name: "DOS-2026-0001" }));
+    expect(window.location.hash).toBe("#/dossiers/c1");
+  });
+
+  it("liste les manques du dossier dans l'aperçu, sans calcul ni export inventés", async () => {
+    mockApi();
+    render(<CaseDetailView caseId="c1" tab="apercu" membership={membership} me={{ id: "u1" }} />);
+    expect(await screen.findByText("Importateur à renseigner.", { exact: false })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Étape 4 : Calcul" }).closest("li")).toHaveTextContent("à venir");
+    expect(screen.getByRole("button", { name: "Étape 6 : Export" }).closest("li")).toHaveTextContent("à venir");
+  });
+
+  it("affiche le contrôle du code présent et envoie une confirmation motivée liée au contrôle", async () => {
+    document.cookie = "csrftoken=tok";
+    const fetchMock = mockApi();
+    render(<CaseDetailView caseId="c1" tab="marchandises" membership={membership} me={{ id: "u1" }} />);
     expect(await screen.findByText("Retrouvé dans le référentiel")).toBeInTheDocument();
-    expect(screen.getByText("Importateur à renseigner.", { exact: false })).toBeInTheDocument();
     expect(screen.getByText(/Édition publiée pour consultation historique/)).toBeInTheDocument();
     expect(screen.getAllByText("0101.10.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("À valider").length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText(/motif de la confirmation/i), { target: { value: "Conforme à la facture" } });
     fireEvent.click(screen.getByRole("button", { name: "Confirmer le code" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith("/decisions"))).toBe(true));
@@ -103,5 +122,13 @@ describe("Dossiers", () => {
       reason: "Conforme à la facture",
       goods_line_version: 3,
     });
+  });
+
+  it("réunit les manques et les codes à traiter dans les contrôles", async () => {
+    mockApi();
+    render(<CaseDetailView caseId="c1" tab="controles" membership={membership} me={{ id: "u1" }} />);
+    expect(await screen.findByText("Liste des contrôles (3)")).toBeInTheDocument();
+    expect(screen.getAllByText("Bloquant").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Marchandise 1 \(Chevaux fictifs\) : à valider 0101\.10\.00/).length).toBeGreaterThan(0);
   });
 });
