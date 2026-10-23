@@ -365,6 +365,8 @@ export function NewCasePage({ membership }: { membership: Membership }) {
         </aside>
       </form>
     </>
+  );
+}
 
 const TAB_TITLES: Record<string, string> = {
   documents: "Documents",
