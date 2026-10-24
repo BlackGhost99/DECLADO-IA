@@ -307,3 +307,6 @@ class NodeCorrection(models.Model):
 
     def __str__(self):
         return f"{self.field}: {self.previous!r} → {self.current!r}"
+
+# Fiscal rules are separate from historical rate observations.
+from .fiscal_models import FiscalRule  # noqa: E402,F401
