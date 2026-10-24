@@ -1,4 +1,5 @@
 """User and tenant locale preferences. Text of official tariffs is never translated in place."""
+
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,8 +11,10 @@ from apps.organizations.permissions import HasActiveOrganization
 
 LOCALES = ("fr", "en", "es", "ar")
 
+
 class LocalePayload(serializers.Serializer):
     locale = serializers.ChoiceField(choices=LOCALES)
+
 
 class UserLocaleView(APIView):
     def get(self, request):
@@ -35,6 +38,7 @@ class UserLocaleView(APIView):
                 current={"locale": locale},
             )
         return Response({"locale": locale})
+
 
 class OrganizationLocaleView(APIView):
     permission_classes = [HasActiveOrganization]
@@ -62,6 +66,7 @@ class OrganizationLocaleView(APIView):
                 current={"locale": locale},
             )
         return Response({"locale": locale})
+
 
 class CaseSummaryView(APIView):
     permission_classes = [HasActiveOrganization]
