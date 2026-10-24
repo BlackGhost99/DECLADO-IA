@@ -1,10 +1,11 @@
 """Graph guarantees: shared documents, human confirmation and tenant isolation."""
 import pytest
-from apps.cases.models import CustomsCase, CaseRevision, CaseDocument
-from apps.documents.models import Document
-from apps.document_graph.services import add_relation
-from apps.document_graph.models import DocumentRelation
+
+from apps.cases.models import CaseDocument, CaseRevision, CustomsCase
 from apps.core.exceptions import ApiError
+from apps.document_graph.models import DocumentRelation
+from apps.document_graph.services import add_relation
+from apps.documents.models import Document
 
 
 def make_revision(org, user, ref):
