@@ -12,6 +12,8 @@ x-backend-env: &backend-env
   PRIVATE_STORAGE_ROOT: /var/clairtransit/private
   CLAMAV_HOST: clamav
   CLAMAV_PORT: "3310"
+  MFA_ENFORCE: "false"  # environnement de developpement uniquement
+  AUTH_RATE_LIMIT_ENABLED: "false"
 
 services:
   clamav:
