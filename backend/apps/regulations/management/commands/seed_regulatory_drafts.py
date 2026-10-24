@@ -69,6 +69,4 @@ class Command(BaseCommand):
                     "notes": "Brouillon de transcription : contrôler équivalences, dispenses et vigueur.",
                 },
             )
-        self.stdout.write(
-            self.style.SUCCESS(f"{len(ROWS)} exigences candidates enregistrées ; aucune publiée.")
-        )
+        self.stdout.write(self.style.SUCCESS(f"{len(ROWS)} exigences candidates enregistrées ; aucune publiée."))
