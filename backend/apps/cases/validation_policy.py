@@ -2,6 +2,7 @@
 
 Aucune validation interne ne constitue une acceptation par la Douane.
 """
+
 from apps.core.exceptions import ApiError
 from apps.organizations.models import Role
 
