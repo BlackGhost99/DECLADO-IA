@@ -52,3 +52,6 @@ class Membership(TimestampedModel):
 
     def __str__(self):
         return f"{self.user} @ {self.organization}"
+
+# Profils et agences multi-métiers (importés pour la découverte Django).
+from .business_models import Agency, BusinessProfile, OrganizationBusinessProfile  # noqa: E402,F401
