@@ -7,7 +7,13 @@ import pytest
 from apps.cases.models import CaseDocument, CaseRevision, CustomsCase, Invoice
 from apps.core.exceptions import ApiError
 from apps.document_graph import intelligence
-from apps.document_graph.models import DocumentConflict, DocumentInvoiceLink, Shipment, ShipmentDocument, ShipmentInvoice
+from apps.document_graph.models import (
+    DocumentConflict,
+    DocumentInvoiceLink,
+    Shipment,
+    ShipmentDocument,
+    ShipmentInvoice,
+)
 from apps.documents.models import Document
 
 
@@ -42,11 +48,11 @@ def refs(rows):
 def test_80_document_scenario_preserves_shared_many_to_many_and_idempotence(world, monkeypatch):
     org, user = world["org_a"], world["users"]["a_declarant"]
     revision = revision_for(org, user, "INTELLIGENCE-80")
-    docs = [link_for(org, user, revision, "piece-%02d.pdf" % index) for index in range(80)]
+    docs = [link_for(org, user, revision, f"piece-{index:02d}.pdf") for index in range(80)]
     invoices = [
         Invoice.objects.create(
             organization=org, revision=revision, ordinal=i + 1,
-            invoice_number="INV-%04d" % (i + 1), document=docs[i],
+            invoice_number=f"INV-{i + 1:04d}", document=docs[i],
         )
         for i in range(10)
     ]
