@@ -1,5 +1,6 @@
 """Référentiel documentaire et réglementaire global ; les sociétés ne peuvent qu'ajouter des exigences."""
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -124,3 +125,19 @@ class RequirementEvaluation(models.Model):
 
     def __str__(self):
         return f"{self.revision_id} — {self.evaluated_at}"
+
+
+class DocumentClassification(models.Model):
+    """Human-reviewed classification, scoped to the case document's organization."""
+
+    case_document = models.OneToOneField(
+        "cases.CaseDocument", on_delete=models.PROTECT, related_name="confirmed_classification"
+    )
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.PROTECT)
+    document_type = models.ForeignKey(DocumentType, on_delete=models.PROTECT)
+    confirmed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    confirmed_at = models.DateTimeField(auto_now_add=True)
+    reason = models.CharField(max_length=300)
+
+    def __str__(self):
+        return f"{self.case_document_id}: {self.document_type.code}"

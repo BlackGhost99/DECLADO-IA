@@ -14,7 +14,7 @@ interface Checklist {
   regulatory_validation: boolean;
   requirements: Requirement[];
   warning: string;
-  unclassified_documents: { filename: string; classification?: { suggested_type: string | null } }[];
+  unclassified_documents: { case_document_id: string; filename: string; classification?: { suggested_type: string | null } }[];
 }
 
 export function DocumentChecklist({ revisionId }: { revisionId: string }) {
@@ -66,10 +66,62 @@ export function DocumentChecklist({ revisionId }: { revisionId: string }) {
               <td>{r.reasons.map((v) => v.kind === "regulation"
                 ? `${v.source || ""} art. ${v.article || ""}` : t("orgPolicy")).join(" · ")}</td>
             </tr>)}</tbody></table>}
-        {result.unclassified_documents.length > 0 && <p className="muted">
-          {result.unclassified_documents.length} {t("uncategorized")}
-        </p>}
+        {result.unclassified_documents.length > 0 && <>
+          <p className="muted">{result.unclassified_documents.length} {t("uncategorized")}</p>
+          {result.unclassified_documents.map((doc) => (
+            <ClassificationPicker
+              key={doc.case_document_id} doc={doc} onConfirmed={() => void evaluate()}
+            />
+          ))}
+        </>}
       </>}
     </section>
   );
+}
+
+
+function ClassificationPicker({
+  doc, onConfirmed,
+}: {
+  doc: { case_document_id: string; filename: string; classification?: { suggested_type: string | null } };
+  onConfirmed: () => void;
+}) {
+  const [types, setTypes] = useState<{ code: string; label_fr: string }[]>([]);
+  const [choice, setChoice] = useState(doc.classification?.suggested_type ?? "");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    void request<{ results: { code: string; label_fr: string }[] }>("GET", "/document-types")
+      .then((page) => setTypes(page.results), () => setError("Catalogue indisponible."));
+  }, []);
+
+  async function submit() {
+    setError("");
+    try {
+      await request("POST", `/case-documents/${doc.case_document_id}/confirm-type`, {
+        document_type: choice, reason,
+      });
+      onConfirmed();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Confirmation impossible.");
+    }
+  }
+
+  return <div className="row">
+    <strong>{doc.filename}</strong>
+    <label>Type vérifié
+      <select value={choice} onChange={(e) => setChoice(e.target.value)}>
+        <option value="">Sélectionner</option>
+        {types.map((item) => <option key={item.code} value={item.code}>{item.label_fr}</option>)}
+      </select>
+    </label>
+    <label>Justification
+      <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />
+    </label>
+    <button type="button" disabled={!choice || reason.trim().length < 3} onClick={() => void submit()}>
+      Confirmer
+    </button>
+    {error && <p role="alert" className="error">{error}</p>}
+  </div>;
 }

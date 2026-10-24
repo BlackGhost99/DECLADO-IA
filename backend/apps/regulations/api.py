@@ -4,14 +4,15 @@ from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.cases.models import CaseRevision
+from apps.cases.models import CaseDocument, CaseRevision
 from apps.core.exceptions import ApiError
 from apps.organizations.models import Role
 from apps.organizations.permissions import HasActiveOrganization, require_roles
 
 from .classification import suggest_document_type
 from .engine import CaseContext, UnresolvedRegulatoryCondition, evaluate_requirements
-from .models import CompanyDocumentPolicy, DocumentRequirement, DocumentType
+from .models import CompanyDocumentPolicy, DocumentClassification, DocumentRequirement, DocumentType, RegulatorySource
+from .readiness import legal_coverage_gate
 
 # Seuls ces usages existants identifient un type sans ambiguïté.
 # "transport" ne prouve PAS qu'il s'agit d'un B/L ou d'une LTA.
@@ -83,6 +84,10 @@ class CaseDocumentChecklistView(APIView):
         except UnresolvedRegulatoryCondition as exc:
             raise ApiError("REGULATORY_REVIEW_REQUIRED", str(exc), 422) from exc
 
+        classifications = {
+            row.case_document_id: row.document_type.code
+            for row in DocumentClassification.objects.filter(organization=request.organization)
+        }
         received_links = list(
             revision.documents.filter(replaced_by__isnull=True).select_related("document").order_by("created_at")
         )
@@ -96,7 +101,7 @@ class CaseDocumentChecklistView(APIView):
                 "readability": link.document.readability,
                 "classification": suggest_document_type(link.document.original_name),
             }
-            code = KNOWN_USAGE_TYPES.get(link.usage)
+            code = classifications.get(link.pk) or KNOWN_USAGE_TYPES.get(link.usage)
             if code:
                 received.setdefault(code, []).append(payload)
             else:
@@ -184,4 +189,76 @@ class DocumentTypeListView(APIView):
     def get(self, request):
         return Response(
             {"results": list(DocumentType.objects.filter(active=True).order_by("code").values("code", "label_fr"))}
+        )
+
+
+class DocumentReadinessView(APIView):
+    """Conservative V1 gate. Never suggests that legal coverage is complete."""
+
+    permission_classes = [HasActiveOrganization]
+
+    def get(self, request, revision_id):
+        revision = CaseRevision.objects.for_organization(request.organization).filter(pk=revision_id).first()
+        if revision is None:
+            raise ApiError("NOT_FOUND", "Révision introuvable.", 404)
+        result = legal_coverage_gate(
+            verified_sources=RegulatorySource.objects.filter(verified_on__isnull=False).count(),
+            published_rules=DocumentRequirement.objects.filter(published=True, verified=True).count(),
+            coverage_certified=False,
+        )
+        if not revision.planned_declaration_date or not revision.regime:
+            result["blocking_reasons"].append("Régime et date de déclaration manquants.")
+        if revision.documents.filter(replaced_by__isnull=True).count() == 0:
+            result["blocking_reasons"].append("Aucune pièce jointe à cette révision.")
+        result["ready"] = False
+        result["revision_id"] = str(revision.pk)
+        result["regulatory_validation"] = False
+        return Response(result)
+
+
+class ConfirmDocumentTypeInput(serializers.Serializer):
+    document_type = serializers.SlugField(max_length=60)
+    reason = serializers.CharField(max_length=300, min_length=3)
+
+
+class ConfirmDocumentTypeView(APIView):
+    """Explicit one-time agent confirmation; server resolves organization from membership."""
+
+    permission_classes = [require_roles(Role.DECLARANT, Role.VALIDATOR)]
+
+    def post(self, request, link_id):
+        data = ConfirmDocumentTypeInput(data=request.data)
+        data.is_valid(raise_exception=True)
+        link = (
+            CaseDocument.objects.for_organization(request.organization)
+            .select_related("revision")
+            .filter(pk=link_id, replaced_by__isnull=True)
+            .first()
+        )
+        if link is None:
+            raise ApiError("NOT_FOUND", "Pièce active introuvable.", 404)
+        if not link.revision.is_editable:
+            raise ApiError("REVISION_READ_ONLY", "Cette révision ne peut plus être modifiée.", 409)
+        document_type = DocumentType.objects.filter(code=data.validated_data["document_type"], active=True).first()
+        if document_type is None:
+            raise ApiError("UNKNOWN_DOCUMENT_TYPE", "Type de document inconnu.", 422)
+        if DocumentClassification.objects.filter(case_document=link).exists():
+            raise ApiError("CLASSIFICATION_EXISTS", "Classification déjà confirmée, historique à préserver.", 409)
+        confirmed = DocumentClassification.objects.create(
+            organization=request.organization,
+            case_document=link,
+            document_type=document_type,
+            confirmed_by=request.user,
+            reason=data.validated_data["reason"],
+        )
+        return Response(
+            {
+                "id": confirmed.pk,
+                "case_document_id": str(link.pk),
+                "document_type": document_type.code,
+                "confirmed_at": confirmed.confirmed_at,
+                "confirmed_by": str(request.user.pk),
+                "regulatory_validation": False,
+            },
+            status=201,
         )
