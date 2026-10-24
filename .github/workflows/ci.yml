@@ -2,7 +2,7 @@ name: ClairTransit CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/document-regulatory-referential]
   pull_request:
 
 jobs:
