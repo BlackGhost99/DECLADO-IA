@@ -15,7 +15,7 @@ import {
   type TotalsCheck,
 } from "./api";
 import { errorText } from "./ui";
-import { useI18n, type MessageKey } from "./i18n";
+import { tr, useI18n, type MessageKey } from "./i18n";
 
 type Act = (a: () => Promise<unknown>) => Promise<void>;
 
@@ -47,6 +47,9 @@ const FIELD_KEYS: Record<string, MessageKey> = {
   "code:customs": "customsCode", "code:supplier": "supplierCode",
   "code:ambiguous": "ambiguousCode",
 };
+/** Nom d'un champ lu, dans la langue affichée ; libellé français pour un champ inconnu ici. */
+export const fieldLabel = (field: string) => (FIELD_KEYS[field] ? tr(FIELD_KEYS[field]) : FIELD_LABELS[field] ?? field);
+
 const ORIGIN_KEYS: Record<string, MessageKey> = {
   read: "originRead", inferred: "originInferred", manual: "originManual",
 };
@@ -204,7 +207,7 @@ export function RunDetail({ runId }: { runId: string }) {
         </ul>
       )}
       {report.length > 0 && (
-        <p>Fusion : {report.map(([k, v]) => (v === true ? MERGE_LABELS[k] : `${MERGE_LABELS[k] ?? k} ${v}`)).join(" · ")}</p>
+        <p>{tr("ext.mergePrefix", { list: report.map(([k, v]) => (v === true ? mergeLabel(k) : `${mergeLabel(k)} ${v}`)).join(" · ") })}</p>
       )}
       {run.charges.length > 0 && (
         <p>
@@ -215,9 +218,13 @@ export function RunDetail({ runId }: { runId: string }) {
       {run.comparison && (
         <>
           <p>
-            Comparée à la lecture {run.comparison.previous_attempt} : {run.comparison.counts.same} identique(s),{" "}
-            {run.comparison.counts.changed} changée(s), {run.comparison.counts.new} nouvelle(s),{" "}
-            {run.comparison.counts.not_reread} non relue(s).
+            {tr("ext.compared", {
+              n: run.comparison.previous_attempt,
+              same: run.comparison.counts.same,
+              changed: run.comparison.counts.changed,
+              added: run.comparison.counts.new,
+              notReread: run.comparison.counts.not_reread,
+            })}
           </p>
           {run.comparison.rows.length > 0 && (
             <table>
@@ -242,17 +249,18 @@ export function RunDetail({ runId }: { runId: string }) {
   );
 }
 
-const MERGE_LABELS: Record<string, string> = {
-  invoice_created: "facture créée",
-  lines_created: "lignes créées",
-  lines_updated: "lignes mises à jour",
-  lines_not_reread: "lignes non relues (conservées)",
-  values_set: "valeurs renseignées",
-  values_not_reread: "valeurs non relues (conservées)",
-  corrections_kept: "corrections conservées",
+const MERGE_KEYS: Record<string, MessageKey> = {
+  invoice_created: "invoiceCreated",
+  lines_created: "linesCreated",
+  lines_updated: "linesUpdated",
+  lines_not_reread: "linesRetained",
+  values_set: "valuesSet",
+  values_not_reread: "valuesRetained",
+  corrections_kept: "correctionsKept",
   divergences: "divergences",
-  codes_observed: "codes lus",
+  codes_observed: "codesObserved",
 };
+const mergeLabel = (key: string) => (MERGE_KEYS[key] ? tr(MERGE_KEYS[key]) : key);
 
 const TOTALS_KEYS: Record<TotalsCheck["status"], MessageKey> = {
   match: "totalMatch", gap: "totalGap", incomplete: "totalUnknown", no_printed_total: "noPrintedTotal",
@@ -391,7 +399,7 @@ export function LineEditor({
   }
 
   return (
-    <form className="row small" onSubmit={submit} aria-label={`Corriger la ligne ${line.ordinal}`}>
+    <form className="row small" onSubmit={submit} aria-label={tr("ext.fixLine", { n: line.ordinal })}>
       {EDITABLE_FIELDS.map((f) => (
         <label key={f}>
           {FIELD_KEYS[f] ? t(FIELD_KEYS[f]) : FIELD_LABELS[f]}
@@ -399,8 +407,8 @@ export function LineEditor({
         </label>
       ))}
       <label>
-        Motif de la correction
-        <input value={reason} onChange={(e) => setReason(e.target.value)} size={28} placeholder="ex. bon de livraison" />
+        {tr("ext.fixReason")}
+        <input value={reason} onChange={(e) => setReason(e.target.value)} size={28} placeholder={tr("ext.fixExample")} />
       </label>
       <button type="submit">{t("saveCorrection")}</button>
       <button type="button" onClick={onClose}>{t("cancel")}</button>

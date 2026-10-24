@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, ROLE_LABELS, type Importer, type Member, type Membership } from "./api";
 import { DocumentPolicies } from "./DocumentPolicies";
 import { Icon } from "./Icon";
+import { tr, useBusinessLabels } from "./i18n";
 import { Chip, initials, PageHeader } from "./ui";
 
 /** Administration de la société : importateurs pour tous, utilisateurs pour l'administrateur. */
@@ -12,17 +13,17 @@ export function Administration({ membership }: { membership: Membership }) {
 
   return (
     <>
-      <PageHeader title="Administration" subtitle={`Paramètres de ${membership.organization.name}.`} />
+      <PageHeader title={tr("nav.administration")} subtitle={tr("adm.settingsOf", { name: membership.organization.name })} />
       <div role="tablist" className="tabs">
         <button type="button" role="tab" aria-selected={tab === "importers"} onClick={() => setTab("importers")}>
-          <Icon name="folder" size={18} /> Importateurs
+          <Icon name="folder" size={18} /> {tr("importers")}
         </button>
         <button type="button" role="tab" aria-selected={tab === "documents"} onClick={() => setTab("documents")}>
-          <Icon name="file" size={18} /> Pièces du dossier
+          <Icon name="file" size={18} /> {tr("adm.caseDocs")}
         </button>
         {isAdmin && (
           <button type="button" role="tab" aria-selected={tab === "users"} onClick={() => setTab("users")}>
-            <Icon name="users" size={18} /> Utilisateurs
+            <Icon name="users" size={18} /> {tr("adm.users")}
           </button>
         )}
       </div>
@@ -58,27 +59,27 @@ function Importers({ canEdit }: { canEdit: boolean }) {
       const dups = created.possible_duplicates ?? [];
       setMessage(
         dups.length
-          ? `Importateur enregistré. Doublon possible : ${dups.map((d) => d.name).join(", ")}. Vérifiez avant de l'utiliser.`
-          : "Importateur enregistré.",
+          ? tr("adm.duplicate", { names: dups.map((d) => d.name).join(", ") })
+          : tr("importerSaved"),
       );
       setName("");
       setNif("");
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Enregistrement impossible.");
+      setError(err instanceof ApiError ? err.message : tr("saveError"));
     }
   }
 
   return (
     <section className="card" aria-labelledby="importers-title">
-      <h2 id="importers-title" className="card-title">Importateurs (clients)</h2>
+      <h2 id="importers-title" className="card-title">{tr("adm.importersClients")}</h2>
       {items.length === 0 ? (
-        <p className="empty">Aucun importateur pour cette société.</p>
+        <p className="empty">{tr("importerNone")}</p>
       ) : (
         <div className="table-wrap">
           <table className="data">
             <thead>
-              <tr><th scope="col">Nom</th><th scope="col">Identifiants</th></tr>
+              <tr><th scope="col">{tr("name")}</th><th scope="col">{tr("identifiers")}</th></tr>
             </thead>
             <tbody>
               {items.map((i) => (
@@ -94,15 +95,15 @@ function Importers({ canEdit }: { canEdit: boolean }) {
       {canEdit && (
         <form className="form-grid" onSubmit={create}>
           <label>
-            Nom
+            {tr("name")}
             <input required value={name} onChange={(e) => setName(e.target.value)} />
           </label>
           <label>
-            NIF (facultatif)
+            {tr("optionalTax")}
             <input value={nif} onChange={(e) => setNif(e.target.value)} />
           </label>
           <div className="form-end">
-            <button type="submit" className="btn-primary"><Icon name="plus" /> Ajouter</button>
+            <button type="submit" className="btn-primary"><Icon name="plus" /> {tr("add")}</button>
           </div>
         </form>
       )}
@@ -113,6 +114,7 @@ function Importers({ canEdit }: { canEdit: boolean }) {
 }
 
 function Members() {
+  const labels = useBusinessLabels();
   const [members, setMembers] = useState<Member[]>([]);
   useEffect(() => {
     void api.members().then((p) => setMembers(p.results));
@@ -120,12 +122,12 @@ function Members() {
 
   return (
     <section className="card" aria-labelledby="members-title">
-      <h2 id="members-title" className="card-title">Utilisateurs de la société</h2>
-      <p className="muted small">Un compte n'est jamais supprimé : il est désactivé et son historique reste attribué.</p>
+      <h2 id="members-title" className="card-title">{tr("orgUsers")}</h2>
+      <p className="muted small">{tr("adm.neverDeleted")}</p>
       <div className="table-wrap">
         <table className="data">
           <thead>
-            <tr><th scope="col">Utilisateur</th><th scope="col">Rôles</th><th scope="col">État</th></tr>
+            <tr><th scope="col">{tr("adm.user")}</th><th scope="col">{tr("rolesHeader")}</th><th scope="col">{tr("status")}</th></tr>
           </thead>
           <tbody>
             {members.map((m) => (
@@ -139,8 +141,8 @@ function Members() {
                     </span>
                   </span>
                 </td>
-                <td>{m.roles.map((r) => ROLE_LABELS[r]).join(", ")}</td>
-                <td>{m.active ? <Chip tone="green">Actif</Chip> : <Chip tone="gray">Désactivé</Chip>}</td>
+                <td>{m.roles.map((r) => labels.role(r, ROLE_LABELS[r] ?? r)).join(", ")}</td>
+                <td>{m.active ? <Chip tone="green">{tr("active")}</Chip> : <Chip tone="gray">{tr("inactive")}</Chip>}</td>
               </tr>
             ))}
           </tbody>

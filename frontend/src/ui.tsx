@@ -1,20 +1,26 @@
 import type { ReactNode } from "react";
 import { ApiError, type EditionBrief, type GoodsLine, type Revision, type UserBrief } from "./api";
 import { Icon, type IconName } from "./Icon";
-import { useBusinessLabels } from "./i18n";
+import { currentLocale, tr, type Locale, type MessageKey } from "./i18n";
 
 export type EditionOption = EditionBrief & { warning: string | null };
 
 export function errorText(err: unknown, fallback: string): string {
   if (!(err instanceof ApiError)) return fallback;
   if (err.code === "REVISION_CONFLICT")
-    return "Quelqu'un a modifié cet élément depuis votre ouverture. Rechargez pour voir sa version ; rien n'a été écrasé.";
+    return tr("err.conflict");
   return err.message;
 }
 
-export const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("fr-FR");
+/** Format régional de la langue affichée ; l'arabe garde les chiffres occidentaux des pièces. */
+const LOCALE_TAGS: Record<Locale, string> = { fr: "fr-FR", en: "en-GB", es: "es-ES", ar: "ar-u-nu-latn" };
+export const localeTag = () => LOCALE_TAGS[currentLocale()];
+export const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(localeTag());
 export const fmtDateTime = (iso: string) =>
-  new Date(iso).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+  new Date(iso).toLocaleString(localeTag(), { dateStyle: "short", timeStyle: "short" });
+
+/** Séparateurs de milliers et de décimales selon la langue affichée. */
+const SEPARATORS: Record<Locale, [string, string]> = { fr: ["\u202f", ","], en: [",", "."], es: [".", ","], ar: [",", "."] };
 
 /**
  * Montant décimal (texte) affiché à la française : « 61187.5 » → « 61 187,50 ».
@@ -25,8 +31,9 @@ export function fmtAmount(value: string | null | undefined, decimals = 2): strin
   const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value.trim());
   if (!m) return value;
   const [, sign, int, frac = ""] = m;
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f");
-  const dec = decimals > 0 ? `,${(frac + "0".repeat(decimals)).slice(0, Math.max(decimals, frac.replace(/0+$/, "").length))}` : frac.replace(/0+$/, "") ? `,${frac.replace(/0+$/, "")}` : "";
+  const [group, point] = SEPARATORS[currentLocale()];
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, group);
+  const dec = decimals > 0 ? `${point}${(frac + "0".repeat(decimals)).slice(0, Math.max(decimals, frac.replace(/0+$/, "").length))}` : frac.replace(/0+$/, "") ? `${point}${frac.replace(/0+$/, "")}` : "";
   return `${sign}${grouped}${dec}`;
 }
 
@@ -35,12 +42,12 @@ export const fmtQty = (value: string | null | undefined) => fmtAmount(value, 0);
 
 export function relativeTime(iso: string, now = Date.now()): string {
   const minutes = Math.round((now - new Date(iso).getTime()) / 60000);
-  if (minutes < 1) return "à l'instant";
-  if (minutes < 60) return `il y a ${minutes} min`;
+  if (minutes < 1) return tr("time.now");
+  if (minutes < 60) return tr("time.minutes", { n: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `il y a ${hours} h`;
+  if (hours < 24) return tr("time.hours", { n: hours });
   const days = Math.round(hours / 24);
-  return `il y a ${days} j`;
+  return tr("time.days", { n: days });
 }
 
 /** Nom affichable d'une personne : son nom s'il est connu, sinon son adresse. */
@@ -73,9 +80,20 @@ export function Chip({ tone, children, icon }: { tone: Tone; children: ReactNode
   );
 }
 
+const STATE_KEYS: Record<string, MessageKey> = {
+  draft: "stateDraft",
+  in_preparation: "statePreparing",
+  to_validate: "stateToValidate",
+  to_correct: "stateToCorrect",
+  validated: "stateValidated",
+  archived: "stateArchived",
+};
+
+/** Libellé de l'état d'un dossier dans la langue affichée ; libellé du serveur sinon. */
+export const stateLabel = (state: string, fallback: string) => (STATE_KEYS[state] ? tr(STATE_KEYS[state]) : fallback);
+
 export function StateChip({ state, label }: { state: string; label: string }) {
-  const labels = useBusinessLabels();
-  return <Chip tone={STATE_TONES[state] ?? "gray"}>{labels.state(state, label)}</Chip>;
+  return <Chip tone={STATE_TONES[state] ?? "gray"}>{stateLabel(state, label)}</Chip>;
 }
 
 /** Carte de statistique : pictogramme coloré, libellé, valeur. */
@@ -140,12 +158,12 @@ export function caseSteps(rev: Revision): Step[] {
   const validated = rev.state === "validated" || rev.state === "archived";
 
   const raw: Omit<Step, "state">[] = [
-    { key: "documents", label: "Documents reçus", detail: docs.length ? `${docs.length} pièce(s)` : "facture, B/L…" },
-    { key: "donnees", label: "Extraction", detail: invoicesWithLines.length ? `${invoicesWithLines.length} facture(s) lue(s)` : "lecture des pièces" },
-    { key: "marchandises", label: "Classification", detail: goods.length ? `${decided} / ${goods.length} code(s) validé(s)` : "codes SH" },
-    { key: "calculs", label: "Calcul", detail: "à venir" },
-    { key: "validation", label: "Validation", detail: rev.state_label },
-    { key: "export", label: "Export", detail: "à venir" },
+    { key: "documents", label: tr("step.documents"), detail: docs.length ? tr("step.pieces", { n: docs.length }) : tr("step.piecesHint") },
+    { key: "donnees", label: tr("step.extraction"), detail: invoicesWithLines.length ? tr("step.invoicesRead", { n: invoicesWithLines.length }) : tr("step.readingPieces") },
+    { key: "marchandises", label: tr("step.classification"), detail: goods.length ? tr("step.codesValidated", { done: decided, total: goods.length }) : tr("step.hsCodes") },
+    { key: "calculs", label: tr("step.calculation"), detail: tr("step.later") },
+    { key: "validation", label: tr("step.validation"), detail: stateLabel(rev.state, rev.state_label) },
+    { key: "export", label: tr("step.export"), detail: tr("step.later") },
   ];
   const done: Record<string, boolean> = {
     documents: docs.length > 0,
@@ -174,7 +192,7 @@ export function Stepper({ steps, onSelect }: { steps: Step[]; onSelect?: (key: s
     <ol className="stepper">
       {steps.map((s, i) => (
         <li key={s.key} className={`step step-${s.state}`}>
-          <button type="button" className="step-dot" onClick={() => onSelect?.(s.key)} disabled={!onSelect} aria-label={`Étape ${i + 1} : ${s.label}`}>
+          <button type="button" className="step-dot" onClick={() => onSelect?.(s.key)} disabled={!onSelect} aria-label={tr("step.aria", { n: i + 1, label: s.label })}>
             {s.state === "done" ? <Icon name="check" size={16} /> : i + 1}
           </button>
           <span className="step-label">{s.label}</span>
@@ -245,7 +263,8 @@ export const EVENT_LABELS: Record<string, string> = {
   "scan.batch_cancelled": "Lot abandonné",
 };
 
-export const eventLabel = (type: string) => EVENT_LABELS[type] ?? type;
+export const eventLabel = (type: string) =>
+  EVENT_LABELS[type] ? tr(`event.${type}` as MessageKey) : type;
 
 export function eventIcon(type: string): IconName {
   if (type.includes("failed")) return "alert";
@@ -261,12 +280,12 @@ export function eventIcon(type: string): IconName {
 /** Statut de classement d'une marchandise, tel que l'agent doit le lire. */
 export function goodsStatus(g: GoodsLine): { tone: Tone; label: string; code: string } {
   const check = g.latest_check;
-  if (g.decision?.is_current) return { tone: "green", label: "Validé", code: g.decision.selected_code_display };
-  if (g.decision) return { tone: "red", label: "À revoir", code: g.decision.selected_code_display };
-  if (!check) return { tone: "gray", label: "À contrôler", code: "" };
-  if (!check.is_current || check.human_confirmation === "stale") return { tone: "amber", label: "À recontrôler", code: check.observed_code ?? "" };
-  if (check.recognition_status === "recognized") return { tone: "amber", label: "À valider", code: check.node?.code_display ?? check.observed_code ?? "" };
-  return { tone: "amber", label: "À vérifier", code: check.observed_code ?? "" };
+  if (g.decision?.is_current) return { tone: "green", label: tr("goods.validated"), code: g.decision.selected_code_display };
+  if (g.decision) return { tone: "red", label: tr("goods.toReview"), code: g.decision.selected_code_display };
+  if (!check) return { tone: "gray", label: tr("goods.toCheck"), code: "" };
+  if (!check.is_current || check.human_confirmation === "stale") return { tone: "amber", label: tr("goods.toRecheck"), code: check.observed_code ?? "" };
+  if (check.recognition_status === "recognized") return { tone: "amber", label: tr("goods.toValidate"), code: check.node?.code_display ?? check.observed_code ?? "" };
+  return { tone: "amber", label: tr("goods.toVerify"), code: check.observed_code ?? "" };
 }
 
 /** Somme exacte de montants décimaux écrits en texte (jamais en flottant). */

@@ -3,7 +3,7 @@ import { api, type CaseSummary, type Importer, type Me, type Membership } from "
 import { Icon } from "./Icon";
 import { navigate } from "./router";
 import { errorText, fmtDate, initials, PageHeader, personName, relativeTime, StateChip } from "./ui";
-import { useBusinessLabels } from "./i18n";
+import { tr, useBusinessLabels, type MessageKey } from "./i18n";
 
 export const canEditCases = (m: Membership) => m.roles.some((r) => r === "declarant" || r === "validator");
 
@@ -30,7 +30,7 @@ export function Cases({ membership, me, initialQuery = "" }: { membership: Membe
         setCases(page.results);
         setStates(page.states);
       },
-      (err) => setError(errorText(err, "Chargement impossible.")),
+      (err) => setError(errorText(err, tr("cases.loadFailed"))),
     );
   }, [filters]);
 
@@ -38,17 +38,17 @@ export function Cases({ membership, me, initialQuery = "" }: { membership: Membe
 
   return (
     <>
-      <PageHeader title="Mes dossiers" subtitle="Suivez l'avancement des dossiers de votre équipe.">
+      <PageHeader title={tr("nav.myCases")} subtitle={tr("cases.subtitle")}>
         {canEditCases(membership) && (
           <button type="button" className="btn-primary" onClick={() => navigate("/nouveau")}>
-            <Icon name="plus" /> Nouveau dossier
+            <Icon name="plus" /> {tr("nav.newCase")}
           </button>
         )}
       </PageHeader>
-      <div className="case-tabs-bar" role="tablist" aria-label="Vues des dossiers">
+      <div className="case-tabs-bar" role="tablist" aria-label={tr("cases.views")}>
         {VIEWS.map(([key, label, icon]) => (
           <button key={key} type="button" role="tab" aria-selected={view === key} className={view === key ? "active" : ""} onClick={() => setView(key)}>
-            <Icon name={icon} size={18} /> {label}
+            <Icon name={icon} size={18} /> {tr(label)}
           </button>
         ))}
       </div>
@@ -56,33 +56,33 @@ export function Cases({ membership, me, initialQuery = "" }: { membership: Membe
       {view === "team" && <TeamOverview cases={cases} />}
 
       <section className="card cases-filter-card" aria-labelledby="cases-title">
-        <h2 id="cases-title" className="visually-hidden">Dossiers</h2>
+        <h2 id="cases-title" className="visually-hidden">{tr("cases")}</h2>
         <form className="filters" role="search" onSubmit={(e) => e.preventDefault()}>
           <label>
-            Référence ou titre
+            {tr("searchTitle")}
             <input value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} />
           </label>
           <label>
-            État
+            {tr("status")}
             <select value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })}>
-              <option value="">Tous</option>
+              <option value="">{tr("all")}</option>
               {states.map(([value, label]) => (
                 <option key={value} value={value}>{labels.state(value, label)}</option>
               ))}
             </select>
           </label>
           <label>
-            Agent
+            {tr("agent")}
             <select value={filters.assigned_to} onChange={(e) => setFilters({ ...filters, assigned_to: e.target.value })}>
-              <option value="">Tous</option>
-              <option value={me.id}>Moi</option>
-              <option value="none">Non affectés</option>
+              <option value="">{tr("all")}</option>
+              <option value={me.id}>{tr("me")}</option>
+              <option value="none">{tr("unassigned")}</option>
             </select>
           </label>
           <label>
-            Importateur
+            {tr("cases.importer")}
             <select value={filters.importer} onChange={(e) => setFilters({ ...filters, importer: e.target.value })}>
-              <option value="">Tous</option>
+              <option value="">{tr("all")}</option>
               {importers.map((i) => (
                 <option key={i.id} value={i.id}>{i.name}</option>
               ))}
@@ -93,7 +93,7 @@ export function Cases({ membership, me, initialQuery = "" }: { membership: Membe
         {view === "team" ? (
           <CasesKanban cases={cases.filter((c) => c.state !== "archived")} />
         ) : shown.length === 0 ? (
-          <p className="empty">{view === "mine" ? "Aucun dossier ne vous est affecté." : "Aucun dossier archivé."}</p>
+          <p className="empty">{view === "mine" ? tr("cases.noneMine") : tr("cases.noneArchived")}</p>
         ) : (
           <CaseTable cases={shown} />
         )}
@@ -102,19 +102,19 @@ export function Cases({ membership, me, initialQuery = "" }: { membership: Membe
   );
 }
 
-const VIEWS: ["mine" | "team" | "archives", string, "file" | "users" | "archive"][] = [
-  ["mine", "Mes dossiers", "file"],
-  ["team", "Vue équipe", "users"],
-  ["archives", "Archives", "archive"],
+const VIEWS: ["mine" | "team" | "archives", MessageKey, "file" | "users" | "archive"][] = [
+  ["mine", "nav.myCases", "file"],
+  ["team", "cases.teamView", "users"],
+  ["archives", "cases.archives", "archive"],
 ];
 
 /** Une colonne par état réel du dossier : aucune étape n'est déduite. */
-const BOARD_COLUMNS: { state: string; label: string; tone: string }[] = [
-  { state: "draft", label: "Brouillons", tone: "gray" },
-  { state: "in_preparation", label: "En préparation", tone: "blue" },
-  { state: "to_correct", label: "À corriger", tone: "red" },
-  { state: "to_validate", label: "À valider", tone: "amber" },
-  { state: "validated", label: "Validés en interne", tone: "green" },
+const BOARD_COLUMNS: { state: string; label: MessageKey; tone: string }[] = [
+  { state: "draft", label: "board.draft", tone: "gray" },
+  { state: "in_preparation", label: "board.preparing", tone: "blue" },
+  { state: "to_correct", label: "board.toCorrect", tone: "red" },
+  { state: "to_validate", label: "board.toValidate", tone: "amber" },
+  { state: "validated", label: "board.validated", tone: "green" },
 ];
 
 function TeamOverview({ cases }: { cases: CaseSummary[] }) {
@@ -129,17 +129,17 @@ function TeamOverview({ cases }: { cases: CaseSummary[] }) {
   return (
     <div className="team-overview">
       <div className="stats stats-3 team-kpis">
-        <StatMini icon="folder" tone="green" label="Dossiers en cours" value={open.length} />
-        <StatMini icon="alert" tone="red" label="À corriger" value={open.filter((c) => c.state === "to_correct").length} />
-        <StatMini icon="checkCircle" tone="green" label="Validés en interne" value={open.filter((c) => c.state === "validated").length} />
+        <StatMini icon="folder" tone="green" label={tr("board.inProgress")} value={open.length} />
+        <StatMini icon="alert" tone="red" label={tr("board.toCorrect")} value={open.filter((c) => c.state === "to_correct").length} />
+        <StatMini icon="checkCircle" tone="green" label={tr("board.validated")} value={open.filter((c) => c.state === "validated").length} />
       </div>
       <aside className="card team-load-card" aria-labelledby="team-load-title">
         <div className="card-head">
-          <h2 id="team-load-title" className="card-title">Charge de l'équipe</h2>
-          <span className="muted small">{unassigned} non affecté(s)</span>
+          <h2 id="team-load-title" className="card-title">{tr("board.teamLoad")}</h2>
+          <span className="muted small">{tr("dash.unassigned", { n: unassigned })}</span>
         </div>
         {people.size === 0 ? (
-          <p className="empty">Aucun dossier affecté.</p>
+          <p className="empty">{tr("board.noneAssigned")}</p>
         ) : (
           <ul className="team-load">
             {[...people.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => (
@@ -173,28 +173,28 @@ function StatMini({ icon, tone, label, value }: { icon: "folder" | "alert" | "ch
 
 function CasesKanban({ cases }: { cases: CaseSummary[] }) {
   return (
-    <div className="kanban" aria-label="Dossiers par état">
+    <div className="kanban" aria-label={tr("board.byState")}>
       {BOARD_COLUMNS.map((column) => {
         const rows = cases.filter((c) => c.state === column.state);
         return (
-          <section key={column.state} className={`kanban-column kanban-${column.tone}`} aria-label={column.label}>
+          <section key={column.state} className={`kanban-column kanban-${column.tone}`} aria-label={tr(column.label)}>
             <header className="kanban-head">
-              <span>{column.label}</span>
+              <span>{tr(column.label)}</span>
               <span className="count-badge">{rows.length}</span>
             </header>
             <div className="kanban-list">
               {rows.length === 0 ? (
-                <div className="kanban-empty">Aucun dossier</div>
+                <div className="kanban-empty">{tr("board.noCase")}</div>
               ) : (
                 rows.map((c) => (
                   <button type="button" key={c.id} className="kanban-card" onClick={() => navigate(`/dossiers/${c.id}`)}>
                     <strong className="code">{c.reference}</strong>
-                    <span className="kanban-importer">{c.importer?.name ?? c.title ?? "Importateur à renseigner"}</span>
-                    <small>{MODE_SHORT[c.mode] ?? c.mode}</small>
+                    <span className="kanban-importer">{c.importer?.name ?? c.title ?? capitalize(tr("case.importerToFill"))}</span>
+                    <small>{modeShort(c.mode)}</small>
                     <span className="kanban-meta">
                       <span className="person">
                         <span className="avatar small-avatar">{personName(c.assigned_to) ? initials(personName(c.assigned_to)) : "?"}</span>
-                        <small>{personName(c.assigned_to) || "Non affecté"}</small>
+                        <small>{personName(c.assigned_to) || tr("board.unassignedOne")}</small>
                       </span>
                       <small>{relativeTime(c.created_at)}</small>
                     </span>
@@ -209,7 +209,9 @@ function CasesKanban({ cases }: { cases: CaseSummary[] }) {
   );
 }
 
-const MODE_SHORT: Record<string, string> = { demo: "Démonstration", historical: "Simulation", operational: "Opérationnel" };
+const MODE_SHORT: Record<string, MessageKey> = { demo: "modeDemo", historical: "mode.simulation", operational: "modeOperational" };
+const modeShort = (mode: string) => (MODE_SHORT[mode] ? tr(MODE_SHORT[mode]) : mode);
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 export function CaseTable({ cases, progress }: { cases: CaseSummary[]; progress?: Record<string, ReactNode> }) {
   return (
@@ -217,14 +219,14 @@ export function CaseTable({ cases, progress }: { cases: CaseSummary[]; progress?
       <table className={`data${progress ? " case-table-compact" : ""}`}>
         <thead>
           <tr>
-            <th scope="col">N° dossier</th>
-            <th scope="col">Importateur / titre</th>
-            {!progress && <th scope="col">Type</th>}
-            {progress && <th scope="col">Progression</th>}
-            <th scope="col">Agent</th>
-            <th scope="col">Statut</th>
-            <th scope="col">Créé</th>
-            <th scope="col"><span className="visually-hidden">Ouvrir</span></th>
+            <th scope="col">{tr("cases.caseNo")}</th>
+            <th scope="col">{tr("cases.importerTitle")}</th>
+            {!progress && <th scope="col">{tr("cases.type")}</th>}
+            {progress && <th scope="col">{tr("cases.progress")}</th>}
+            <th scope="col">{tr("agent")}</th>
+            <th scope="col">{tr("cases.statusCol")}</th>
+            <th scope="col">{tr("cases.created")}</th>
+            <th scope="col"><span className="visually-hidden">{tr("cases.open")}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -236,16 +238,16 @@ export function CaseTable({ cases, progress }: { cases: CaseSummary[]; progress?
                 </button>
               </td>
               <td className="importer-cell" title={c.title || undefined}>
-                {c.importer?.name ?? <em className="muted">importateur à renseigner</em>}
+                {c.importer?.name ?? <em className="muted">{tr("case.importerToFill")}</em>}
                 {c.title && !progress && <div className="muted small">{c.title}</div>}
               </td>
-              {!progress && <td>{MODE_SHORT[c.mode] ?? c.mode}</td>}
+              {!progress && <td>{modeShort(c.mode)}</td>}
               {progress && <td>{progress[c.id] ?? <span className="muted">…</span>}</td>}
               <td className="agent-cell" title={personName(c.assigned_to) || undefined}>
                 {personName(c.assigned_to) ? (
                   progress ? <span className="avatar small-avatar">{initials(personName(c.assigned_to))}</span> : personName(c.assigned_to)
                 ) : (
-                  <span className="muted">non affecté</span>
+                  <span className="muted">{tr("case.unassigned")}</span>
                 )}
               </td>
               <td>
@@ -253,9 +255,9 @@ export function CaseTable({ cases, progress }: { cases: CaseSummary[]; progress?
               </td>
               <td title={fmtDate(c.created_at)} className="nowrap muted">{relativeTime(c.created_at)}</td>
               <td>
-                <button type="button" className="icon-button" onClick={() => navigate(`/dossiers/${c.id}`)} title={`Ouvrir ${c.reference}`}>
+                <button type="button" className="icon-button" onClick={() => navigate(`/dossiers/${c.id}`)} title={tr("cases.openRef", { ref: c.reference })}>
                   <Icon name="chevronRight" size={18} />
-                  <span className="visually-hidden">Ouvrir {c.reference}</span>
+                  <span className="visually-hidden">{tr("cases.openRef", { ref: c.reference })}</span>
                 </button>
               </td>
             </tr>
@@ -270,13 +272,13 @@ export function CaseTable({ cases, progress }: { cases: CaseSummary[]; progress?
  * Nouveau dossier : on dépose la facture, le dossier est créé et la lecture démarre aussitôt.
  * Tout le reste (importateur, édition, régime) peut attendre : les manques sont listés dans le dossier.
  */
-const TAB_TITLES: Record<string, string> = {
-  documents: "Documents",
-  marchandises: "Marchandises",
-  calculs: "Calculs",
-  controles: "Contrôles",
-  validation: "Validation",
-  export: "Export",
+const TAB_TITLES: Record<string, MessageKey> = {
+  documents: "tab.documents",
+  marchandises: "tab.goods",
+  calculs: "tab.calculations",
+  controles: "tab.controls",
+  validation: "tab.validation",
+  export: "tab.export",
 };
 
 /** Entrée de la barre latérale sans dossier ouvert : on choisit d'abord le dossier. */
@@ -290,14 +292,14 @@ export function CasePicker({ tab, me }: { tab: string; me: Pick<Me, "id"> }) {
   }, [me.id]);
   return (
     <>
-      <PageHeader title={TAB_TITLES[tab] ?? tab} subtitle="Choisissez le dossier à ouvrir." />
+      <PageHeader title={TAB_TITLES[tab] ? tr(TAB_TITLES[tab]) : tab} subtitle={tr("cases.pick")} />
       <section className="card">
         {cases === null ? (
-          <p className="muted">Chargement…</p>
+          <p className="muted">{tr("loading")}</p>
         ) : cases.length === 0 ? (
           <p className="empty">
-            Aucun dossier ne vous est affecté.{" "}
-            <button type="button" className="link" onClick={() => navigate("/dossiers")}>Voir tous les dossiers</button>
+            {tr("cases.noneMine")}{" "}
+            <button type="button" className="link" onClick={() => navigate("/dossiers")}>{tr("dash.seeAllCases")}</button>
           </p>
         ) : (
           <ul className="picker">

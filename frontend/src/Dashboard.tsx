@@ -3,6 +3,7 @@ import { api, type CaseDetail, type CaseSummary, type Me, type Membership, type 
 import portHero from "./assets/port-hero.png";
 import { controlItems } from "./Controls";
 import { Icon, type IconName } from "./Icon";
+import { tr } from "./i18n";
 import { navigate } from "./router";
 import {
   caseSteps,
@@ -23,6 +24,8 @@ export function shortName(full: string): string {
   const words = full.trim().split(/\s+/);
   return words.length > 1 ? `${words[0][0]}. ${words.slice(1).join(" ")}` : full;
 }
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /** Variation en pourcentage, seulement quand la période de comparaison existe. */
 function trend(now: number, before: number): { text: string; dir: "up" | "down" | "flat" } | null {
@@ -67,13 +70,13 @@ function Kpi({
   );
 }
 
-const DASH_STEPS: Omit<Step, "state">[] = [
-  { key: "documents", label: "Documents reçus", detail: "BL, facture, packing list…" },
-  { key: "donnees", label: "Extraction", detail: "Lecture PDF" },
-  { key: "marchandises", label: "Classification", detail: "Code SH" },
-  { key: "calculs", label: "Calcul", detail: "Droits et taxes" },
-  { key: "validation", label: "Validation", detail: "Contrôles" },
-  { key: "export", label: "Export", detail: "Dossier final" },
+const DASH_STEPS = (): Omit<Step, "state">[] => [
+  { key: "documents", label: tr("step.documents"), detail: tr("dash.receivedHint") },
+  { key: "donnees", label: tr("step.extraction"), detail: tr("dash.readPdf") },
+  { key: "marchandises", label: tr("step.classification"), detail: tr("dash.hsCode") },
+  { key: "calculs", label: tr("step.calculation"), detail: tr("dash.dutiesTaxes") },
+  { key: "validation", label: tr("step.validation"), detail: tr("dash.checks") },
+  { key: "export", label: tr("step.export"), detail: tr("dash.finalCase") },
 ];
 
 export function Dashboard({ membership, me }: { membership: Membership; me: Pick<Me, "id" | "full_name" | "email"> }) {
@@ -111,7 +114,7 @@ export function Dashboard({ membership, me }: { membership: Membership; me: Pick
   const complete = loaded.filter((d) => !controlItems(d).some((i) => i.severity === "blocking")).length;
   const latest = recent[0] && details[recent[0].id];
   const latestSteps = latest ? caseSteps(latest.revision) : null;
-  const steps: Step[] = DASH_STEPS.map((s, i) => ({ ...s, state: latestSteps?.[i].state ?? "todo" }));
+  const steps: Step[] = DASH_STEPS().map((s, i) => ({ ...s, state: latestSteps?.[i].state ?? "todo" }));
 
   return (
     <div className="dash">
@@ -119,55 +122,53 @@ export function Dashboard({ membership, me }: { membership: Membership; me: Pick
         <img className="hero-art" src={portHero} alt="" />
         <div className="hero-main">
           <h1>ClairTransit</h1>
-          <p className="hero-sub">Assistant de préparation douanière</p>
-          <p className="hero-text">
-            Transformez vos documents import en dossiers de dédouanement complets, vérifiés et prêts à préparer.
-          </p>
+          <p className="hero-sub">{tr("dash.heroSub")}</p>
+          <p className="hero-text">{tr("dash.heroText")}</p>
         </div>
         <div className="hero-side">
-          <strong>Gabon</strong>
-          <span>et toute la région CEMAC</span>
+          <strong>{tr("country.gabon")}</strong>
+          <span>{tr("dash.region")}</span>
           <i aria-hidden="true" />
         </div>
       </section>
 
       <div className="kpis">
-        <Kpi icon="folder" tone="green" label="Dossiers aujourd'hui" value={count((c) => new Date(c.created_at).toDateString() === day(0))}
-          delta={trend(createdOn(0), createdOn(1))} note="vs hier" />
-        <Kpi icon="clock" tone="blue" label="En traitement" value={count((c) => c.state === "draft" || c.state === "in_preparation")}
-          delta={`${all.filter((c) => !c.assigned_to).length} non affecté(s)`} note="à prendre en charge" />
-        <Kpi icon="alert" tone="amber" label="À vérifier" value={count((c) => c.state === "to_validate" || c.state === "to_correct")}
-          delta="en validation" note="ou à corriger" />
-        <Kpi icon="checkCircle" tone="green" label="Validés en interne" value={count((c) => c.state === "validated")}
-          delta="par un responsable" note="interne à la société" />
-        <Kpi icon="bell" tone="red" label="Alertes" value={loaded.length ? blocking : "…"}
-          delta="points bloquants" note={`${recent.length} dossiers récents`} />
+        <Kpi icon="folder" tone="green" label={tr("dash.casesToday")} value={count((c) => new Date(c.created_at).toDateString() === day(0))}
+          delta={trend(createdOn(0), createdOn(1))} note={tr("dash.vsYesterday")} />
+        <Kpi icon="clock" tone="blue" label={tr("dash.inProgress")} value={count((c) => c.state === "draft" || c.state === "in_preparation")}
+          delta={tr("dash.unassigned", { n: all.filter((c) => !c.assigned_to).length })} note={tr("dash.toTake")} />
+        <Kpi icon="alert" tone="amber" label={tr("dash.toVerify")} value={count((c) => c.state === "to_validate" || c.state === "to_correct")}
+          delta={tr("dash.inValidation")} note={tr("dash.orToCorrect")} />
+        <Kpi icon="checkCircle" tone="green" label={tr("dash.validatedInternal")} value={count((c) => c.state === "validated")}
+          delta={tr("dash.byManager")} note={tr("dash.internal")} />
+        <Kpi icon="bell" tone="red" label={tr("dash.alerts")} value={loaded.length ? blocking : "…"}
+          delta={tr("dash.blockingPoints")} note={tr("dash.recentCount", { n: recent.length })} />
       </div>
 
       <div className="dash-row">
         <section className="card dash-cases">
           <div className="card-head">
-            <h2 className="card-title">Mes dossiers récents</h2>
+            <h2 className="card-title">{tr("dash.myRecent")}</h2>
             <button type="button" className="link-arrow" onClick={() => navigate("/dossiers")}>
-              Voir tous les dossiers <Icon name="arrowRight" size={16} />
+              {tr("dash.seeAllCases")} <Icon name="arrowRight" size={16} />
             </button>
           </div>
           {cases === null ? (
-            <p className="muted">Chargement…</p>
+            <p className="muted">{tr("loading")}</p>
           ) : all.length === 0 ? (
-            <p className="empty">Aucun dossier pour l'instant.</p>
+            <p className="empty">{tr("dash.noCaseYet")}</p>
           ) : (
             <table className="data dash-table">
               <thead>
                 <tr>
-                  <th scope="col">N° Dossier</th>
-                  <th scope="col">Importateur / Client</th>
-                  <th scope="col">Type</th>
-                  <th scope="col">Progression</th>
-                  <th scope="col">Agent</th>
-                  <th scope="col">Statut</th>
-                  <th scope="col">Créé</th>
-                  <th scope="col"><span className="visually-hidden">Actions</span></th>
+                  <th scope="col">{tr("col.caseNumber")}</th>
+                  <th scope="col">{tr("col.importerClient")}</th>
+                  <th scope="col">{tr("col.type")}</th>
+                  <th scope="col">{tr("col.progress")}</th>
+                  <th scope="col">{tr("col.agent")}</th>
+                  <th scope="col">{tr("col.status")}</th>
+                  <th scope="col">{tr("col.created")}</th>
+                  <th scope="col"><span className="visually-hidden">{tr("col.actions")}</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -179,8 +180,8 @@ export function Dashboard({ membership, me }: { membership: Membership; me: Pick
                       <td>
                         <button type="button" className="link-plain" onClick={() => navigate(`/dossiers/${c.id}`)}>{c.reference}</button>
                       </td>
-                      <td className="ellipsis" title={c.importer?.name}>{c.importer?.name ?? <em className="muted">à renseigner</em>}</td>
-                      <td>Importation</td>
+                      <td className="ellipsis" title={c.importer?.name}>{c.importer?.name ?? <em className="muted">{tr("case.toFill")}</em>}</td>
+                      <td>{tr("case.importation")}</td>
                       <td>
                         {value === null ? <span className="muted">…</span> : (
                           <span className="bar" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
@@ -189,18 +190,18 @@ export function Dashboard({ membership, me }: { membership: Membership; me: Pick
                           </span>
                         )}
                       </td>
-                      <td>{c.assigned_to ? shortName(personName(c.assigned_to)) : <span className="muted">non affecté</span>}</td>
+                      <td>{c.assigned_to ? shortName(personName(c.assigned_to)) : <span className="muted">{tr("case.unassigned")}</span>}</td>
                       <td><StateChip state={c.state} label={c.state_label} /></td>
                       <td className="muted">{relativeTime(c.created_at)}</td>
                       <td className="menu-wrap">
-                        <button type="button" className="kebab" aria-label={`Actions ${c.reference}`} onClick={() => setMenu(menu === c.id ? null : c.id)}>
+                        <button type="button" className="kebab" aria-label={tr("case.actionsFor", { ref: c.reference })} onClick={() => setMenu(menu === c.id ? null : c.id)}>
                           <Icon name="more" size={18} />
                         </button>
                         {menu === c.id && (
                           <ul className="menu menu-right" role="menu">
-                            <li role="menuitem"><button type="button" onClick={() => navigate(`/dossiers/${c.id}`)}>Ouvrir le dossier</button></li>
-                            <li role="menuitem"><button type="button" onClick={() => navigate(`/dossiers/${c.id}/documents`)}>Documents</button></li>
-                            <li role="menuitem"><button type="button" onClick={() => navigate(`/dossiers/${c.id}/controles`)}>Contrôles</button></li>
+                            <li role="menuitem"><button type="button" onClick={() => navigate(`/dossiers/${c.id}`)}>{tr("case.open")}</button></li>
+                            <li role="menuitem"><button type="button" onClick={() => navigate(`/dossiers/${c.id}/documents`)}>{tr("nav.documents")}</button></li>
+                            <li role="menuitem"><button type="button" onClick={() => navigate(`/dossiers/${c.id}/controles`)}>{tr("nav.controls")}</button></li>
                           </ul>
                         )}
                       </td>
@@ -214,17 +215,17 @@ export function Dashboard({ membership, me }: { membership: Membership; me: Pick
 
         <section className="card dash-activity">
           <div className="card-head">
-            <h2 className="card-title">Activité récente</h2>
+            <h2 className="card-title">{tr("activity.recent")}</h2>
             {canSeeActivity && (
               <button type="button" className="link-arrow" onClick={() => navigate("/administration")}>
-                Voir tout <Icon name="arrowRight" size={16} />
+                {tr("dash.seeAll")} <Icon name="arrowRight" size={16} />
               </button>
             )}
           </div>
           {!canSeeActivity ? (
-            <p className="empty">Le journal de la société est visible des responsables.</p>
+            <p className="empty">{tr("dash.journalForManagers")}</p>
           ) : events === null || events.length === 0 ? (
-            <p className="empty">Aucune activité.</p>
+            <p className="empty">{tr("activity.none")}</p>
           ) : (
             <ul className="feed">
               {events.map((e) => {
@@ -235,9 +236,9 @@ export function Dashboard({ membership, me }: { membership: Membership; me: Pick
                     <span className={`feed-icon feed-${tone}`}><Icon name={icon} size={20} /></span>
                     <span className="feed-text">
                       <strong>{eventLabel(e.event_type)}</strong>
-                      <small>{e.actor_email ?? "système"}</small>
+                      <small>{e.actor_email ?? tr("activity.system")}</small>
                     </span>
-                    <time dateTime={e.at}>{relativeTime(e.at).replace(/^il y a /, "Il y a ")}</time>
+                    <time dateTime={e.at}>{capitalize(relativeTime(e.at))}</time>
                   </li>
                 );
               })}
@@ -247,40 +248,40 @@ export function Dashboard({ membership, me }: { membership: Membership; me: Pick
       </div>
 
       <div className="dash-row dash-row-2">
-        <section className="card dash-steps" title={latest ? `Avancement du dossier le plus récent, ${latest.reference}` : undefined}>
-          <h2 className="card-title">Étapes de préparation d'un dossier</h2>
+        <section className="card dash-steps" title={latest ? tr("dash.latestProgress", { ref: latest.reference }) : undefined}>
+          <h2 className="card-title">{tr("dash.stepsTitle")}</h2>
           <Stepper steps={steps} />
         </section>
         <section className="card dash-perf">
           <div className="card-head">
-            <h2 className="card-title">Gains et performance</h2>
-            <select aria-label="Période" defaultValue="recent">
-              <option value="recent">Dossiers récents</option>
+            <h2 className="card-title">{tr("dash.perfTitle")}</h2>
+            <select aria-label={tr("dash.period")} defaultValue="recent">
+              <option value="recent">{tr("dash.recentCases")}</option>
             </select>
           </div>
           <ul className="perf">
             <li>
               <span className="perf-icon"><Icon name="clock" size={20} /></span>
-              <span>Temps moyen estimé</span>
+              <span>{tr("dash.avgTime")}</span>
               <strong>—</strong>
-              <small>pas encore mesuré</small>
+              <small>{tr("dash.notMeasured")}</small>
             </li>
             <li>
               <span className="perf-icon"><Icon name="file" size={20} /></span>
-              <span>Dossiers complets</span>
+              <span>{tr("dash.completeCases")}</span>
               <strong>{loaded.length ? `${Math.round((complete / loaded.length) * 100)}%` : "…"}</strong>
-              <small>sans point bloquant</small>
+              <small>{tr("dash.noBlocking")}</small>
             </li>
             <li>
               <span className="perf-icon"><Icon name="chart" size={20} /></span>
-              <span>Marchandises traitées</span>
+              <span>{tr("dash.goodsProcessed")}</span>
               <strong>{loaded.length ? goodsCount : "…"}</strong>
-              <small>lignes d'articles</small>
+              <small>{tr("dash.itemLines")}</small>
             </li>
           </ul>
         </section>
       </div>
-      <p className="visually-hidden">Connecté en tant que {me.full_name || me.email}</p>
+      <p className="visually-hidden">{tr("dash.signedInAs", { name: me.full_name || me.email })}</p>
     </div>
   );
 }

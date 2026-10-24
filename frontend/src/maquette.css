@@ -717,3 +717,12 @@ body { font-size: 15px; background: var(--bg); color: var(--text); }
   [dir="rtl"] .app { background: linear-gradient(270deg, var(--side-2) 240px, var(--bg) 240px); }
   [dir="rtl"] .dash .hero-art { left: auto; right: 624px; transform: scaleX(-1); }
 }
+[dir="rtl"] .nc-has-icon > select, [dir="rtl"] .nc-has-icon > input { padding-left: 12px; padding-right: 40px; }
+[dir="rtl"] .nc-icon { left: auto; right: 12px; }
+/* Le choix du pays est fixé en haut de page : les actions d'en-tête passent juste en dessous. */
+@media (min-width: 861px) {
+  .page-header .page-actions { transform: translateY(36px); }
+  [dir="rtl"] .case-head-section .case-head-main { margin-right: 0; margin-left: 360px; }
+  [dir="rtl"] .case-head-section .case-aside { left: 4px; }
+  [dir="rtl"] .case-head-section .case-aside .menu-wrap { right: auto; left: 0; }
+}

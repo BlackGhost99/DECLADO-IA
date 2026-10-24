@@ -2,7 +2,8 @@
 // réuni en une liste. Rien n'est inventé ici : chaque ligne vient d'une donnée de la révision.
 import { useState } from "react";
 import type { CaseDetail } from "./api";
-import { FIELD_LABELS } from "./Extraction";
+import { fieldLabel } from "./Extraction";
+import { tr, type MessageKey } from "./i18n";
 import { Icon, type IconName } from "./Icon";
 import { Chip, goodsStatus, StatCard, type Tone } from "./ui";
 
@@ -25,18 +26,18 @@ export interface ControlItem {
   steps?: string[];
 }
 
-const IMPACT: Record<Severity, string> = {
-  blocking: "Le dossier ne peut être ni calculé ni validé tant que ce point reste ouvert.",
-  review: "Le dossier peut avancer, mais ce point doit être examiné avant la validation.",
-  ok: "Aucun impact : le point est conforme.",
-  info: "Information à connaître ; elle ne bloque pas le dossier.",
+const IMPACT: Record<Severity, MessageKey> = {
+  blocking: "ctl.impactBlocking",
+  review: "ctl.impactReview",
+  ok: "ctl.impactOk",
+  info: "ctl.impactInfo",
 };
 
-const SEVERITY: Record<Severity, { label: string; tone: Tone }> = {
-  blocking: { label: "Bloquant", tone: "red" },
-  review: { label: "À vérifier", tone: "amber" },
-  ok: { label: "Conforme", tone: "green" },
-  info: { label: "Information", tone: "blue" },
+const SEVERITY: Record<Severity, { label: MessageKey; tone: Tone }> = {
+  blocking: { label: "ctl.blocking", tone: "red" },
+  review: { label: "ctl.review", tone: "amber" },
+  ok: { label: "ctl.ok", tone: "green" },
+  info: { label: "ctl.info", tone: "blue" },
 };
 
 const SCOPE_TABS: Record<string, string> = {
@@ -55,27 +56,28 @@ export function controlItems(detail: CaseDetail): ControlItem[] {
   if (invoiceDocs.length === 0) {
     items.push({
       id: "doc-invoice",
-      category: "Documents manquants",
+      category: tr("ctl.catMissingDocs"),
       icon: "file",
-      title: "Facture commerciale manquante dans le dossier",
-      description: "Aucune facture n'est rattachée au dossier. Elle est nécessaire pour la valeur en douane et la vérification des montants.",
+      title: tr("ctl.invoiceMissing"),
+      description: tr("ctl.invoiceMissingText"),
       severity: "blocking",
-      action: "Ajouter la facture commerciale.",
+      action: tr("ctl.addInvoice"),
       tab: "documents",
-      documents: [{ label: "Facture commerciale", state: "missing" }],
-      steps: ["Obtenir la facture commerciale originale.", "L'ajouter dans l'onglet Documents.", "Lancer sa lecture et vérifier les valeurs lues."],
+      documents: [{ label: tr("ctl.commercialInvoice"), state: "missing" }],
+      steps: [tr("ctl.invoiceStep1"), tr("ctl.invoiceStep2"), tr("ctl.invoiceStep3")],
     });
   }
-  for (const [usage, label] of [["transport", "Connaissement (B/L) ou LTA"], ["packing_list", "Liste de colisage"], ["origin", "Certificat d'origine"]] as const) {
+  for (const [usage, key] of [["transport", "ctl.docTransport"], ["packing_list", "ctl.docPacking"], ["origin", "ctl.docOrigin"]] as const) {
     if (!docs.some((d) => d.usage === usage)) {
+      const label = tr(key);
       items.push({
         id: `doc-${usage}`,
-        category: "Documents manquants",
+        category: tr("ctl.catMissingDocs"),
         icon: "file",
-        title: `${label} absent du dossier`,
-        description: `Aucune pièce « ${label} » n'est rattachée. ClairTransit ne la lit pas encore, mais elle sert à vérifier poids, colis et origine.`,
+        title: tr("ctl.docAbsent", { label }),
+        description: tr("ctl.docAbsentText", { label }),
         severity: "info",
-        action: "Ajouter la pièce si vous l'avez.",
+        action: tr("ctl.addIfAny"),
         tab: "documents",
         documents: [{ label, state: "missing" }],
       });
@@ -86,47 +88,47 @@ export function controlItems(detail: CaseDetail): ControlItem[] {
   for (const b of rev.completeness.blocking.filter((x) => x.scope !== "divergence")) {
     items.push({
       id: `missing-${b.id}-${b.field}`,
-      category: "Informations manquantes",
+      category: tr("ctl.catMissingInfo"),
       icon: "file",
       title: b.message,
-      description: `${b.label} : ${b.message} Tant que ce point reste ouvert, le dossier ne peut être ni calculé ni validé.`,
+      description: tr("ctl.missingText", { label: b.label, message: b.message }),
       severity: "blocking",
-      action: "Compléter l'information dans le dossier.",
+      action: tr("ctl.completeInfo"),
       tab: SCOPE_TABS[b.scope] ?? "donnees",
-      steps: [`Ouvrir la section concernée.`, `Renseigner « ${b.label} » à partir d'une pièce du dossier.`, "Enregistrer : le point disparaît de la liste."],
+      steps: [tr("ctl.openSection"), tr("ctl.fillFrom", { label: b.label }), tr("ctl.saveGone")],
     });
   }
   for (const w of rev.completeness.warnings) {
     items.push({
       id: `warn-${w.id}-${w.field}-${w.message}`,
-      category: "À examiner",
+      category: tr("ctl.catReview"),
       icon: "alert",
       title: w.message,
-      description: `${w.label} : ${w.message}`,
+      description: tr("ctl.labelMessage", { label: w.label, message: w.message }),
       severity: "review",
-      action: "Vérifier la valeur et sa pièce justificative.",
+      action: tr("ctl.checkValue"),
       tab: "donnees",
     });
   }
 
   for (const inv of rev.invoices) {
-    const name = `Facture ${inv.ordinal}${inv.invoice_number ? ` (${inv.invoice_number})` : ""}`;
+    const name = `${tr("ctl.invoiceName", { n: inv.ordinal })}${inv.invoice_number ? ` (${inv.invoice_number})` : ""}`;
     for (const d of (inv.divergences ?? []).filter((x) => x.state === "open")) {
-      const field = FIELD_LABELS[d.field] ?? d.field;
+      const field = fieldLabel(d.field);
       items.push({
         id: `div-${d.id}`,
-        category: "Contradictions documentaires",
+        category: tr("ctl.catContradictions"),
         icon: "alert",
-        title: d.line_ordinal ? `Ligne ${d.line_ordinal}, ${field} : la relecture diffère` : `${name}, ${field} : la relecture diffère`,
+        title: d.line_ordinal ? tr("ctl.lineDiffers", { line: d.line_ordinal, field }) : tr("ctl.invoiceDiffers", { name, field }),
         description:
           d.kind === "line_not_reread"
-            ? `${name} : une ligne n'apparaît plus dans la nouvelle lecture. Elle est conservée.`
-            : `${name} : valeur actuelle « ${String(d.current_value ?? "—")} », relecture « ${String(d.extracted_value ?? "—")} ».`,
+            ? tr("ctl.lineGone", { name })
+            : tr("ctl.valuesDiffer", { name, current: String(d.current_value ?? "—"), reread: String(d.extracted_value ?? "—") }),
         severity: "blocking",
-        action: "Garder la valeur actuelle ou retenir la relecture, avec un motif.",
+        action: tr("ctl.keepOrTake"),
         tab: "donnees",
         documents: invoiceDocs.filter((d) => d.id === inv.document_id).map((d) => ({ label: d.document.original_name, state: "present" as const })),
-        steps: ["Ouvrir les données extraites de la facture.", "Comparer les deux valeurs à la pièce.", "Garder ou retenir la relecture, avec un motif."],
+        steps: [tr("ctl.divStep1"), tr("ctl.divStep2"), tr("ctl.divStep3")],
       });
     }
     const t = inv.totals_check;
@@ -134,36 +136,36 @@ export function controlItems(detail: CaseDetail): ControlItem[] {
       if (t.status === "gap") {
         items.push({
           id: `tot-${inv.id}`,
-          category: "Écart de montants",
+          category: tr("ctl.catGap"),
           icon: "dollar",
-          title: `${name} : total imprimé ${t.printed_total ?? "?"}, total recalculé ${t.computed_total ?? "?"}`,
-          description: `Écart de ${t.gap} ${inv.currency}. ${t.explanations.join(" ")} Rien n'a été corrigé automatiquement.`,
+          title: tr("ctl.gapTitle", { name, printed: t.printed_total ?? "?", computed: t.computed_total ?? "?" }),
+          description: tr("ctl.gapText", { gap: t.gap ?? "?", currency: inv.currency, explanations: t.explanations.join(" ") }),
           severity: "review",
-          action: "Retrouver la ligne, le frais ou la remise qui explique l'écart.",
+          action: tr("ctl.findGap"),
           tab: "donnees",
           documents: invoiceDocs.filter((d) => d.id === inv.document_id).map((d) => ({ label: d.document.original_name, state: "present" as const })),
-          steps: ["Comparer chaque ligne au total imprimé.", "Ajouter le frais, la remise ou la ligne manquante.", "Vérifier que l'écart est nul."],
+          steps: [tr("ctl.gapStep1"), tr("ctl.gapStep2"), tr("ctl.gapStep3")],
         });
       } else if (t.status === "match") {
         items.push({
           id: `tot-${inv.id}`,
-          category: "Montants",
+          category: tr("ctl.catAmounts"),
           icon: "calculator",
-          title: `${name} : total recalculé égal au total imprimé`,
-          description: `Somme des lignes, frais, remises et taxes = ${t.printed_total} ${inv.currency}.`,
+          title: tr("ctl.matchTitle", { name }),
+          description: tr("ctl.matchText", { total: t.printed_total ?? "?", currency: inv.currency }),
           severity: "ok",
-          action: "Aucune action.",
+          action: tr("ctl.noAction"),
           tab: "donnees",
         });
       } else {
         items.push({
           id: `tot-${inv.id}`,
-          category: "Montants",
+          category: tr("ctl.catAmounts"),
           icon: "calculator",
-          title: `${name} : total non recalculable`,
-          description: t.status === "incomplete" ? "Une ou plusieurs valeurs sont inconnues." : "Aucun total imprimé n'a été lu.",
+          title: tr("ctl.notComputable", { name }),
+          description: t.status === "incomplete" ? tr("ctl.someUnknown") : tr("ctl.noPrinted"),
           severity: "info",
-          action: "Compléter les montants inconnus si nécessaire.",
+          action: tr("ctl.completeUnknown"),
           tab: "donnees",
         });
       }
@@ -172,12 +174,12 @@ export function controlItems(detail: CaseDetail): ControlItem[] {
     if (flagged.length > 0) {
       items.push({
         id: `flags-${inv.id}`,
-        category: "Lecture à vérifier",
+        category: tr("ctl.catReading"),
         icon: "eye",
-        title: `${name} : ${flagged.length} valeur(s) lue(s) avec un doute`,
+        title: tr("ctl.doubtful", { name, count: flagged.length }),
         description: flagged.slice(0, 4).map((f) => f.message).join(" "),
         severity: "review",
-        action: "Comparer chaque valeur à la pièce, puis la corriger si besoin.",
+        action: tr("ctl.compareFix"),
         tab: "donnees",
       });
     }
@@ -185,34 +187,30 @@ export function controlItems(detail: CaseDetail): ControlItem[] {
 
   for (const g of rev.goods_lines) {
     const s = goodsStatus(g);
+    // Comparé à la décision, jamais au libellé : celui-ci change avec la langue.
+    const done = Boolean(g.decision?.is_current);
     items.push({
       id: `goods-${g.id}`,
-      category: s.label === "Validé" ? "Classification" : "Codes à confirmer",
+      category: done ? tr("ctl.catClassification") : tr("ctl.catCodes"),
       icon: "tag",
-      title: `Marchandise ${g.ordinal}${g.description ? ` (${g.description})` : ""} : ${s.label.toLowerCase()}${s.code ? ` ${s.code}` : ""}`,
-      description:
-        s.label === "Validé"
-          ? `Code ${s.code} confirmé par ${g.decision?.actor.email}, avec motif.`
-          : "Le code doit être contrôlé contre le tarif puis confirmé avec un motif.",
-      severity: s.label === "Validé" ? "ok" : "review",
-      action: s.label === "Validé" ? "Aucune action." : "Ouvrir la marchandise et confirmer ou choisir le code.",
+      title: tr("ctl.goodsTitle", { n: g.ordinal, desc: g.description ? ` (${g.description})` : "", status: s.label.toLowerCase(), code: s.code ? ` ${s.code}` : "" }),
+      description: done ? tr("ctl.codeConfirmed", { code: s.code, who: g.decision?.actor.email ?? "" }) : tr("ctl.codeToCheck"),
+      severity: done ? "ok" : "review",
+      action: done ? tr("ctl.noAction") : tr("ctl.openGoods"),
       tab: "marchandises",
-      steps:
-        s.label === "Validé"
-          ? undefined
-          : ["Contrôler le code présent contre le tarif.", "Lire les notes et les libellés voisins.", "Confirmer le code avec un motif, ou en choisir un autre."],
+      steps: done ? undefined : [tr("ctl.goodsStep1"), tr("ctl.goodsStep2"), tr("ctl.goodsStep3")],
     });
   }
 
   if (rev.target_edition?.warning) {
     items.push({
       id: "edition",
-      category: "Tarif",
+      category: tr("ctl.catTariff"),
       icon: "book",
-      title: `Tarif utilisé : ${rev.target_edition.label}`,
+      title: tr("ctl.tariffUsed", { label: rev.target_edition.label }),
       description: rev.target_edition.warning,
       severity: "info",
-      action: "Aucun calcul opérationnel tant que le tarif n'est pas vérifié.",
+      action: tr("ctl.noOperational"),
       tab: "apercu",
     });
   }
@@ -235,38 +233,38 @@ export function Controls({ detail, go }: { detail: CaseDetail; go: (tab: string)
   return (
     <>
       <div className="stats stats-4">
-        <StatCard icon="alert" tone="red" label="Bloquants" value={count("blocking")} hint="empêchent calcul et validation" />
-        <StatCard icon="alert" tone="amber" label="À vérifier" value={count("review")} hint="à examiner avant validation" />
-        <StatCard icon="checkCircle" tone="green" label="Conformes" value={count("ok")} hint="points vérifiés" />
-        <StatCard icon="info" tone="blue" label="Informations" value={count("info")} hint="sans effet bloquant" />
+        <StatCard icon="alert" tone="red" label={tr("ctl.statBlocking")} value={count("blocking")} hint={tr("ctl.statBlockingHint")} />
+        <StatCard icon="alert" tone="amber" label={tr("ctl.review")} value={count("review")} hint={tr("ctl.statReviewHint")} />
+        <StatCard icon="checkCircle" tone="green" label={tr("ctl.statOk")} value={count("ok")} hint={tr("ctl.statOkHint")} />
+        <StatCard icon="info" tone="blue" label={tr("ctl.statInfo")} value={count("info")} hint={tr("ctl.statInfoHint")} />
       </div>
       <div className="split-panel">
         <section className="card" aria-labelledby="controls-title">
           <div className="card-head">
-            <h2 id="controls-title" className="card-title">Liste des contrôles ({items.length})</h2>
+            <h2 id="controls-title" className="card-title">{tr("ctl.list", { count: items.length })}</h2>
             <div className="table-tools">
               <label className="search-mini">
                 <Icon name="search" size={16} />
-                <input aria-label="Rechercher un contrôle" placeholder="Rechercher un contrôle…" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <input aria-label={tr("ctl.search")} placeholder={`${tr("ctl.search")}…`} value={search} onChange={(e) => setSearch(e.target.value)} />
               </label>
               <label className="filter-mini">
                 <Icon name="filter" size={16} />
-                <select aria-label="Filtrer par sévérité" value={severity} onChange={(e) => setSeverity(e.target.value as Severity | "")}>
-                  <option value="">Toutes</option>
+                <select aria-label={tr("ctl.filter")} value={severity} onChange={(e) => setSeverity(e.target.value as Severity | "")}>
+                  <option value="">{tr("allOperations")}</option>
                   {(Object.keys(SEVERITY) as Severity[]).map((k) => (
-                    <option key={k} value={k}>{SEVERITY[k].label}</option>
+                    <option key={k} value={k}>{tr(SEVERITY[k].label)}</option>
                   ))}
                 </select>
               </label>
             </div>
           </div>
           {items.length === 0 ? (
-            <p className="empty">Aucun contrôle pour l'instant : ajoutez et lisez une facture.</p>
+            <p className="empty">{tr("ctl.empty")}</p>
           ) : (
             <div className="table-wrap">
               <table className="data selectable">
                 <thead>
-                  <tr><th scope="col">#</th><th scope="col">Catégorie</th><th scope="col">Contrôle / anomalie détectée</th><th scope="col">Sévérité</th><th scope="col">Statut</th></tr>
+                  <tr><th scope="col">#</th><th scope="col">{tr("ctl.category")}</th><th scope="col">{tr("ctl.anomaly")}</th><th scope="col">{tr("ctl.severity")}</th><th scope="col">{tr("cases.statusCol")}</th></tr>
                 </thead>
                 <tbody>
                   {shown.map((i) => (
@@ -281,9 +279,9 @@ export function Controls({ detail, go }: { detail: CaseDetail; go: (tab: string)
                       <td>
                         <button type="button" className="row-button" onClick={() => setSelectedId(i.id)}>{i.title}</button>
                       </td>
-                      <td><Chip tone={SEVERITY[i.severity].tone}>{SEVERITY[i.severity].label}</Chip></td>
+                      <td><Chip tone={SEVERITY[i.severity].tone}>{tr(SEVERITY[i.severity].label)}</Chip></td>
                       <td>
-                        {i.severity === "ok" ? <Chip tone="green">Résolu</Chip> : i.severity === "info" ? <Chip tone="gray">Information</Chip> : <Chip tone="red">Non résolu</Chip>}
+                        {i.severity === "ok" ? <Chip tone="green">{tr("ctl.resolved")}</Chip> : i.severity === "info" ? <Chip tone="gray">{tr("ctl.info")}</Chip> : <Chip tone="red">{tr("ctl.unresolved")}</Chip>}
                       </td>
                     </tr>
                   ))}
@@ -292,16 +290,16 @@ export function Controls({ detail, go }: { detail: CaseDetail; go: (tab: string)
             </div>
           )}
         </section>
-        <section className="card side-panel" aria-label="Détail du contrôle">
+        <section className="card side-panel" aria-label={tr("ctl.detail")}>
           <div className="card-head">
-            <h2 className="card-title">Détail du contrôle</h2>
+            <h2 className="card-title">{tr("ctl.detail")}</h2>
             {shown.length > 0 && (
               <span className="pager">
-                <button type="button" className="icon-button" disabled={index <= 0} onClick={() => setSelectedId(shown[index - 1].id)} aria-label="Contrôle précédent">
+                <button type="button" className="icon-button" disabled={index <= 0} onClick={() => setSelectedId(shown[index - 1].id)} aria-label={tr("ctl.prev")}>
                   <Icon name="arrowLeft" size={16} />
                 </button>
-                {index + 1} sur {shown.length}
-                <button type="button" className="icon-button" disabled={index >= shown.length - 1} onClick={() => setSelectedId(shown[index + 1].id)} aria-label="Contrôle suivant">
+                {tr("ctl.pageOf", { i: index + 1, n: shown.length })}
+                <button type="button" className="icon-button" disabled={index >= shown.length - 1} onClick={() => setSelectedId(shown[index + 1].id)} aria-label={tr("ctl.next")}>
                   <Icon name="arrowRight" size={16} />
                 </button>
               </span>
@@ -315,30 +313,30 @@ export function Controls({ detail, go }: { detail: CaseDetail; go: (tab: string)
                   <strong>{selected.category}</strong>
                   <span>{selected.title}</span>
                 </div>
-                <Chip tone={SEVERITY[selected.severity].tone}>{SEVERITY[selected.severity].label}</Chip>
+                <Chip tone={SEVERITY[selected.severity].tone}>{tr(SEVERITY[selected.severity].label)}</Chip>
               </div>
-              <h3>Description</h3>
+              <h3>{tr("ctl.description")}</h3>
               <p>{selected.description}</p>
-              <h3>Impact</h3>
-              <p>{selected.impact ?? IMPACT[selected.severity]}</p>
+              <h3>{tr("ctl.impact")}</h3>
+              <p>{selected.impact ?? tr(IMPACT[selected.severity])}</p>
               {selected.documents && selected.documents.length > 0 && (
                 <>
-                  <h3>Documents concernés <span className="count-badge">{selected.documents.length}</span></h3>
+                  <h3>{tr("ctl.docsConcerned")} <span className="count-badge">{selected.documents.length}</span></h3>
                   <ul className="doc-mini">
                     {selected.documents.map((d) => (
                       <li key={d.label}>
                         <span className="doc-type doc-pdf"><Icon name="file" size={16} /></span>
                         <span>
                           <strong>{d.label}</strong>
-                          <small>{d.state === "missing" ? "Document requis" : "Pièce du dossier"}</small>
+                          <small>{d.state === "missing" ? tr("ctl.docRequired") : tr("ctl.caseDoc")}</small>
                         </span>
-                        <Chip tone={d.state === "missing" ? "red" : "green"}>{d.state === "missing" ? "Manquant" : "Présent"}</Chip>
+                        <Chip tone={d.state === "missing" ? "red" : "green"}>{d.state === "missing" ? tr("ctl.missing") : tr("ctl.present")}</Chip>
                       </li>
                     ))}
                   </ul>
                 </>
               )}
-              <h3>Actions recommandées</h3>
+              <h3>{tr("ctl.recommended")}</h3>
               <div className="note-blue">
                 {selected.steps ? (
                   <ol className="steps-list">
@@ -351,20 +349,20 @@ export function Controls({ detail, go }: { detail: CaseDetail; go: (tab: string)
                 )}
               </div>
               <button type="button" className="btn-primary btn-block" onClick={() => go(selected.tab)}>
-                <Icon name="file" /> Ouvrir la section concernée <Icon name="arrowRight" />
+                <Icon name="file" /> {tr("ctl.openSectionBtn")} <Icon name="arrowRight" />
               </button>
               <div className="actions-row two">
-                <button type="button" className="btn-secondary" disabled title="Un point se résout en corrigeant la donnée ; la clôture manuelle motivée arrive avec la validation.">
-                  <Icon name="checkCircle" size={18} /> Marquer comme résolu
+                <button type="button" className="btn-secondary" disabled title={tr("ctl.resolveHint")}>
+                  <Icon name="checkCircle" size={18} /> {tr("ctl.markResolved")}
                 </button>
-                <button type="button" className="btn-secondary" disabled title="Les demandes de complément à l'importateur arrivent dans une prochaine version.">
-                  <Icon name="upload" size={18} /> Demander un complément
+                <button type="button" className="btn-secondary" disabled title={tr("ctl.requestHint")}>
+                  <Icon name="upload" size={18} /> {tr("ctl.request")}
                 </button>
               </div>
-              <p className="muted small">Ces deux actions arrivent avec le circuit de validation.</p>
+              <p className="muted small">{tr("ctl.bothSoon")}</p>
             </>
           ) : (
-            <p className="empty">Aucun contrôle sélectionné.</p>
+            <p className="empty">{tr("ctl.noneSelected")}</p>
           )}
         </section>
       </div>

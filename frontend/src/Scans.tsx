@@ -14,6 +14,7 @@ import {
 import { USAGES } from "./CaseDetail";
 import { Icon } from "./Icon";
 import { navigate, rememberCase } from "./router";
+import { tr, type MessageKey } from "./i18n";
 import { Chip, errorText, fmtDateTime, PageHeader, personName, ProgressBar, StatCard, type Tone } from "./ui";
 
 const SCANNER_ACCEPT = ".pdf,.tif,.tiff,.png,.jpg,.jpeg";
@@ -22,14 +23,15 @@ const POLL_MS = 1500;
 /** « p. 4 », « p. 4 et 5 », « p. 1 à 3 », ou la liste si les pages ne se suivent pas. */
 export function pageRange(numbers: number[]): string {
   const n = [...numbers].sort((a, b) => a - b);
-  if (n.length === 0) return "aucune page";
+  if (n.length === 0) return tr("scan.noPage");
   const consecutive = n.every((v, i) => i === 0 || v === n[i - 1] + 1);
-  if (n.length === 1) return `p. ${n[0]}`;
-  if (consecutive) return n.length === 2 ? `p. ${n[0]} et ${n[1]}` : `p. ${n[0]} à ${n[n.length - 1]}`;
-  return `p. ${n.join(", ")}`;
+  if (n.length === 1) return tr("scan.p1", { a: n[0] });
+  if (consecutive) return n.length === 2 ? tr("scan.p2", { a: n[0], b: n[1] }) : tr("scan.pRange", { a: n[0], b: n[n.length - 1] });
+  return tr("scan.pList", { list: n.join(", ") });
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
+/** « 1 pièce », « 3 pièces » : deux textes, au singulier et au pluriel, dans la langue affichée. */
+const plural = (n: number, one: MessageKey, many: MessageKey) => tr(n > 1 ? many : one, { n });
 
 function isWorking(batch: ScanBatchSummary): boolean {
   return batch.state === "processing" || batch.counts.pending > 0 || batch.job?.state === "queued" || batch.job?.state === "running";
@@ -43,16 +45,16 @@ function progressValue(batch: ScanBatchSummary): number {
 /** Avancement d'un lot, en mots. */
 export function batchProgress(batch: ScanBatchSummary): { tone: Tone; text: string } {
   const c = batch.counts;
-  if (batch.state === "attached") return { tone: "green", text: `Rattaché : ${plural(c.pieces, "pièce", "pièces")}` };
-  if (batch.state === "cancelled") return { tone: "gray", text: "Abandonné" };
-  if (batch.job?.state === "failed") return { tone: "red", text: batch.job.error_message ?? "Lecture en échec" };
+  if (batch.state === "attached") return { tone: "green", text: tr("scan.attachedState", { pieces: plural(c.pieces, "scan.piece1", "scan.pieceN") }) };
+  if (batch.state === "cancelled") return { tone: "gray", text: tr("scan.cancelled") };
+  if (batch.job?.state === "failed") return { tone: "red", text: batch.job.error_message ?? tr("scan.readFailed") };
   if (isWorking(batch)) {
     const { done, total } = batch.job?.progress ?? {};
-    return { tone: "blue", text: total ? `Lecture du texte : page ${done ?? 0} sur ${total}` : "Lecture en cours" };
+    return { tone: "blue", text: total ? tr("scan.readingPage", { done: done ?? 0, total }) : tr("scan.reading") };
   }
-  if (batch.state === "open") return { tone: "blue", text: `Prise de vue en cours : ${plural(c.pages, "page", "pages")}` };
-  if (c.unclassified > 0) return { tone: "amber", text: `À trier : ${plural(c.unclassified, "page non classée", "pages non classées")}` };
-  return { tone: "green", text: "À vérifier puis rattacher" };
+  if (batch.state === "open") return { tone: "blue", text: tr("scan.shooting", { pages: plural(c.pages, "scan.page1", "scan.pageN") }) };
+  if (c.unclassified > 0) return { tone: "amber", text: tr("scan.toSort", { pages: plural(c.unclassified, "scan.unclassified1", "scan.unclassifiedN") }) };
+  return { tone: "green", text: tr("scan.checkAttach") };
 }
 
 /** Bouton qui ouvre le sélecteur de fichiers (ou l'appareil photo du téléphone). */
@@ -107,25 +109,25 @@ function Thumb({ page, selected, onSelect }: { page: ScanPageInfo; selected: boo
       type="button"
       className={`scan-thumb${selected ? " selected" : ""}${flagged ? " flagged" : ""}`}
       aria-pressed={selected}
-      title={flagged ? "Texte peu lisible" : page.title || undefined}
+      title={flagged ? tr("scan.hardRead") : page.title || undefined}
       onClick={onSelect}
     >
       {page.has_image ? (
-        <img src={scanPageImage(page)} alt={`Page ${page.number}`} loading="lazy" />
+        <img src={scanPageImage(page)} alt={tr("scan.pageN1", { n: page.number ?? "" })} loading="lazy" />
       ) : (
-        <span className="scan-thumb-empty">{page.state === "pending" ? "lecture…" : "illisible"}</span>
+        <span className="scan-thumb-empty">{page.state === "pending" ? tr("scan.thumbReading") : tr("scan.unreadable")}</span>
       )}
-      p. {page.number}
+      {tr("scan.p1", { a: page.number ?? "" })}
     </button>
   );
 }
 
 function pageStatus(page: ScanPageInfo): { tone: Tone; text: string } {
   if (page.removed) return { tone: "gray", text: page.removed_label };
-  if (page.state === "pending") return { tone: "blue", text: "Lecture en cours" };
-  if (page.state === "failed") return { tone: "red", text: "Illisible, à reprendre" };
-  if (page.hard_to_read) return { tone: "amber", text: "Peu lisible, à reprendre" };
-  return { tone: "green", text: page.text_origin === "ocr" ? "Texte lu (OCR)" : "Texte lu" };
+  if (page.state === "pending") return { tone: "blue", text: tr("scan.reading") };
+  if (page.state === "failed") return { tone: "red", text: tr("scan.unreadableRedo") };
+  if (page.hard_to_read) return { tone: "amber", text: tr("scan.hardRedo") };
+  return { tone: "green", text: page.text_origin === "ocr" ? tr("scan.textOcr") : tr("scan.text") };
 }
 
 /** Écrans de numérisation d'un dossier : #/dossiers/:id/numerisation[/:lot[/photos]]. */
@@ -134,9 +136,9 @@ export function ScanScreens({ caseId, rest, membership }: { caseId: string; rest
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     rememberCase(caseId);
-    api.caseDetail(caseId).then(setDetail, (err) => setError(errorText(err, "Dossier introuvable.")));
+    api.caseDetail(caseId).then(setDetail, (err) => setError(errorText(err, tr("case.notFound"))));
   }, [caseId]);
-  if (!detail) return <p className="muted">{error ?? "Chargement…"}</p>;
+  if (!detail) return <p className="muted">{error ?? tr("loading")}</p>;
   const editable = membership.roles.some((r) => r === "declarant" || r === "validator") && detail.revision.is_editable;
   const [batchId, sub] = rest;
   if (batchId && sub === "photos") return <Capture key={batchId} detail={detail} batchId={batchId} editable={editable} />;
@@ -147,12 +149,12 @@ export function ScanScreens({ caseId, rest, membership }: { caseId: string; rest
 function Breadcrumb({ detail, last }: { detail: CaseDetail; last?: string }) {
   const base = `/dossiers/${detail.id}`;
   return (
-    <nav className="breadcrumb" aria-label="Fil d'Ariane">
-      <button type="button" className="link" onClick={() => navigate("/dossiers")}>Mes dossiers</button>
+    <nav className="breadcrumb" aria-label={tr("nav.breadcrumb")}>
+      <button type="button" className="link" onClick={() => navigate("/dossiers")}>{tr("nav.myCases")}</button>
       <Icon name="chevronRight" size={14} />
       <button type="button" className="link" onClick={() => navigate(`${base}/apercu`)}>{detail.reference}</button>
       <Icon name="chevronRight" size={14} />
-      <button type="button" className="link" onClick={() => navigate(`${base}/documents`)}>Documents</button>
+      <button type="button" className="link" onClick={() => navigate(`${base}/documents`)}>{tr("tab.documents")}</button>
       {last && (
         <>
           <Icon name="chevronRight" size={14} />
@@ -168,11 +170,11 @@ const onLocalMachine = () => ["localhost", "127.0.0.1", "[::1]"].includes(window
 function PhoneNote() {
   return onLocalMachine() ? (
     <p className="note-blue small">
-      Pour photographier avec un téléphone, ouvrez ClairTransit sur le téléphone avec l'adresse du serveur de l'agence (pas « localhost »), puis ce dossier.
+      {tr("scan.phoneLocal")}
     </p>
   ) : (
     <p className="note-blue small">
-      Sur un téléphone connecté au réseau de l'agence, ouvrez <strong className="code">{window.location.href}</strong> après vous être connecté.
+      {tr("scan.phoneOpen", { url: window.location.href })}
     </p>
   );
 }
@@ -193,7 +195,7 @@ function AddPieces({ detail, editable }: { detail: CaseDetail; editable: boolean
   }, [detail.id]);
 
   useEffect(() => {
-    load().catch((err) => setError(errorText(err, "Lots indisponibles.")));
+    load().catch((err) => setError(errorText(err, tr("scan.batchesUnavailable"))));
   }, [load]);
 
   useEffect(() => {
@@ -206,12 +208,12 @@ function AddPieces({ detail, editable }: { detail: CaseDetail; editable: boolean
     setBusy(true);
     setError(null);
     try {
-      const label = files.length === 1 ? files[0].name : `${files[0].name} et ${plural(files.length - 1, "autre fichier", "autres fichiers")}`;
+      const label = files.length === 1 ? files[0].name : tr(files.length > 2 ? "scan.andOthersN" : "scan.andOthers1", { name: files[0].name, n: files.length - 1 });
       const batch = await api.createScanBatch(detail.id, "scanner", label.slice(0, 200));
       await api.addScanFiles(batch.id, files);
       navigate(`${base}/numerisation/${batch.id}`);
     } catch (err) {
-      setError(errorText(err, "Dépôt du lot impossible."));
+      setError(errorText(err, tr("scan.uploadFailed")));
       await load().catch(() => undefined);
     } finally {
       setBusy(false);
@@ -225,7 +227,7 @@ function AddPieces({ detail, editable }: { detail: CaseDetail; editable: boolean
       const batch = await api.createScanBatch(detail.id, "camera");
       navigate(`${base}/numerisation/${batch.id}/photos`);
     } catch (err) {
-      setError(errorText(err, "Prise de vue impossible."));
+      setError(errorText(err, tr("scan.cameraFailed")));
     } finally {
       setBusy(false);
     }
@@ -237,82 +239,82 @@ function AddPieces({ detail, editable }: { detail: CaseDetail; editable: boolean
     <div className="scan-page">
       <Breadcrumb detail={detail} />
       <PageHeader
-        title="Ajouter les pièces du dossier"
-        subtitle={<>Dossier {detail.reference}{detail.importer && <> · {detail.importer.name}</>} · {detail.revision.mode_label}</>}
+        title={tr("scan.addTitle")}
+        subtitle={<>{tr("scan.caseRef", { ref: detail.reference })}{detail.importer && <> · {detail.importer.name}</>} · {detail.revision.mode_label}</>}
       >
         <button type="button" className="btn-secondary" onClick={() => navigate(`${base}/documents`)}>
-          <Icon name="file" size={18} /> Voir les pièces du dossier
+          <Icon name="file" size={18} /> {tr("scan.seeDocs")}
         </button>
       </PageHeader>
       {error && <p role="alert" className="error">⚠ {error}</p>}
-      {!editable && <p className="note-amber small">Ce dossier n'est pas modifiable par vous : les lots restent consultables.</p>}
+      {!editable && <p className="note-amber small">{tr("scan.readOnly")}</p>}
 
       <div className="scan-ways">
         <section className="card" aria-labelledby="way-scanner">
           <div className="card-head">
-            <h2 id="way-scanner" className="card-title">Lot du scanner</h2>
-            <Chip tone="green">Recommandé pour plusieurs dizaines de pages</Chip>
+            <h2 id="way-scanner" className="card-title">{tr("scan.scannerBatch")}</h2>
+            <Chip tone="green">{tr("scan.recommended")}</Chip>
           </div>
           <p className="muted">
-            Passez toutes les pièces dans le chargeur du scanner, puis déposez ici le PDF obtenu ou les images. ClairTransit sépare les pièces et propose leur type.
+            {tr("scan.scannerText")}
           </p>
-          <p className="muted small">PDF multipage, ou images PNG, JPEG, TIFF{maxPages ? ` · ${maxPages} pages au plus par lot` : ""}.</p>
+          <p className="muted small">{tr("scan.formats")}{maxPages ? tr("scan.maxPages", { n: maxPages }) : ""}.</p>
           <FileButton
             className="btn-primary btn-block"
-            label="Fichiers du lot"
+            label={tr("scan.batchFiles")}
             accept={SCANNER_ACCEPT}
             multiple
             disabled={!editable || busy}
             onFiles={(files) => void scanner(files)}
           >
-            <Icon name="cloudUpload" /> {busy ? "Envoi du lot…" : "Choisir les fichiers du lot"}
+            <Icon name="cloudUpload" /> {busy ? tr("scan.sending") : tr("scan.chooseFiles")}
           </FileButton>
         </section>
 
         <section className="card" aria-labelledby="way-camera">
           <div className="card-head">
-            <h2 id="way-camera" className="card-title">Téléphone ou webcam</h2>
-            <Chip tone="gray">Quand aucun scanner n'est disponible</Chip>
+            <h2 id="way-camera" className="card-title">{tr("scan.phone")}</h2>
+            <Chip tone="gray">{tr("scan.noScanner")}</Chip>
           </div>
           <p className="muted">
-            Photographiez les pages une à une. Chaque photo est recadrée et redressée, puis les pages forment une pièce PDF.
+            {tr("scan.phoneText")}
           </p>
           <PhoneNote />
           <button type="button" className="btn-primary btn-block" disabled={!editable || busy} onClick={() => void camera()}>
-            <Icon name="eye" /> Commencer la prise de vue
+            <Icon name="eye" /> {tr("scan.startShooting")}
           </button>
         </section>
 
         <section className="card" aria-labelledby="way-files">
           <div className="card-head">
-            <h2 id="way-files" className="card-title">Fichiers déjà prêts</h2>
-            <Chip tone="gray">Comme aujourd'hui</Chip>
+            <h2 id="way-files" className="card-title">{tr("scan.readyFiles")}</h2>
+            <Chip tone="gray">{tr("scan.asToday")}</Chip>
           </div>
           <p className="muted">
-            Une pièce par fichier, reçue par e-mail ou exportée d'un logiciel : facture PDF, classeur Excel, photo.
+            {tr("scan.readyText")}
           </p>
           <button type="button" className="btn-secondary btn-block" onClick={() => navigate(`${base}/documents`)}>
-            <Icon name="plus" /> Ajouter des fichiers
+            <Icon name="plus" /> {tr("scan.addFiles")}
           </button>
         </section>
       </div>
 
       <section className="card" aria-labelledby="batches-title">
-        <h2 id="batches-title" className="card-title">Lots en cours pour ce dossier</h2>
+        <h2 id="batches-title" className="card-title">{tr("scan.batchesTitle")}</h2>
         {batches === null ? (
-          <p className="muted">Chargement…</p>
+          <p className="muted">{tr("loading")}</p>
         ) : visible.length === 0 ? (
-          <p className="empty">Aucun lot numérisé pour ce dossier.</p>
+          <p className="empty">{tr("scan.noBatch")}</p>
         ) : (
           <div className="table-wrap">
             <table className="data">
               <thead>
                 <tr>
-                  <th>Lot</th>
-                  <th>Source</th>
-                  <th className="num">Pages</th>
-                  <th>Avancement</th>
-                  <th>Action</th>
+                  <th>{tr("scan.batch")}</th>
+                  <th>{tr("scan.source")}</th>
+                  <th className="num">{tr("scan.pages")}</th>
+                  <th>{tr("scan.progress")}</th>
+                  <th>{tr("scan.action")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -337,7 +339,7 @@ function AddPieces({ detail, editable }: { detail: CaseDetail; editable: boolean
                           className="btn-small"
                           onClick={() => navigate(`${base}/numerisation/${b.id}${photos ? "/photos" : ""}`)}
                         >
-                          {photos ? "Continuer la prise de vue" : b.state === "to_sort" ? "Trier le lot" : "Ouvrir"}
+                          {photos ? tr("scan.continueShooting") : b.state === "to_sort" ? tr("scan.sortBatch") : tr("scan.open")}
                         </button>
                       </td>
                     </tr>
@@ -348,7 +350,7 @@ function AddPieces({ detail, editable }: { detail: CaseDetail; editable: boolean
           </div>
         )}
         <p className="muted small">
-          Conseil de numérisation : 300 points par pouce, recto verso si les pièces sont imprimées des deux côtés. Une page blanche entre deux pièces aide la séparation, sans être obligatoire.
+          {tr("scan.tip")}
         </p>
       </section>
     </div>
@@ -365,7 +367,7 @@ function useBatch(batchId: string) {
     try {
       setBatch(await api.scanBatch(batchId));
     } catch (err) {
-      setError(errorText(err, "Lot introuvable."));
+      setError(errorText(err, tr("scan.batchNotFound")));
     }
   }, [batchId]);
 
@@ -386,7 +388,7 @@ function useBatch(batchId: string) {
       setBatch(await action());
       return true;
     } catch (err) {
-      setError(errorText(err, "Action impossible."));
+      setError(errorText(err, tr("common.actionFailed")));
       await load();
       return false;
     }
@@ -400,7 +402,7 @@ function SortBatch({ detail, batchId, editable }: { detail: CaseDetail; batchId:
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const base = `/dossiers/${detail.id}`;
 
-  if (!batch) return <p className="muted">{error ?? "Chargement…"}</p>;
+  if (!batch) return <p className="muted">{error ?? tr("loading")}</p>;
   if (batch.state === "attached") return <AttachResult detail={detail} batch={batch} />;
 
   const working = isWorking(batch);
@@ -421,26 +423,26 @@ function SortBatch({ detail, batchId, editable }: { detail: CaseDetail; batchId:
 
   return (
     <div className="scan-page">
-      <Breadcrumb detail={detail} last={`Lot ${batch.label}`} />
+      <Breadcrumb detail={detail} last={tr("scan.batchLabel", { label: batch.label })} />
       <PageHeader
-        title={`Trier le lot : ${plural(c.pages, "page", "pages")}, ${plural(pieces.length, "pièce proposée", "pièces proposées")}`}
-        subtitle={<>{batch.source_label} · {batch.label} · déposé par {personName(batch.created_by)} le {fmtDateTime(batch.created_at)}</>}
+        title={tr("scan.sortTitle", { pages: plural(c.pages, "scan.page1", "scan.pageN"), pieces: plural(pieces.length, "scan.proposed1", "scan.proposedN") })}
+        subtitle={tr("scan.uploadedBy", { source: batch.source_label, label: batch.label, who: personName(batch.created_by), date: fmtDateTime(batch.created_at) })}
       >
         {canEdit && batch.source === "scanner" && (
           <FileButton
             className="btn-secondary"
-            label="Pages à ajouter au lot"
+            label={tr("scan.pagesToAdd")}
             accept={SCANNER_ACCEPT}
             multiple
             disabled={working}
             onFiles={(files) => void act(() => api.addScanFiles(batch.id, files))}
           >
-            <Icon name="plus" size={18} /> Ajouter des pages au lot
+            <Icon name="plus" size={18} /> {tr("scan.addPages")}
           </FileButton>
         )}
         {canEdit && batch.source === "camera" && (
           <button type="button" className="btn-secondary" onClick={() => navigate(`${base}/numerisation/${batch.id}/photos`)}>
-            <Icon name="plus" size={18} /> Ajouter des photos
+            <Icon name="plus" size={18} /> {tr("scan.addPhotos")}
           </button>
         )}
         {canEdit && (
@@ -450,38 +452,38 @@ function SortBatch({ detail, batchId, editable }: { detail: CaseDetail; batchId:
             disabled={working || pieces.length === 0}
             onClick={() => void act(() => api.scanAction(batch.id, "attach"))}
           >
-            <Icon name="check" size={18} /> Rattacher {plural(pieces.length, "pièce", "pièces")} au dossier
+            <Icon name="check" size={18} /> {tr("scan.attach", { pieces: plural(pieces.length, "scan.piece1", "scan.pieceN") })}
           </button>
         )}
       </PageHeader>
       {error && <p role="alert" className="error">⚠ {error}</p>}
 
       <div className="stats stats-4">
-        <StatCard icon="layers" tone="blue" label="Pages reçues" value={c.pages} hint={plural(batch.sources.length, "fichier", "fichiers")} />
+        <StatCard icon="layers" tone="blue" label={tr("scan.received")} value={c.pages} hint={plural(batch.sources.length, "scan.file1", "scan.fileN")} />
         <StatCard
           icon="eye"
           tone={working ? "blue" : "green"}
-          label="Pages redressées et lues"
+          label={tr("scan.straightened")}
           value={`${read} / ${kept.length}`}
-          hint={working ? <ProgressBar value={progressValue(batch)} /> : "lecture terminée"}
+          hint={working ? <ProgressBar value={progressValue(batch)} /> : tr("scan.readDone")}
         />
         <StatCard
           icon="file"
           tone={c.unclassified || c.hard_to_read ? "amber" : "green"}
-          label="Séparation proposée"
-          value={plural(pieces.length, "pièce", "pièces")}
+          label={tr("scan.split")}
+          value={plural(pieces.length, "scan.piece1", "scan.pieceN")}
           hint={[
-            c.unclassified ? plural(c.unclassified, "page à classer", "pages à classer") : null,
-            c.hard_to_read ? plural(c.hard_to_read, "page à reprendre", "pages à reprendre") : null,
-            c.blank_removed ? plural(c.blank_removed, "page blanche retirée", "pages blanches retirées") : null,
-          ].filter(Boolean).join(", ") || "rien à signaler"}
+            c.unclassified ? plural(c.unclassified, "scan.toClassify1", "scan.toClassifyN") : null,
+            c.hard_to_read ? plural(c.hard_to_read, "scan.toRedo1", "scan.toRedoN") : null,
+            c.blank_removed ? plural(c.blank_removed, "scan.blank1", "scan.blankN") : null,
+          ].filter(Boolean).join(", ") || tr("scan.nothing")}
         />
-        <StatCard icon="checkCircle" tone="gray" label="Votre vérification" value={batch.state_label} hint="rien n'est rattaché avant votre clic" />
+        <StatCard icon="checkCircle" tone="gray" label={tr("scan.yourCheck")} value={batch.state_label} hint={tr("scan.nothingAttached")} />
       </div>
 
       <div className="split-panel">
         <div>
-          {pieces.length === 0 && !working && <p className="empty card">Aucune pièce proposée : rangez les pages ci-dessous.</p>}
+          {pieces.length === 0 && !working && <p className="empty card">{tr("scan.noPiece")}</p>}
           {pieces.map((piece, index) => (
             <PieceCard
               key={piece.id}
@@ -497,10 +499,10 @@ function SortBatch({ detail, batchId, editable }: { detail: CaseDetail; batchId:
           {unclassified.length > 0 && (
             <section className="card" aria-labelledby="unclassified-title">
               <div className="card-head">
-                <h2 id="unclassified-title" className="card-title">Pages non classées</h2>
-                <Chip tone="amber">{plural(unclassified.length, "page", "pages")}</Chip>
+                <h2 id="unclassified-title" className="card-title">{tr("scan.unclassifiedTitle")}</h2>
+                <Chip tone="amber">{plural(unclassified.length, "scan.page1", "scan.pageN")}</Chip>
               </div>
-              <p className="muted small">Aucun titre reconnu : choisissez la pièce de chacune, ou créez une pièce. Une page non classée reste dans le lot.</p>
+              <p className="muted small">{tr("scan.unclassifiedHelp")}</p>
               <div className="scan-thumbs">
                 {unclassified.map((p) => (
                   <Thumb key={p.id} page={p} selected={selected?.id === p.id} onSelect={() => setSelectedId(p.id)} />
@@ -510,7 +512,7 @@ function SortBatch({ detail, batchId, editable }: { detail: CaseDetail; batchId:
           )}
           {removed.length > 0 && (
             <details className="card small">
-              <summary>{plural(removed.length, "page retirée", "pages retirées")} du lot, conservée(s)</summary>
+              <summary>{plural(removed.length, "scan.removed1", "scan.removedN")}</summary>
               <div className="scan-thumbs">
                 {removed.map((p) => (
                   <Thumb key={p.id} page={p} selected={selected?.id === p.id} onSelect={() => setSelectedId(p.id)} />
@@ -521,9 +523,9 @@ function SortBatch({ detail, batchId, editable }: { detail: CaseDetail; batchId:
           {canEdit && (
             <p className="small">
               <button type="button" className="link" onClick={() => void act(() => api.scanAction(batch.id, "cancel")).then((ok) => ok && navigate(`${base}/numerisation`))}>
-                Abandonner ce lot
+                {tr("scan.abandon")}
               </button>{" "}
-              <span className="muted">(les fichiers déposés restent conservés)</span>
+              <span className="muted">{tr("scan.filesKept")}</span>
             </p>
           )}
         </div>
@@ -538,7 +540,7 @@ function SortBatch({ detail, batchId, editable }: { detail: CaseDetail; batchId:
               act={act}
             />
           ) : (
-            <section className="card"><p className="empty">{working ? "Lecture des pages en cours…" : "Aucune page."}</p></section>
+            <section className="card"><p className="empty">{working ? tr("scan.readingPages") : tr("scan.noPageFull")}</p></section>
           )}
         </aside>
       </div>
@@ -554,7 +556,7 @@ function UsageSelect({ value, onChange, label, disabled }: { value: string; onCh
       {label}
       <select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
         {USAGES.map(([v, l]) => (
-          <option key={v} value={v}>{l}</option>
+          <option key={v} value={v}>{tr(l)}</option>
         ))}
       </select>
     </label>
@@ -581,16 +583,16 @@ function PieceCard({
   return (
     <section className="card scan-piece" aria-labelledby={`piece-${piece.id}`}>
       <div className="card-head">
-        <h2 id={`piece-${piece.id}`} className="card-title">Pièce {index + 1}</h2>
+        <h2 id={`piece-${piece.id}`} className="card-title">{tr("scan.pieceN1", { n: index + 1 })}</h2>
         <UsageSelect
-          label="Type"
+          label={tr("scan.type")}
           value={piece.usage}
           disabled={!editable}
           onChange={(usage) => void act(() => api.updateScanPiece(piece.id, usage))}
         />
         <Chip tone="gray">{pageRange(pages.map((p) => p.number ?? 0))}</Chip>
       </div>
-      <p className="muted small">{piece.usage_by_user ? "Type choisi par l'agent" : `Proposé : ${piece.reason}`}</p>
+      <p className="muted small">{piece.usage_by_user ? tr("scan.typeByAgent") : tr("scan.proposedReason", { reason: piece.reason })}</p>
       <div className="scan-thumbs">
         {pages.map((p) => (
           <Thumb key={p.id} page={p} selected={selectedId === p.id} onSelect={() => onSelect(p.id)} />
@@ -599,7 +601,7 @@ function PieceCard({
       {editable && index > 0 && (
         <div className="actions-row">
           <button type="button" className="btn-small" onClick={() => void act(() => api.joinScanPiece(piece.id))}>
-            Joindre à la pièce précédente
+            {tr("scan.joinPrevious")}
           </button>
         </div>
       )}
@@ -636,40 +638,40 @@ function PageAside({
   return (
     <section className="card" aria-labelledby="page-title">
       <div className="card-head">
-        <h2 id="page-title" className="card-title">Page {page.number}</h2>
+        <h2 id="page-title" className="card-title">{tr("scan.pageN1", { n: page.number ?? "" })}</h2>
         <Chip tone={status.tone}>{status.text}</Chip>
       </div>
       {page.has_image ? (
-        <img className="scan-preview" src={scanPageImage(page, false)} alt={`Page ${page.number} du lot`} />
+        <img className="scan-preview" src={scanPageImage(page, false)} alt={tr("scan.pageOfBatch", { n: page.number ?? "" })} />
       ) : (
-        <p className="empty">{page.state === "pending" ? "Lecture en cours…" : "Image indisponible."}</p>
+        <p className="empty">{page.state === "pending" ? tr("scan.readingEllipsis") : tr("scan.noImage")}</p>
       )}
       <ul className="plain small">
-        <li>Fichier {page.source_name}, page {page.source_page}</li>
-        {piece && <li>Dans la pièce {pieceIndex + 1} ({piece.usage_label})</li>}
-        {page.title && <li>Titre lu : « {page.title} »{page.reference && <>, n° {page.reference}</>}</li>}
-        {page.page_marker && <li>Mention « page {page.page_marker} » lue</li>}
+        <li>{tr("scan.fromFile", { name: page.source_name, page: page.source_page })}</li>
+        {piece && <li>{tr("scan.inPiece", { n: pieceIndex + 1, usage: piece.usage_label })}</li>}
+        {page.title && <li>{tr("scan.titleRead", { title: page.title })}{page.reference && tr("scan.refNo", { ref: page.reference })}</li>}
+        {page.page_marker && <li>{tr("scan.markerRead", { marker: page.page_marker })}</li>}
         {page.notes.map((n) => <li key={n} className="muted">{n}</li>)}
       </ul>
       {(page.hard_to_read || page.state === "failed") && (
         <p className="note-amber small">
-          Le texte de cette page n'a pas pu être lu correctement. Repassez-la au scanner ou reprenez-la en photo ; elle remplacera celle-ci à la même place.
+          {tr("scan.badText")}
         </p>
       )}
       {editable && (
         <div className="scan-actions">
           <FileButton
             className="btn-secondary"
-            label="Nouvelle prise de la page"
+            label={tr("scan.newTake")}
             accept={SCANNER_ACCEPT}
             camera
             onFiles={([file]) => void act(() => api.replaceScanPage(page.id, file))}
           >
-            <Icon name="refresh" size={18} /> Reprendre la page
+            <Icon name="refresh" size={18} /> {tr("scan.redoPage")}
           </FileButton>
           {page.removed ? (
             <button type="button" className="btn-secondary" onClick={() => void act(() => api.updateScanPage(page.id, { removed: false }))}>
-              <Icon name="plus" size={18} /> Remettre dans le lot
+              <Icon name="plus" size={18} /> {tr("scan.putBack")}
             </button>
           ) : (
             <>
@@ -678,40 +680,40 @@ function PageAside({
                 className="btn-secondary"
                 onClick={() => void act(() => api.updateScanPage(page.id, { rotation: (page.rotation + 90) % 360 }))}
               >
-                <Icon name="refresh" size={18} /> Pivoter
+                <Icon name="refresh" size={18} /> {tr("scan.rotate")}
               </button>
               {piece && !firstOfPiece && (
                 <button type="button" className="btn-secondary" onClick={() => void act(() => api.splitScanPage(page.id))}>
-                  <Icon name="minus" size={18} /> Couper la pièce ici
+                  <Icon name="minus" size={18} /> {tr("scan.cutHere")}
                 </button>
               )}
               {piece && firstOfPiece && pieceIndex > 0 && (
                 <button type="button" className="btn-secondary" onClick={() => void act(() => api.joinScanPiece(piece.id))}>
-                  <Icon name="layers" size={18} /> Joindre à la précédente
+                  <Icon name="layers" size={18} /> {tr("scan.joinPrev")}
                 </button>
               )}
               <label>
-                Déplacer vers…
+                {tr("scan.moveTo")}
                 <select value="" onChange={(e) => move(e.target.value)}>
-                  <option value="">Choisir</option>
+                  <option value="">{tr("scan.choose")}</option>
                   {pieces.map((p, i) =>
                     p.id === page.piece_id ? null : (
-                      <option key={p.id} value={p.id}>Pièce {i + 1} · {p.usage_label}</option>
+                      <option key={p.id} value={p.id}>{tr("scan.pieceOption", { n: i + 1, usage: p.usage_label })}</option>
                     ),
                   )}
-                  <option value="new">Nouvelle pièce (type ci-dessous)</option>
-                  {page.piece_id && <option value="none">Pages non classées</option>}
+                  <option value="new">{tr("scan.newPieceBelow")}</option>
+                  {page.piece_id && <option value="none">{tr("scan.unclassifiedTitle")}</option>}
                 </select>
               </label>
-              <UsageSelect label="Type d'une nouvelle pièce" value={newUsage} onChange={setNewUsage} />
+              <UsageSelect label={tr("scan.newPieceType")} value={newUsage} onChange={setNewUsage} />
               <button type="button" className="btn-secondary" onClick={() => void act(() => api.updateScanPage(page.id, { removed: true }))}>
-                <Icon name="x" size={18} /> Retirer du lot
+                <Icon name="x" size={18} /> {tr("scan.removeFromBatch")}
               </button>
             </>
           )}
         </div>
       )}
-      <p className="muted small">Les types sont des propositions : rien n'est rattaché au dossier avant votre clic sur « Rattacher ».</p>
+      <p className="muted small">{tr("scan.typesProposed")}</p>
     </section>
   );
 }
@@ -726,30 +728,30 @@ function AttachResult({ detail, batch }: { detail: CaseDetail; batch: ScanBatch 
   const base = `/dossiers/${detail.id}`;
   return (
     <div className="scan-page">
-      <Breadcrumb detail={detail} last={`Lot ${batch.label}`} />
-      <PageHeader title="Pièces du dossier">
+      <Breadcrumb detail={detail} last={tr("scan.batchLabel", { label: batch.label })} />
+      <PageHeader title={tr("scan.caseDocs")}>
         <button type="button" className="btn-secondary" onClick={() => navigate(`${base}/numerisation`)}>
-          <Icon name="plus" size={18} /> Ajouter ou numériser des pièces
+          <Icon name="plus" size={18} /> {tr("scan.addOrScan")}
         </button>
         <button type="button" className="btn-primary" onClick={() => navigate(`${base}/documents`)}>
-          <Icon name="file" size={18} /> Ouvrir les documents
+          <Icon name="file" size={18} /> {tr("scan.openDocs")}
         </button>
       </PageHeader>
       <p className="note-blue">
-        {plural(attached.length, "pièce rattachée", "pièces rattachées")} depuis le lot {batch.label}.
-        {left > 0 && ` ${plural(left, "page non classée reste", "pages non classées restent")} dans le lot.`}
-        {reading > 0 && ` La lecture de ${plural(reading, "facture", "factures")} a démarré.`}
+        {tr("scan.fromBatch", { attached: plural(attached.length, "scan.attached1", "scan.attachedN"), label: batch.label })}
+        {left > 0 && plural(left, "scan.left1", "scan.leftN")}
+        {reading > 0 && plural(reading, "scan.reading1", "scan.readingN")}
       </p>
-      <section className="card" aria-label="Pièces rattachées">
+      <section className="card" aria-label={tr("scan.attachedPieces")}>
         <div className="table-wrap">
           <table className="data">
             <thead>
               <tr>
-                <th>Pièce</th>
-                <th>Type</th>
-                <th className="num">Pages</th>
-                <th>Provenance</th>
-                <th>Lecture</th>
+                <th>{tr("scan.piece")}</th>
+                <th>{tr("scan.type")}</th>
+                <th className="num">{tr("scan.pages")}</th>
+                <th>{tr("scan.origin")}</th>
+                <th>{tr("scan.readingCol")}</th>
               </tr>
             </thead>
             <tbody>
@@ -761,12 +763,12 @@ function AttachResult({ detail, batch }: { detail: CaseDetail; batch: ScanBatch 
                     <td><strong>{link.document.original_name}</strong></td>
                     <td>{link.usage_label}</td>
                     <td className="num">{p.page_ids.length}</td>
-                    <td>Numérisé · lot {batch.label} · {pageRange(p.page_ids.map((id) => numbers.get(id) ?? 0))}</td>
+                    <td>{tr("scan.scannedFrom", { label: batch.label, pages: pageRange(p.page_ids.map((id) => numbers.get(id) ?? 0)) })}</td>
                     <td>
                       {run ? (
                         <Chip tone={run.status === "failed" ? "red" : run.status === "succeeded" ? "green" : "blue"}>{run.status_label}</Chip>
                       ) : (
-                        <span className="muted">non demandée</span>
+                        <span className="muted">{tr("scan.notRequested")}</span>
                       )}
                     </td>
                   </tr>
@@ -776,7 +778,7 @@ function AttachResult({ detail, batch }: { detail: CaseDetail; batch: ScanBatch 
           </table>
         </div>
         <p className="muted small">
-          Chaque pièce numérisée garde le lot d'origine et ses numéros de page, pour retrouver la feuille papier. Les valeurs lues dans un scan restent à vérifier tant qu'un agent ne les a pas confirmées.
+          {tr("scan.keepsOrigin")}
         </p>
       </section>
     </div>
@@ -800,13 +802,13 @@ function Capture({ detail, batchId, editable }: { detail: CaseDetail; batchId: s
     return () => webcam?.getTracks().forEach((t) => t.stop());
   }, [webcam]);
 
-  if (!batch) return <p className="muted">{error ?? "Chargement…"}</p>;
+  if (!batch) return <p className="muted">{error ?? tr("loading")}</p>;
   if (batch.state !== "open") {
     return (
       <div className="scan-page">
-        <Breadcrumb detail={detail} last={`Lot ${batch.label}`} />
-        <p className="note-blue">La prise de vue de ce lot est terminée.</p>
-        <button type="button" className="btn-primary" onClick={() => navigate(`${base}/numerisation/${batch.id}`)}>Trier le lot</button>
+        <Breadcrumb detail={detail} last={tr("scan.batchLabel", { label: batch.label })} />
+        <p className="note-blue">{tr("scan.shootDone")}</p>
+        <button type="button" className="btn-primary" onClick={() => navigate(`${base}/numerisation/${batch.id}`)}>{tr("scan.sortBatch")}</button>
       </div>
     );
   }
@@ -832,7 +834,7 @@ function Capture({ detail, batchId, editable }: { detail: CaseDetail; batchId: s
     try {
       setWebcam(await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1920 } } }));
     } catch {
-      setCamError("Webcam indisponible ou refusée par le navigateur.");
+      setCamError(tr("scan.webcamDenied"));
     }
   }
 
@@ -850,15 +852,15 @@ function Capture({ detail, batchId, editable }: { detail: CaseDetail; batchId: s
 
   return (
     <div className="scan-page">
-      <Breadcrumb detail={detail} last={`Lot ${batch.label}`} />
-      <PageHeader title="Prise de vue" subtitle={<>Dossier {detail.reference} · {batch.label} · {plural(batch.counts.pages, "page", "pages")}</>}>
+      <Breadcrumb detail={detail} last={tr("scan.batchLabel", { label: batch.label })} />
+      <PageHeader title={tr("scan.shootTitle")} subtitle={tr("scan.shootSub", { ref: detail.reference, label: batch.label, pages: plural(batch.counts.pages, "scan.page1", "scan.pageN") })}>
         <button
           type="button"
           className="btn-primary"
           disabled={!editable || batch.counts.pages === 0 || sending}
           onClick={() => void act(() => api.scanAction(batch.id, "finish")).then((ok) => ok && navigate(`${base}/numerisation/${batch.id}`))}
         >
-          <Icon name="check" size={18} /> Terminer la prise de vue
+          <Icon name="check" size={18} /> {tr("scan.finishShooting")}
         </button>
       </PageHeader>
       {error && <p role="alert" className="error">⚠ {error}</p>}
@@ -868,30 +870,30 @@ function Capture({ detail, batchId, editable }: { detail: CaseDetail; batchId: s
           <section className="card" aria-labelledby="shoot-title">
             <div className="card-head">
               <h2 id="shoot-title" className="card-title">
-                {current ? `Pièce en cours : ${current.usage_label}, page ${current.page_ids.length + 1}` : "Nouvelle pièce"}
+                {current ? tr("scan.currentPiece", { usage: current.usage_label, n: current.page_ids.length + 1 }) : tr("scan.newPiece")}
               </h2>
               {current && (
                 <button type="button" className="btn-secondary btn-small-pad" onClick={() => setPieceId(null)}>
-                  Pièce terminée
+                  {tr("scan.pieceDone")}
                 </button>
               )}
             </div>
-            {!current && <UsageSelect label="Type de la pièce" value={usage} onChange={setUsage} />}
-            <p className="muted small">Posez la feuille à plat sur un fond sombre, bien éclairée : la photo est recadrée sur la feuille et redressée.</p>
+            {!current && <UsageSelect label={tr("scan.pieceType")} value={usage} onChange={setUsage} />}
+            <p className="muted small">{tr("scan.layFlat")}</p>
             <div className="actions-row scan-shoot">
               <FileButton
                 className="btn-primary"
-                label="Photo de la page"
+                label={tr("scan.pagePhoto")}
                 accept="image/*"
                 camera
                 disabled={!editable || sending}
                 onFiles={([file]) => void send(file)}
               >
-                <Icon name="plus" /> {sending ? "Envoi…" : "Prendre une photo"}
+                <Icon name="plus" /> {sending ? tr("scan.sendingShort") : tr("scan.takePhoto")}
               </FileButton>
               {webcamAvailable && !webcam && (
                 <button type="button" className="btn-secondary" disabled={!editable} onClick={() => void startWebcam()}>
-                  <Icon name="eye" /> Utiliser la webcam
+                  <Icon name="eye" /> {tr("scan.useWebcam")}
                 </button>
               )}
             </div>
@@ -900,8 +902,8 @@ function Capture({ detail, batchId, editable }: { detail: CaseDetail; batchId: s
               <div className="scan-webcam">
                 <video ref={video} className="scan-video" autoPlay playsInline muted />
                 <div className="actions-row">
-                  <button type="button" className="btn-secondary" onClick={() => setWebcam(null)}>Fermer la webcam</button>
-                  <button type="button" className="btn-primary" disabled={sending} onClick={snap}>Capturer la page</button>
+                  <button type="button" className="btn-secondary" onClick={() => setWebcam(null)}>{tr("scan.closeWebcam")}</button>
+                  <button type="button" className="btn-primary" disabled={sending} onClick={snap}>{tr("scan.capture")}</button>
                 </div>
               </div>
             )}
@@ -911,13 +913,13 @@ function Capture({ detail, batchId, editable }: { detail: CaseDetail; batchId: s
 
         <aside className="side-panel">
           <section className="card" aria-labelledby="shots-title">
-            <h2 id="shots-title" className="card-title">Pages photographiées</h2>
+            <h2 id="shots-title" className="card-title">{tr("scan.photographed")}</h2>
             {pieces.length === 0 ? (
-              <p className="empty">Aucune photo pour l'instant.</p>
+              <p className="empty">{tr("scan.noPhoto")}</p>
             ) : (
               pieces.map((p, i) => (
                 <div key={p.id} className="subcard">
-                  <strong>Pièce {i + 1} · {p.usage_label}</strong>
+                  <strong>{tr("scan.pieceOption", { n: i + 1, usage: p.usage_label })}</strong>
                   <div className="scan-thumbs">
                     {p.page_ids.map((id) => byId.get(id)).filter((x): x is ScanPageInfo => !!x).map((page) => (
                       <Thumb key={page.id} page={page} selected={false} onSelect={() => setPieceId(p.id)} />
@@ -926,7 +928,7 @@ function Capture({ detail, batchId, editable }: { detail: CaseDetail; batchId: s
                 </div>
               ))
             )}
-            <p className="muted small">Touchez une page pour reprendre la pièce correspondante ; une page floue se reprend ensuite au tri.</p>
+            <p className="muted small">{tr("scan.touchPage")}</p>
           </section>
         </aside>
       </div>
