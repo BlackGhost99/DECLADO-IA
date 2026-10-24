@@ -12,7 +12,7 @@ from .workflow_service import transition_revision
 
 class WorkflowTransitionInput(serializers.Serializer):
     target = serializers.ChoiceField(choices=[
-        "in_preparation", "to_validate", "to_correct",
+        "in_preparation", "to_validate", "to_correct", "validated",
     ])
     row_version = serializers.IntegerField(min_value=1)
     reason = serializers.CharField(required=False, allow_blank=True, max_length=2000)
