@@ -1,4 +1,5 @@
 """Lecture documentaire contextualisée par dossier et société active."""
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
