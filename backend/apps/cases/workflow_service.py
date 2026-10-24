@@ -5,6 +5,8 @@ from apps.core.exceptions import ApiError
 from apps.organizations.context import active_memberships
 from .models import CaseRevision
 from .workflow_policy import allowed_transition
+from .validation_policy import can_validate
+from .completeness import evaluate
 
 
 @transaction.atomic
@@ -25,7 +27,14 @@ def transition_revision(*, organization, actor, revision_id, expected_version, t
         raise ApiError("STALE_REVISION", "Seule la révision courante est modifiable.", 409)
     if revision.row_version != expected_version:
         raise ApiError("REVISION_CONFLICT", "Version obsolète.", 409)
-    if not allowed_transition(revision.state, target, membership.roles, reason):
+    if target == "validated" and revision.state == "to_validate":
+        validation = can_validate(
+            organization=organization, membership=membership, actor=actor,
+            revision=revision, assessment=evaluate(revision),
+        )
+    else:
+        validation = None
+    if validation is None and not allowed_transition(revision.state, target, membership.roles, reason):
         raise ApiError("TRANSITION_DENIED", "Transition interdite ou motif manquant.", 403)
     previous = revision.state
     revision.state = target
@@ -35,7 +44,7 @@ def transition_revision(*, organization, actor, revision_id, expected_version, t
     record_event(
         organization=organization, actor=actor, event_type="revision.workflow_transition",
         entity=revision, previous={"state": previous},
-        current={"state": target, "reason": revision.reason},
+        current={"state": target, "reason": revision.reason, "validation": validation},
         scope=revision.case.scope,
     )
     return revision
