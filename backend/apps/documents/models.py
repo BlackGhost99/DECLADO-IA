@@ -28,7 +28,10 @@ class Document(OrganizationOwnedModel):
     )
     inspection_notes = models.JSONField(default=list, blank=True)
     # Determined by a future detector; never guessed from the user interface locale.
-    detected_locale = models.CharField(max_length=2, blank=True, default="", choices=[("", "Unknown"), ("fr", "Français"), ("en", "English"), ("es", "Español"), ("ar", "العربية")])
+    detected_locale = models.CharField(
+        max_length=2, blank=True, default="",
+        choices=[("", "Unknown"), ("fr", "Français"), ("en", "English"), ("es", "Español"), ("ar", "العربية")]
+    )
     language_detection = models.JSONField(default=dict, blank=True)
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
 
