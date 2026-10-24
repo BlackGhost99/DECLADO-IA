@@ -67,12 +67,21 @@ def propose_links(documents):
         for i, left in enumerate(ids):
             for right in ids[i + 1:]:
                 key = (left, right)
-                proposals.setdefault(key, []).append({
-                    "reference_kind": kind, "reference_value": value,
-                    "source_excerpt": unique[left], "target_excerpt": unique[right],
-                })
+                proposals.setdefault(key, []).append(
+                    {
+                        "reference_kind": kind,
+                        "reference_value": value,
+                        "source_excerpt": unique[left],
+                        "target_excerpt": unique[right],
+                    }
+                )
     return [
-        {"source_id": source, "target_id": target, "status": "proposed",
-         "evidence": evidence, "method": "exact-reference-v1"}
+        {
+            "source_id": source,
+            "target_id": target,
+            "status": "proposed",
+            "evidence": evidence,
+            "method": "exact-reference-v1",
+        }
         for (source, target), evidence in sorted(proposals.items())
     ]
