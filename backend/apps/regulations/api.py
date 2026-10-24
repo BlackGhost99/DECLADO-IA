@@ -149,16 +149,16 @@ class OrganizationDocumentPolicyView(APIView):
         return Response(
             {
                 "results": [
-                {
-                    "id": row.pk,
-                    "document_type": row.document_type.code,
-                    "label": row.document_type.label_fr,
-                    "operation": row.operation,
-                    "regime": row.regime,
-                    "transport_mode": row.transport_mode,
-                    "active": row.active,
-                    "reason": row.reason,
-                }
+                    {
+                        "id": row.pk,
+                        "document_type": row.document_type.code,
+                        "label": row.document_type.label_fr,
+                        "operation": row.operation,
+                        "regime": row.regime,
+                        "transport_mode": row.transport_mode,
+                        "active": row.active,
+                        "reason": row.reason,
+                    }
                     for row in rows.order_by("pk")
                 ]
             }
