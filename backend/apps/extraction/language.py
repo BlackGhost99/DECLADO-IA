@@ -47,4 +47,23 @@ def detect_language(text: str) -> dict:
 def annotate_parsed(doc, pages) -> None:
     """Metadata only; original strings and normalized customs values remain untouched."""
     text = "\n".join(row.text for page in pages for row in page.rows)
-    doc.stats["language_detection"] = detect_language(text)
+    overall = detect_language(text)
+    page_results = []
+    zone_results = []
+    for page in pages:
+        number = page.number
+        page_text = "\\n".join(row.text for row in page.rows)
+        page_results.append({"page": number, **detect_language(page_text)})
+        # Each contiguous row is a preliminary spatial zone; no page-wide language is forced onto it.
+        for row in page.rows:
+            result = detect_language(row.text)
+            if result["locale"]:
+                zone_results.append({
+                    "page": number, "row": row.index,
+                    "locale": result["locale"], "method": result["method"],
+                    "scores": result["scores"],
+                })
+    overall["pages"] = page_results
+    overall["zones"] = zone_results[:1000]
+    overall["zone_results_truncated"] = len(zone_results) > 1000
+    doc.stats["language_detection"] = overall
