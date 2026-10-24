@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, type CodeCheck, type GoodsLine, type Proposal, type ProposalSet } from "./api";
 import { errorText } from "./ui";
+import { useI18n } from "./i18n";
 
 type Act = (a: () => Promise<unknown>) => Promise<void>;
 
@@ -17,6 +18,7 @@ export function actionFor(check: CodeCheck, proposal: Pick<Proposal, "code">): "
 const ACTION_LABELS = { classify: "Classer sous ce code", complete: "Compléter avec ce code", replace: "Remplacer par ce code" };
 
 export function ProposalsPanel({ goods, editionId, editable, act }: { goods: GoodsLine; editionId: string; editable: boolean; act: Act }) {
+  const { t } = useI18n();
   const check = goods.latest_check;
   const [set, setSet] = useState<ProposalSet | null>(null);
   const [query, setQuery] = useState("");
@@ -57,17 +59,17 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
   const usable = Boolean(editable && check?.is_current && set?.is_current && set.edition_id === check?.target_edition_id);
 
   return (
-    <div className="evidence small" aria-label="Aide au classement">
+    <div className="evidence small" aria-label={t("classificationHelp")}>
       {editable && (
         <div className="row">
           <label>
-            Termes de recherche
+            {t("searchTerms")}
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={goods.description} size={30} />
           </label>
           {recognized ? (
-            <button type="button" onClick={() => void ask(true)}>Chercher d'autres pistes</button>
+            <button type="button" onClick={() => void ask(true)}>{t("otherProposals")}</button>
           ) : (
-            <button type="button" onClick={() => void ask(false)}>Proposer des codes</button>
+            <button type="button" onClick={() => void ask(false)}>{t("proposeCodes")}</button>
           )}
         </div>
       )}
@@ -75,9 +77,9 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
       {set && (
         <>
           <p className="muted">
-            {set.proposals.length} piste(s) dans « {set.edition_label} » · {set.producer} · {set.is_ai ? "IA" : "sans IA"}.
-            Une piste n'est pas un classement : vérifier les notes et les libellés voisins.
-            {!set.is_current && " La marchandise a changé depuis : relancer la recherche."}
+            {set.proposals.length} piste(s) dans « {set.edition_label} » · {set.producer} · {set.is_ai ? "IA" : t("noAI")}.
+            {t("proposalWarning")}
+            {!set.is_current && ` ${t("rerunSearch")}`}
           </p>
           {set.questions.length > 0 && (
             <ul>
@@ -99,16 +101,16 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
                     {p.notes.map((n) => (
                       <li key={n.id}>
                         {n.scope} {n.heading && `· ${n.heading}`} : {n.excerpt}
-                        {n.mentions_exclusion && <strong> (exclusions mentionnées)</strong>}
+                        {n.mentions_exclusion && <strong> ({t("excludeMentioned")})</strong>}
                       </li>
                     ))}
                     {p.distinguishing.length > 0 && (
-                      <li>À distinguer de : {p.distinguishing.map((d) => `${d.code_display || d.code} ${d.label}`).join(" ; ")}</li>
+                      <li>{t("distinguishFrom")} {p.distinguishing.map((d) => `${d.code_display || d.code} ${d.label}`).join(" ; ")}</li>
                     )}
                   </ul>
                   {usable && check && (
                     <button type="button" disabled={!reason.trim()} onClick={() => choose(p)}>
-                      {ACTION_LABELS[actionFor(check, p)]}
+                      {actionFor(check, p) === "classify" ? t("classifyCode") : actionFor(check, p) === "complete" ? t("completeCode") : t("replaceCode")}
                     </button>
                   )}
                 </li>
@@ -117,12 +119,12 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
           )}
           {usable && set.proposals.length > 0 && (
             <label>
-              Motif du choix (obligatoire)
+              {t("chooseReason")}
               <input value={reason} onChange={(e) => setReason(e.target.value)} size={40} />
             </label>
           )}
           {editable && set.proposals.length > 0 && !usable && (
-            <p className="muted">Contrôler le code présent contre la même édition avant de retenir une piste.</p>
+            <p className="muted">{t("confirmExisting")}</p>
           )}
         </>
       )}
