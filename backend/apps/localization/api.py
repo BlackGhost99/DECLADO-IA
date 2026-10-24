@@ -26,8 +26,14 @@ class UserLocaleView(APIView):
         if current != locale:
             user.interface_locale = locale
             user.save(update_fields=["interface_locale"])
-            record_event(organization=None, actor=user, event_type="user.locale_changed",
-                         entity=user, previous={"locale": current}, current={"locale": locale})
+            record_event(
+                organization=None,
+                actor=user,
+                event_type="user.locale_changed",
+                entity=user,
+                previous={"locale": current},
+                current={"locale": locale},
+            )
         return Response({"locale": locale})
 
 class OrganizationLocaleView(APIView):
@@ -47,8 +53,14 @@ class OrganizationLocaleView(APIView):
         if current != locale:
             org.default_locale = locale
             org.save(update_fields=["default_locale"])
-            record_event(organization=org, actor=request.user, event_type="organization.locale_changed",
-                         entity=org, previous={"locale": current}, current={"locale": locale})
+            record_event(
+                organization=org,
+                actor=request.user,
+                event_type="organization.locale_changed",
+                entity=org,
+                previous={"locale": current},
+                current={"locale": locale},
+            )
         return Response({"locale": locale})
 
 class CaseSummaryView(APIView):
