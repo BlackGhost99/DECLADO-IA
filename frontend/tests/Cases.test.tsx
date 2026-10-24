@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cases } from "../src/Cases";
+import { I18nProvider } from "../src/i18n";
 import { decimalInput } from "../src/CaseDetail";
 
 const membership = {
@@ -86,7 +87,7 @@ describe("Dossiers", () => {
       if (url.endsWith("/decisions")) return json(201, revision.goods_lines[0]);
       return json(404, {});
     });
-    render(<Cases membership={membership} me={{ id: "u1" }} />);
+    render(<I18nProvider><Cases membership={membership} me={{ id: "u1" }} /></I18nProvider>);
     fireEvent.click(await screen.findByRole("button", { name: "DOS-2026-0001" }));
     expect(await screen.findByText("Retrouvé dans le référentiel")).toBeInTheDocument();
     expect(screen.getByText("Importateur à renseigner.", { exact: false })).toBeInTheDocument();

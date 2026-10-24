@@ -15,6 +15,7 @@ import {
   type TotalsCheck,
 } from "./api";
 import { errorText } from "./ui";
+import { useI18n, type MessageKey } from "./i18n";
 
 type Act = (a: () => Promise<unknown>) => Promise<void>;
 
@@ -37,7 +38,18 @@ export const FIELD_LABELS: Record<string, string> = {
   "code:ambiguous": "code de nature incertaine",
 };
 
-const ORIGIN_LABELS: Record<string, string> = { read: "lu", ocr: "OCR", inferred: "déduit", manual: "saisi" };
+const FIELD_KEYS: Record<string, MessageKey> = {
+  supplier_name: "supplier", invoice_number: "invoiceNumber",
+  invoice_date: "date", currency: "currency", incoterm: "incotermLabel",
+  declared_total: "printedTotal", source_reference: "supplierRef",
+  description_raw: "description", quantity: "fieldQuantity", unit: "unit",
+  unit_price: "unitPrice", amount: "amount", origin_country: "origin",
+  "code:customs": "customsCode", "code:supplier": "supplierCode",
+  "code:ambiguous": "ambiguousCode",
+};
+const ORIGIN_KEYS: Record<string, MessageKey> = {
+  read: "originRead", inferred: "originInferred", manual: "originManual",
+};
 
 /** « p. 2 · zone 14–38 % » pour un PDF ou une image, « Facture!F7 » pour Excel. */
 export function spanText(span: Span | null | undefined): string {
@@ -50,13 +62,14 @@ export function spanText(span: Span | null | undefined): string {
 }
 
 export function OriginBadge({ origin, source }: { origin?: string; source?: FieldSource }) {
+  const { t } = useI18n();
   if (!origin && !source) return null;
   const kind = origin === "manual" ? "manual" : (source?.origin ?? (origin === "extracted" ? "read" : origin ?? ""));
-  const label = ORIGIN_LABELS[kind] ?? kind;
+  const label = kind === "ocr" ? "OCR" : ORIGIN_KEYS[kind] ? t(ORIGIN_KEYS[kind]) : kind;
   const where = origin === "manual" ? "" : spanText(source?.span);
   const title = [
-    source?.span?.excerpt ? `Texte lu : « ${source.span.excerpt} »` : "",
-    source?.confidence != null ? `Confiance OCR ${Math.round(source.confidence)}` : "",
+    source?.span?.excerpt ? `${t("originalText")} « ${source.span.excerpt} »` : "",
+    source?.confidence != null ? `${t("ocrConfidence")} ${Math.round(source.confidence)}` : "",
     ...(source?.notes ?? []),
   ]
     .filter(Boolean)
@@ -104,6 +117,7 @@ export function ExtractionControls({
   editable: boolean;
   onDone: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const run = link.latest_extraction ?? null;
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -145,10 +159,10 @@ export function ExtractionControls({
       {job?.state === "failed" && <div className="error">{job.error_message}</div>}
       {canExtract && !busy && (
         <div className="row">
-          {!run && !isImage && <button type="button" onClick={() => void start({})}>Extraire</button>}
-          {!run && <button type="button" onClick={() => void start({ ocr: true })}>Extraire avec OCR</button>}
-          {run && <button type="button" onClick={() => void start({ retry: true, ocr: Boolean(run.options.ocr) })}>Relancer</button>}
-          {run && !run.options.ocr && <button type="button" onClick={() => void start({ retry: true, ocr: true })}>Relancer avec OCR</button>}
+          {!run && !isImage && <button type="button" onClick={() => void start({})}>{t("extract")}</button>}
+          {!run && <button type="button" onClick={() => void start({ ocr: true })}>{t("extractOCR")}</button>}
+          {run && <button type="button" onClick={() => void start({ retry: true, ocr: Boolean(run.options.ocr) })}>{t("retry")}</button>}
+          {run && !run.options.ocr && <button type="button" onClick={() => void start({ retry: true, ocr: true })}>{t("retryOCR")}</button>}
         </div>
       )}
       {run && (
@@ -168,13 +182,14 @@ function show(value: unknown): string {
 }
 
 export function RunDetail({ runId }: { runId: string }) {
+  const { t } = useI18n();
   const [run, setRun] = useState<ExtractionDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    api.extractionRun(runId).then(setRun, (err) => setError(errorText(err, "Lecture introuvable.")));
+    api.extractionRun(runId).then(setRun, (err) => setError(errorText(err, t("loadMissing"))));
   }, [runId]);
   if (error) return <p className="error">{error}</p>;
-  if (!run) return <p className="muted">Chargement…</p>;
+  if (!run) return <p className="muted">{t("loading")}</p>;
   const report = Object.entries(run.merge_report ?? {}).filter(([, v]) => v);
   return (
     <div className="evidence" aria-label={`Lecture ${run.attempt}`}>
@@ -207,13 +222,13 @@ export function RunDetail({ runId }: { runId: string }) {
           {run.comparison.rows.length > 0 && (
             <table>
               <thead>
-                <tr><th scope="col">Élément</th><th scope="col">Champ</th><th scope="col">Avant</th><th scope="col">Maintenant</th></tr>
+                <tr><th scope="col">{t("element")}</th><th scope="col">{t("field")}</th><th scope="col">{t("before")}</th><th scope="col">{t("now")}</th></tr>
               </thead>
               <tbody>
                 {run.comparison.rows.map((r) => (
                   <tr key={r.entity_key + r.field}>
                     <td>{r.entity_key}</td>
-                    <td>{FIELD_LABELS[r.field] ?? r.field}</td>
+                    <td>{FIELD_KEYS[r.field] ? t(FIELD_KEYS[r.field]) : r.field}</td>
                     <td>{show(r.previous)}</td>
                     <td>{show(r.current)}</td>
                   </tr>
@@ -239,31 +254,29 @@ const MERGE_LABELS: Record<string, string> = {
   codes_observed: "codes lus",
 };
 
-const TOTALS_STATUS: Record<TotalsCheck["status"], string> = {
-  match: "Total recalculé égal au total imprimé.",
-  gap: "Écart entre le total imprimé et le total recalculé : à expliquer, rien n'a été corrigé.",
-  incomplete: "Total non recalculable : une ou plusieurs valeurs sont inconnues.",
-  no_printed_total: "Aucun total imprimé lu.",
+const TOTALS_KEYS: Record<TotalsCheck["status"], MessageKey> = {
+  match: "totalMatch", gap: "totalGap", incomplete: "totalUnknown", no_printed_total: "noPrintedTotal",
 };
 
 export function TotalsPanel({ totals, currency }: { totals?: TotalsCheck; currency: string }) {
+  const { t } = useI18n();
   if (!totals || totals.goods_lines === 0) return null;
   const c = totals.components;
   return (
-    <div className={totals.status === "match" ? "evidence small" : "warning small"} aria-label="Contrôle des totaux">
-      <p><strong>{TOTALS_STATUS[totals.status]}</strong></p>
+    <div className={totals.status === "match" ? "evidence small" : "warning small"} aria-label={t("totalsCheck")}>
+      <p><strong>{t(TOTALS_KEYS[totals.status])}</strong></p>
       <p>
-        Marchandises {show(c.goods)} + frais {show(c.fees)} − remises {show(c.discounts)} + taxes {show(c.taxes)} ={" "}
-        <strong>{show(totals.computed_total)}</strong> {currency} · imprimé <strong>{show(totals.printed_total)}</strong>
-        {totals.gap && totals.gap !== "0" && <> · écart <strong>{totals.gap}</strong></>}
+        {t("goods")} {show(c.goods)} + {t("fees")} {show(c.fees)} − {t("discounts")} {show(c.discounts)} + {t("taxes")} {show(c.taxes)} ={" "}
+        <strong>{show(totals.computed_total)}</strong> {currency} · {t("printed")} <strong>{show(totals.printed_total)}</strong>
+        {totals.gap && totals.gap !== "0" && <> · {t("gap")} <strong>{totals.gap}</strong></>}
       </p>
-      {totals.goods_lines_without_amount > 0 && <p>{totals.goods_lines_without_amount} ligne(s) sans montant connu.</p>}
+      {totals.goods_lines_without_amount > 0 && <p>{totals.goods_lines_without_amount} {t("linesWithoutAmount")}</p>}
       {totals.explanations.map((e) => (
         <p key={e}>{e}</p>
       ))}
       {totals.subtotals_not_added.length > 0 && (
         <p className="muted">
-          Non additionnés (sous-totaux et reports) :{" "}
+          {t("excludedSubtotals")}{" "}
           {totals.subtotals_not_added.map((s) => `${s.label} ${show(s.amount)}`).join(" ; ")}
         </p>
       )}
@@ -272,16 +285,16 @@ export function TotalsPanel({ totals, currency }: { totals?: TotalsCheck; curren
 }
 
 export function Divergences({ invoice, editable, act }: { invoice: Invoice; editable: boolean; act: Act }) {
+  const { t } = useI18n();
   const open = (invoice.divergences ?? []).filter((d) => d.state === "open");
   const closed = (invoice.divergences ?? []).filter((d) => d.state !== "open");
   if (open.length === 0 && closed.length === 0) return null;
   return (
-    <div className="warning small" aria-label="Divergences avec la relecture">
+    <div className="warning small" aria-label={t("divergences")}>
       {open.length > 0 && (
         <>
           <p>
-            <strong>{open.length} divergence(s) à trancher.</strong> La valeur actuelle est conservée tant que vous
-            ne retenez pas la relecture.
+            <strong>{open.length} {t("reviewCount")}</strong> {t("valueRetained")}
           </p>
           <ul>
             {open.map((d) => (
@@ -292,11 +305,11 @@ export function Divergences({ invoice, editable, act }: { invoice: Invoice; edit
       )}
       {closed.length > 0 && (
         <details>
-          <summary>{closed.length} divergence(s) tranchée(s)</summary>
+          <summary>{closed.length} {t("divergencesClosed")}</summary>
           <ul>
             {closed.map((d) => (
               <li key={d.id}>
-                {where(d)} : {d.state_label} par {d.resolved_by}
+                {where(d, t)} : {d.state_label} par {d.resolved_by}
                 {d.resolution_reason && ` (motif : ${d.resolution_reason})`}
               </li>
             ))}
@@ -307,18 +320,19 @@ export function Divergences({ invoice, editable, act }: { invoice: Invoice; edit
   );
 }
 
-function where(d: Divergence) {
-  const field = FIELD_LABELS[d.field] ?? d.field;
+function where(d: Divergence, t: ReturnType<typeof useI18n>["t"]) {
+  const field = FIELD_KEYS[d.field] ? t(FIELD_KEYS[d.field]) : d.field;
   return d.line_ordinal ? `Ligne ${d.line_ordinal}${d.field ? `, ${field}` : ""}` : `Facture, ${field}`;
 }
 
 function DivergenceItem({ divergence: d, editable, act }: { divergence: Divergence; editable: boolean; act: Act }) {
+  const { t } = useI18n();
   const [reason, setReason] = useState("");
   return (
     <li>
-      {where(d)} :{" "}
+      {where(d, t)} :{" "}
       {d.kind === "line_not_reread" ? (
-        "absente de la nouvelle lecture ; la ligne est conservée."
+        t("notReread")
       ) : (
         <>
           valeur actuelle <strong>{show(d.current_value)}</strong>, relecture <strong>{show(d.extracted_value)}</strong>
@@ -327,7 +341,7 @@ function DivergenceItem({ divergence: d, editable, act }: { divergence: Divergen
       )}
       {editable && (
         <span className="row">
-          <input aria-label="Motif" placeholder="Motif (facultatif)" value={reason} onChange={(e) => setReason(e.target.value)} size={24} />
+          <input aria-label={t("correctionReason")} placeholder={t("reasonOptional")} value={reason} onChange={(e) => setReason(e.target.value)} size={24} />
           <button type="button" onClick={() => void act(() => api.resolveDivergence(d.id, "keep", reason))}>
             Garder la valeur actuelle
           </button>
@@ -356,6 +370,7 @@ export function LineEditor({
   toDecimal: (v: string) => string | null;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState<Record<string, string>>(
     Object.fromEntries(EDITABLE_FIELDS.map((f) => [f, String(line[f] ?? "")])),
   );
@@ -379,7 +394,7 @@ export function LineEditor({
     <form className="row small" onSubmit={submit} aria-label={`Corriger la ligne ${line.ordinal}`}>
       {EDITABLE_FIELDS.map((f) => (
         <label key={f}>
-          {FIELD_LABELS[f]}
+          {FIELD_KEYS[f] ? t(FIELD_KEYS[f]) : FIELD_LABELS[f]}
           <input value={form[f]} size={f === "description_raw" ? 28 : 8} onChange={(e) => setForm({ ...form, [f]: e.target.value })} />
         </label>
       ))}
@@ -387,8 +402,8 @@ export function LineEditor({
         Motif de la correction
         <input value={reason} onChange={(e) => setReason(e.target.value)} size={28} placeholder="ex. bon de livraison" />
       </label>
-      <button type="submit">Enregistrer la correction</button>
-      <button type="button" onClick={onClose}>Annuler</button>
+      <button type="submit">{t("saveCorrection")}</button>
+      <button type="button" onClick={onClose}>{t("cancel")}</button>
     </form>
   );
 }

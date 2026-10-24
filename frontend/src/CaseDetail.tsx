@@ -17,6 +17,7 @@ import { Divergences, ExtractionControls, Flags, LineEditor, OriginBadge, Totals
 import { DocumentChecklist } from "./DocumentChecklist";
 import { ProposalsPanel } from "./Proposals";
 import { errorText, type EditionOption } from "./ui";
+import { useI18n, useBusinessLabels } from "./i18n";
 
 const USAGES: [string, string][] = [
   ["invoice", "Facture"],
@@ -56,6 +57,8 @@ export function CaseDetailView({
   editions: EditionOption[];
   onBack: () => void;
 }) {
+  const { t } = useI18n();
+  const labels = useBusinessLabels();
   const canEdit = membership.roles.some((r) => r === "declarant" || r === "validator");
   const [detail, setDetail] = useState<CaseDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +69,7 @@ export function CaseDetailView({
       setDetail(await api.caseDetail(caseId));
       setTick((t) => t + 1);
     } catch (err) {
-      setError(errorText(err, "Dossier introuvable."));
+      setError(errorText(err, t("caseNotFound")));
     }
   }, [caseId]);
 
@@ -79,36 +82,36 @@ export function CaseDetailView({
     try {
       await action();
     } catch (err) {
-      setError(errorText(err, "Action impossible."));
+      setError(errorText(err, t("actionError")));
     }
     await reload();
   }
 
-  if (!detail) return <p>{error ?? "Chargement…"}</p>;
+  if (!detail) return <p>{error ?? t("loading")}</p>;
   const rev = detail.revision;
   const editable = canEdit && rev.is_editable;
 
   return (
     <>
       <p>
-        <button type="button" className="link" onClick={onBack}>← Tous les dossiers</button>
+        <button type="button" className="link" onClick={onBack}>← {t("allCases")}</button>
       </p>
       <section className="card" aria-labelledby="case-title">
         <h2 id="case-title">
           <span className="code">{detail.reference}</span> {detail.title}
         </h2>
         <p className="muted small">
-          Révision {rev.revision_no} · {rev.state_label} · {rev.mode_label}. {rev.status_note}
+          {t("revision")} {rev.revision_no} · {labels.state(rev.state, rev.state_label)} · {labels.mode(rev.mode, rev.mode_label)}. {rev.status_note}
         </p>
         <dl className="facts">
-          <dt>Importateur</dt>
-          <dd>{detail.importer?.name ?? <em className="muted">à renseigner</em>}</dd>
-          <dt>Agent</dt>
+          <dt>{t("importers")}</dt>
+          <dd>{detail.importer?.name ?? <em className="muted">{t("notProvided")}</em>}</dd>
+          <dt>{t("agent")}</dt>
           <dd>
-            {detail.assigned_to?.email ?? <span className="muted">non affecté</span>}{" "}
+            {detail.assigned_to?.email ?? <span className="muted">{t("notAssigned")}</span>}{" "}
             {canEdit && !detail.assigned_to && (
               <button type="button" onClick={() => act(() => api.assignCase(detail.id, me.id, detail.row_version))}>
-                Prendre le dossier
+                {t("takeCase")}
               </button>
             )}
           </dd>
@@ -139,6 +142,7 @@ function RevisionForm({
   editable: boolean;
   onSave: (data: Record<string, unknown>) => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState({
     planned_declaration_date: revision.planned_declaration_date ?? "",
     regime: revision.regime,
@@ -166,35 +170,36 @@ function RevisionForm({
     <form className="row" onSubmit={submit}>
       <fieldset disabled={!editable} className="row plain-fieldset">
         <label>
-          Date de déclaration prévue
+          {t("plannedDate")}
           <input type="date" value={form.planned_declaration_date} onChange={(e) => setForm({ ...form, planned_declaration_date: e.target.value })} />
         </label>
         <label>
-          Régime
+          {t("regime")}
           <input value={form.regime} onChange={(e) => setForm({ ...form, regime: e.target.value })} />
         </label>
         <label>
-          Édition du référentiel
+          {t("edition")}
           <select value={form.target_edition_id} onChange={(e) => setForm({ ...form, target_edition_id: e.target.value })}>
-            <option value="">À choisir</option>
+            <option value="">{t("toChoose")}</option>
             {editions.map((e) => (
               <option key={e.id} value={e.id}>{e.label}</option>
             ))}
           </select>
         </label>
-        <button type="submit">Enregistrer</button>
+        <button type="submit">{t("save")}</button>
       </fieldset>
     </form>
   );
 }
 
 function Completeness({ revision }: { revision: Revision }) {
+  const { t } = useI18n();
   const { blocking, warnings } = revision.completeness;
   return (
     <section className="card" aria-labelledby="completeness-title">
-      <h2 id="completeness-title">Avant calcul et validation</h2>
+      <h2 id="completeness-title">{t("beforeValidation")}</h2>
       {blocking.length === 0 ? (
-        <p>Aucun manque bloquant.</p>
+        <p>{t("noBlocking")}</p>
       ) : (
         <>
           <p className="muted small">{blocking.length} élément(s) à compléter. Le brouillon reste enregistrable.</p>
@@ -209,7 +214,7 @@ function Completeness({ revision }: { revision: Revision }) {
       )}
       {warnings.length > 0 && (
         <>
-          <h3>À examiner</h3>
+          <h3>{t("review")}</h3>
           <ul className="small">
             {warnings.map((w) => (
               <li key={`${w.id}-${w.field}-${w.message}`}>
@@ -234,6 +239,8 @@ function Documents({
   editable: boolean;
   onChange: () => Promise<void>;
 }) {
+  const { t } = useI18n();
+  const labels = useBusinessLabels();
   const [limits, setLimits] = useState<{ max_bytes: number; accepted: string[] } | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [usage, setUsage] = useState("invoice");
@@ -296,7 +303,7 @@ function Documents({
 
   return (
     <section className="card" aria-labelledby="docs-title">
-      <h2 id="docs-title">Pièces</h2>
+      <h2 id="docs-title">{t("pieces")}</h2>
       {limits && (
         <p className="muted small">
           Formats acceptés : {limits.accepted.join(", ")}. Taille maximale : {formatBytes(limits.max_bytes)}. Le contenu
@@ -304,13 +311,13 @@ function Documents({
         </p>
       )}
       {revision.documents.length === 0 ? (
-        <p className="muted">Aucune pièce.</p>
+        <p className="muted">{t("noPieces")}</p>
       ) : (
         <table>
           <thead>
             <tr>
-              <th scope="col">Pièce</th><th scope="col">Usage</th><th scope="col">État</th>
-              <th scope="col">Ajoutée par</th><th scope="col">Lecture</th><th scope="col">Actions</th>
+              <th scope="col">{t("pieces")}</th><th scope="col">{t("usage")}</th><th scope="col">{t("status")}</th>
+              <th scope="col">{t("addedBy")}</th><th scope="col">{t("readingDoc")}</th><th scope="col">{t("actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -322,7 +329,7 @@ function Documents({
                   <div className="small" aria-label="Langue du document">
                     Langue : {({fr:"Français",en:"English",es:"Español",ar:"العربية"} as Record<string,string>)[link.document.detected_locale ?? ""] ?? "Indéterminée"}
                     {link.document.language_detection?.pages && (
-                      <details><summary>Langues par page</summary>
+                      <details><summary>{t("languagesByPage")}</summary>
                         <ul>{link.document.language_detection.pages.map((page,i) =>
                           <li key={i}>Page {page.page ?? i+1} : {page.locale || "Indéterminée"} ({page.status})</li>
                         )}</ul>
@@ -330,9 +337,9 @@ function Documents({
                     )}
                   </div>
                 </td>
-                <td>{link.usage_label}</td>
+                <td>{labels.usage(link.usage, link.usage_label)}</td>
                 <td>
-                  {link.replaced_by_id ? "Remplacée (conservée)" : link.document.readability_label}
+                  {link.replaced_by_id ? "Remplacée (conservée)" : labels.readability(link.document.readability, link.document.readability_label)}
                   {link.document.inspection_notes.map((n) => (
                     <div key={n} className="small muted">{n}</div>
                   ))}
@@ -344,8 +351,8 @@ function Documents({
                   )}
                 </td>
                 <td className="row">
-                  <button type="button" onClick={() => void open(link)} disabled={!link.document.previewable}>Aperçu</button>
-                  <button type="button" onClick={() => void download(link)}>Télécharger</button>
+                  <button type="button" onClick={() => void open(link)} disabled={!link.document.previewable}>{t("preview")}</button>
+                  <button type="button" onClick={() => void download(link)}>{t("download")}</button>
                 </td>
               </tr>
             ))}
@@ -355,7 +362,7 @@ function Documents({
       {editable && (
         <form className="row" onSubmit={(e) => { e.preventDefault(); void send(); }}>
           <label>
-            Fichier
+            {t("file")}
             <input type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} required />
           </label>
           <label>
@@ -366,22 +373,22 @@ function Documents({
               ))}
             </select>
           </label>
-          <button type="submit">Ajouter la pièce</button>
+          <button type="submit">{t("addPiece")}</button>
         </form>
       )}
       {duplicate && (
         <div className="warning" role="alert">
-          <p>Un fichier identique existe déjà dans votre société :</p>
+          <p>{t("duplicateFile")}</p>
           <ul className="small">
             {duplicate.map((d) => (
               <li key={d.id}>
                 {d.original_name} {d.cases.length > 0 && `(dossiers ${d.cases.join(", ")})`}{" "}
-                <button type="button" onClick={() => void reuse(d.id)}>Réutiliser cette pièce</button>
+                <button type="button" onClick={() => void reuse(d.id)}>{t("reuseDoc")}</button>
               </li>
             ))}
           </ul>
-          <button type="button" onClick={() => void send("keep_both")}>Conserver les deux</button>{" "}
-          <button type="button" onClick={() => setDuplicate(null)}>Annuler</button>
+          <button type="button" onClick={() => void send("keep_both")}>{t("keepBoth")}</button>{" "}
+          <button type="button" onClick={() => setDuplicate(null)}>{t("cancel")}</button>
         </div>
       )}
       {message && <p role="status">{message}</p>}
@@ -392,12 +399,13 @@ function Documents({
 }
 
 function PreviewPanel({ preview, onClose }: { preview: { doc: CaseDocument; data: Preview }; onClose: () => void }) {
+  const { t } = useI18n();
   const { doc, data } = preview;
   return (
     <div className="evidence" aria-label={`Aperçu de ${doc.document.original_name}`}>
       <div className="row">
         <strong>{doc.document.original_name}</strong>
-        <button type="button" onClick={onClose}>Fermer l'aperçu</button>
+        <button type="button" onClick={onClose}>{t("closePreview")}</button>
       </div>
       {data.kind === "pdf" && <iframe title={doc.document.original_name} src={data.url} className="preview" />}
       {data.kind === "image" && <img alt={doc.document.original_name} src={data.url} className="preview-image" />}
@@ -444,6 +452,7 @@ const EMPTY_LINE = {
 };
 
 function Invoices({ revision, editable, act }: { revision: Revision; editable: boolean; act: (a: () => Promise<unknown>) => Promise<void> }) {
+  const { t } = useI18n();
   const [form, setForm] = useState({ supplier_name: "", invoice_number: "", invoice_date: "", currency: "", declared_total: "", document_id: "" });
   const invoiceDocs = revision.documents.filter((d) => !d.replaced_by_id);
 
@@ -462,17 +471,17 @@ function Invoices({ revision, editable, act }: { revision: Revision; editable: b
 
   return (
     <section className="card" aria-labelledby="invoices-title">
-      <h2 id="invoices-title">Factures et lignes saisies</h2>
+      <h2 id="invoices-title">{t("invoiceLines")}</h2>
       {revision.invoices.map((inv) => (
         <InvoiceBlock key={inv.id} invoice={inv} revision={revision} editable={editable} act={act} />
       ))}
       {editable && (
         <form className="row" onSubmit={add} aria-label="Ajouter une facture">
-          <label>Fournisseur<input value={form.supplier_name} onChange={(e) => setForm({ ...form, supplier_name: e.target.value })} /></label>
-          <label>N° facture<input value={form.invoice_number} onChange={(e) => setForm({ ...form, invoice_number: e.target.value })} /></label>
-          <label>Date<input type="date" value={form.invoice_date} onChange={(e) => setForm({ ...form, invoice_date: e.target.value })} /></label>
-          <label>Devise<input value={form.currency} maxLength={3} size={4} onChange={(e) => setForm({ ...form, currency: e.target.value })} placeholder="EUR" /></label>
-          <label>Total imprimé<input inputMode="decimal" value={form.declared_total} onChange={(e) => setForm({ ...form, declared_total: e.target.value })} /></label>
+          <label>{t("supplier")}<input value={form.supplier_name} onChange={(e) => setForm({ ...form, supplier_name: e.target.value })} /></label>
+          <label>{t("invoiceNumber")}<input value={form.invoice_number} onChange={(e) => setForm({ ...form, invoice_number: e.target.value })} /></label>
+          <label>{t("date")}<input type="date" value={form.invoice_date} onChange={(e) => setForm({ ...form, invoice_date: e.target.value })} /></label>
+          <label>{t("currency")}<input value={form.currency} maxLength={3} size={4} onChange={(e) => setForm({ ...form, currency: e.target.value })} placeholder="EUR" /></label>
+          <label>{t("printedTotal")}<input inputMode="decimal" value={form.declared_total} onChange={(e) => setForm({ ...form, declared_total: e.target.value })} /></label>
           <label>
             Pièce
             <select value={form.document_id} onChange={(e) => setForm({ ...form, document_id: e.target.value })}>
@@ -482,7 +491,7 @@ function Invoices({ revision, editable, act }: { revision: Revision; editable: b
               ))}
             </select>
           </label>
-          <button type="submit">Ajouter une facture</button>
+          <button type="submit">{t("addInvoice")}</button>
         </form>
       )}
     </section>
@@ -500,6 +509,7 @@ function InvoiceBlock({
   editable: boolean;
   act: (a: () => Promise<unknown>) => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [line, setLine] = useState(EMPTY_LINE);
   const [editing, setEditing] = useState<string | null>(null);
   const docs = revision.documents.filter((d) => !d.replaced_by_id);
@@ -533,7 +543,7 @@ function InvoiceBlock({
   return (
     <div className="subcard">
       <h3>
-        Facture {invoice.ordinal} · {invoice.supplier_name || <em className="muted">fournisseur ?</em>} ·{" "}
+        Facture {invoice.ordinal} · {invoice.supplier_name || <em className="muted">{t("supplierQuestion")}</em>} ·{" "}
         {invoice.invoice_number || "n° ?"} · {invoice.currency || "devise ?"}
         {invoice.declared_total && ` · total imprimé ${invoice.declared_total}`}
       </h3>
@@ -543,7 +553,7 @@ function InvoiceBlock({
             <div key={field} className="fact">
               <dt>{label}</dt>
               <dd>
-                {value || <em className="muted">inconnu</em>} <OriginBadge origin={origins[field]} source={sources[field]} />
+                {value || <em className="muted">{t("unknown")}</em>} <OriginBadge origin={origins[field]} source={sources[field]} />
                 <Flags flags={invoice.review_flags} field={field} />
               </dd>
             </div>
@@ -563,9 +573,9 @@ function InvoiceBlock({
         <table className="small">
           <thead>
             <tr>
-              <th scope="col">N°</th><th scope="col">Désignation</th><th scope="col">Réf. fournisseur</th>
-              <th scope="col">Code douanier lu</th><th scope="col">Qté</th><th scope="col">PU</th>
-              <th scope="col">Montant</th><th scope="col">Origine</th><th scope="col">Marchandise</th>
+              <th scope="col">{t("number")}</th><th scope="col">{t("description")}</th><th scope="col">{t("supplierRef")}</th>
+              <th scope="col">{t("customsRead")}</th><th scope="col">{t("qty")}</th><th scope="col">{t("unitPrice")}</th>
+              <th scope="col">{t("amount")}</th><th scope="col">{t("origin")}</th><th scope="col">{t("goods")}</th>
             </tr>
           </thead>
           <tbody>
@@ -604,12 +614,12 @@ function InvoiceBlock({
                   {ln.code_history.length > 0 && <div className="muted">{ln.code_history.length} valeur(s) antérieure(s)</div>}
                 </td>
                 <td>
-                  {ln.quantity ?? <em className="muted">inconnue</em>} {ln.unit}{" "}
+                  {ln.quantity ?? <em className="muted">{t("unknownF")}</em>} {ln.unit}{" "}
                   <OriginBadge origin={ln.field_origins?.quantity} source={ln.field_sources?.quantity} />
                 </td>
                 <td>{ln.unit_price ?? "—"}</td>
                 <td>
-                  {ln.amount ?? <em className="muted">inconnu</em>}{" "}
+                  {ln.amount ?? <em className="muted">{t("unknown")}</em>}{" "}
                   <OriginBadge origin={ln.field_origins?.amount} source={ln.field_sources?.amount} />
                 </td>
                 <td>{ln.origin_country || "—"}</td>
@@ -617,7 +627,7 @@ function InvoiceBlock({
                   {ln.goods_line_ids.length > 0 ? (
                     "rattachée"
                   ) : editable ? (
-                    <button type="button" onClick={() => void act(() => api.addGoods(revision.id, [ln.id]))}>Préparer</button>
+                    <button type="button" onClick={() => void act(() => api.addGoods(revision.id, [ln.id]))}>{t("prepare")}</button>
                   ) : (
                     "—"
                   )}
@@ -642,15 +652,15 @@ function InvoiceBlock({
       )}
       {editable && (
         <form className="row small" onSubmit={add} aria-label={`Ajouter une ligne à la facture ${invoice.ordinal}`}>
-          <label>Désignation<input value={line.description_raw} onChange={(e) => setLine({ ...line, description_raw: e.target.value })} /></label>
-          <label>Réf. article fournisseur<input value={line.source_reference} onChange={(e) => setLine({ ...line, source_reference: e.target.value })} /></label>
-          <label>Code douanier lu<input className="code" value={line.customs_code} onChange={(e) => setLine({ ...line, customs_code: e.target.value })} placeholder="0101.10.00" /></label>
-          <label>Intitulé du champ<input value={line.customs_code_label} onChange={(e) => setLine({ ...line, customs_code_label: e.target.value })} /></label>
-          <label>Qté<input inputMode="decimal" size={6} value={line.quantity} onChange={(e) => setLine({ ...line, quantity: e.target.value })} /></label>
-          <label>Unité<input size={5} value={line.unit} onChange={(e) => setLine({ ...line, unit: e.target.value })} /></label>
-          <label>PU<input inputMode="decimal" size={8} value={line.unit_price} onChange={(e) => setLine({ ...line, unit_price: e.target.value })} /></label>
-          <label>Montant<input inputMode="decimal" size={9} value={line.amount} onChange={(e) => setLine({ ...line, amount: e.target.value })} /></label>
-          <label>Origine<input size={3} maxLength={2} value={line.origin_country} onChange={(e) => setLine({ ...line, origin_country: e.target.value })} placeholder="FR" /></label>
+          <label>{t("description")}<input value={line.description_raw} onChange={(e) => setLine({ ...line, description_raw: e.target.value })} /></label>
+          <label>{t("articleRef")}<input value={line.source_reference} onChange={(e) => setLine({ ...line, source_reference: e.target.value })} /></label>
+          <label>{t("customsRead")}<input className="code" value={line.customs_code} onChange={(e) => setLine({ ...line, customs_code: e.target.value })} placeholder="0101.10.00" /></label>
+          <label>{t("fieldTitle")}<input value={line.customs_code_label} onChange={(e) => setLine({ ...line, customs_code_label: e.target.value })} /></label>
+          <label>{t("qty")}<input inputMode="decimal" size={6} value={line.quantity} onChange={(e) => setLine({ ...line, quantity: e.target.value })} /></label>
+          <label>{t("unit")}<input size={5} value={line.unit} onChange={(e) => setLine({ ...line, unit: e.target.value })} /></label>
+          <label>{t("unitPrice")}<input inputMode="decimal" size={8} value={line.unit_price} onChange={(e) => setLine({ ...line, unit_price: e.target.value })} /></label>
+          <label>{t("amount")}<input inputMode="decimal" size={9} value={line.amount} onChange={(e) => setLine({ ...line, amount: e.target.value })} /></label>
+          <label>{t("origin")}<input size={3} maxLength={2} value={line.origin_country} onChange={(e) => setLine({ ...line, origin_country: e.target.value })} placeholder="FR" /></label>
           <label>
             Pièce source
             <select value={line.evidence_document_id} onChange={(e) => setLine({ ...line, evidence_document_id: e.target.value })}>
@@ -660,8 +670,8 @@ function InvoiceBlock({
               ))}
             </select>
           </label>
-          <label>Page<input type="number" min={1} size={3} value={line.evidence_page} onChange={(e) => setLine({ ...line, evidence_page: e.target.value })} /></label>
-          <button type="submit">Ajouter la ligne</button>
+          <label>{t("page")}<input type="number" min={1} size={3} value={line.evidence_page} onChange={(e) => setLine({ ...line, evidence_page: e.target.value })} /></label>
+          <button type="submit">{t("addLine")}</button>
         </form>
       )}
     </div>
@@ -679,13 +689,14 @@ function GoodsLines({
   editable: boolean;
   act: (a: () => Promise<unknown>) => Promise<void>;
 }) {
+  const { t } = useI18n();
   return (
     <section className="card" aria-labelledby="goods-title">
-      <h2 id="goods-title">Marchandises et codes</h2>
+      <h2 id="goods-title">{t("goodsAndCodes")}</h2>
       <p className="muted small">
         Un code retrouvé dans le référentiel n'est pas un classement validé : il attend votre confirmation motivée.
       </p>
-      {revision.goods_lines.length === 0 && <p className="muted">Préparez une marchandise depuis une ligne facturée.</p>}
+      {revision.goods_lines.length === 0 && <p className="muted">{t("prepareGoods")}</p>}
       {revision.goods_lines.map((g) => (
         <GoodsCard key={g.id} goods={g} revision={revision} editions={editions} editable={editable} act={act} />
       ))}
@@ -706,6 +717,7 @@ function GoodsCard({
   editable: boolean;
   act: (a: () => Promise<unknown>) => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [edition, setEdition] = useState(revision.target_edition?.id ?? editions[0]?.id ?? "");
   const [reason, setReason] = useState("");
   const [subdivision, setSubdivision] = useState("");
@@ -729,7 +741,7 @@ function GoodsCard({
 
   return (
     <div className="subcard" aria-label={`Marchandise ${goods.ordinal}`}>
-      <h3>Marchandise {goods.ordinal} · {goods.description || <em className="muted">désignation ?</em>}</h3>
+      <h3>Marchandise {goods.ordinal} · {goods.description || <em className="muted">{t("designationQuestion")}</em>}</h3>
       <p className="small muted">
         Issue de {goods.sources.map((s) => `facture ${s.invoice_ordinal} ligne ${s.line_ordinal}`).join(", ")} · origine{" "}
         {goods.origin_country || "?"}
@@ -788,7 +800,7 @@ function GoodsCard({
                 Motif de la confirmation
                 <input required value={reason} onChange={(e) => setReason(e.target.value)} size={40} />
               </label>
-              <button type="submit">Confirmer le code</button>
+              <button type="submit">{t("confirmCode")}</button>
             </form>
           )}
           {editable && check.is_current && check.recognition_status === "incomplete" && subdivisions.length > 0 && (
@@ -796,7 +808,7 @@ function GoodsCard({
               <label>
                 Subdivision
                 <select required value={subdivision} onChange={(e) => setSubdivision(e.target.value)}>
-                  <option value="">Choisir…</option>
+                  <option value="">{t("chooseEllipsis")}</option>
                   {subdivisions.map((s) => (
                     <option key={s.id} value={s.id}>{s.code_display} {s.label}</option>
                   ))}
@@ -806,14 +818,14 @@ function GoodsCard({
                 Motif
                 <input required value={reason} onChange={(e) => setReason(e.target.value)} size={30} />
               </label>
-              <button type="submit">Compléter le code</button>
+              <button type="submit">{t("completeCodeTitle")}</button>
             </form>
           )}
         </div>
       )}
       {(editable || goods.latest_check) && (
         <details open={Boolean(check && check.recognition_status !== "recognized")}>
-          <summary>Aide au classement (recherche dans le référentiel, sans IA)</summary>
+          <summary>{t("helpWithoutAI")}</summary>
           <ProposalsPanel goods={goods} editionId={edition} editable={editable} act={act} />
         </details>
       )}

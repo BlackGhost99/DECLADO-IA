@@ -69,3 +69,16 @@ td.row { gap: 0.4rem; }
 /* Arabic RTL support uses logical direction, not reversed tariff identifiers. */
 [dir="rtl"] .topbar { direction: rtl; }
 [dir="rtl"] th, [dir="rtl"] td { text-align: start; }
+
+/* RTL visual layout must not reorder identifiers, HS codes, amounts or dates. */
+[dir="rtl"] .shell, [dir="rtl"] .card, [dir="rtl"] .tabs { direction: rtl; }
+[dir="rtl"] .tabs { flex-wrap: wrap; }
+[dir="rtl"] label, [dir="rtl"] .facts, [dir="rtl"] .results { text-align: start; }
+[dir="rtl"] .code, [dir="rtl"] input[type="number"], [dir="rtl"] input[type="date"] {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+[dir="rtl"] .row { direction: rtl; }
+[dir="rtl"] .flags { padding-inline-start: 1rem; padding-left: 0; }
+[dir="rtl"] button.link { text-align: start; }
+[dir="rtl"] iframe.preview, [dir="rtl"] img.preview-image { direction: ltr; }

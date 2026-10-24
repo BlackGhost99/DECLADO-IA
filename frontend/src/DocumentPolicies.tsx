@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { request } from "./api";
+import { useI18n } from "./i18n";
 
 type Type = { code: string; label_fr: string };
 type Policy = {
@@ -8,6 +9,7 @@ type Policy = {
 };
 
 export function DocumentPolicies({ isAdmin }: { isAdmin: boolean }) {
+  const { t } = useI18n();
   const [types, setTypes] = useState<Type[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [docType, setDocType] = useState("");
@@ -27,7 +29,7 @@ export function DocumentPolicies({ isAdmin }: { isAdmin: boolean }) {
   }
 
   useEffect(() => {
-    void load().catch(() => setError("Référentiel documentaire indisponible."));
+    void load().catch(() => setError(t("policyUnavailable")));
   }, []);
 
   async function submit(event: FormEvent) {
@@ -39,51 +41,50 @@ export function DocumentPolicies({ isAdmin }: { isAdmin: boolean }) {
         document_type: docType, operation, transport_mode: transport, reason,
       });
       await load();
-      setMessage("Exigence supplémentaire enregistrée pour la société.");
+      setMessage(t("policySaved"));
     } catch {
-      setError("Enregistrement refusé. Vérifiez vos droits et les paramètres.");
+      setError(t("policyError"));
     }
   }
 
   return (
     <section className="card">
-      <h2>Politique documentaire</h2>
+      <h2>{t("policyTitle")}</h2>
       <p className="muted">
-        Les exigences internes s'ajoutent aux obligations légales, sans pouvoir les supprimer.
-        Les documents présents ne sont pas automatiquement validés par la Douane.
+        {t("policyInfo")}
       </p>
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
       <table>
-        <thead><tr><th>Document</th><th>Opération</th><th>Transport</th><th>Raison</th></tr></thead>
+        <thead><tr><th>{t("documents")}</th><th>{t("operation")}</th><th>{t("transport")}</th><th>{t("reason")}</th></tr></thead>
         <tbody>{policies.map((p) => (
-          <tr key={p.id}><td>{p.label}</td><td>{p.operation || "Toutes"}</td>
-            <td>{p.transport_mode || "Tous"}</td><td>{p.reason || "Politique interne"}</td></tr>
+          <tr key={p.id}><td>{p.label}</td><td>{p.operation || t("allOperations")}</td>
+            <td>{p.transport_mode || t("all")}</td><td>{p.reason || t("internalPolicy")}</td></tr>
         ))}</tbody>
       </table>
       {isAdmin && <form className="row" onSubmit={submit}>
         <label>Document
           <select required value={docType} onChange={(e) => setDocType(e.target.value)}>
-            <option value="">Sélectionner</option>
+            <option value="">{t("choose")}</option>
             {types.map((t) => <option key={t.code} value={t.code}>{t.label_fr}</option>)}
           </select>
         </label>
-        <label>Opération
+        <label>{t("operation")}
           <select value={operation} onChange={(e) => setOperation(e.target.value)}>
-            <option value="import">Importation</option><option value="export">Exportation</option>
+            <option value="import">{t("import")}</option><option value="export">{t("export")}</option>
           </select>
         </label>
-        <label>Transport
+        <label>{t("transport")}
           <select value={transport} onChange={(e) => setTransport(e.target.value)}>
-            <option value="">Tous</option><option value="sea">Maritime</option>
-            <option value="air">Aérien</option><option value="road">Routier</option>
-            <option value="rail">Ferroviaire</option><option value="multimodal">Multimodal</option>
+            <option value="">{t("all")}</option><option value="sea">{t("sea")}</option>
+            <option value="air">{t("air")}</option><option value="road">{t("road")}</option>
+            <option value="rail">{t("rail")}</option><option value="multimodal">{t("multimodal")}</option>
           </select>
         </label>
-        <label>Motif
+        <label>{t("reasonLabel")}
           <input maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>
-        <button type="submit">Ajouter à la politique</button>
+        <button type="submit">{t("policyAdd")}</button>
       </form>}
     </section>
   );
