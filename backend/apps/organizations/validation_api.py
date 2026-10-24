@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from apps.audit.services import record_event
 from apps.core.exceptions import ApiError
+
 from .models import Role
 from .permissions import require_roles
 
