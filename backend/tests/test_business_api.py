@@ -1,6 +1,4 @@
 import pytest
-from django.urls import reverse
-
 from apps.organizations.business_models import BusinessProfile, OrganizationBusinessProfile
 from apps.organizations.models import Membership, Organization
 from apps.organizations.context import SESSION_KEY
