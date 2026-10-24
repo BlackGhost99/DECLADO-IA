@@ -10,10 +10,7 @@ from apps.documents import antivirus
 from apps.documents.models import Document
 from apps.documents.synthetic import make_pdf, make_png
 
-EICAR = (
-    b"X5O!P%@AP[4\\PZX54(P^)7CC)7}"
-    b"$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
-)
+EICAR = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
 
 
 @pytest.fixture(autouse=True)
