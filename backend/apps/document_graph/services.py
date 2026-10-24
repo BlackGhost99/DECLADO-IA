@@ -36,7 +36,7 @@ def as_dict(link):
         "status": link.status,
         "provenance": link.provenance,
         "rationale": link.rationale,
-        "reviewed_at": link.reviewed_at,
+        "reviewed_at": link.reviewed_at.isoformat() if link.reviewed_at else None,
     }
 
 
