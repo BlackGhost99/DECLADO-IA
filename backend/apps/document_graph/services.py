@@ -119,10 +119,7 @@ def suggest_relations(*, org, actor, revision_id):
     for pk, raw in observations.iterator():
         if raw:
             texts[str(pk)].append(str(raw)[:500])
-    candidates = propose_links([
-        {"id": pk, "text": "\n".join(values)}
-        for pk, values in texts.items()
-    ])
+    candidates = propose_links([{"id": pk, "text": "\n".join(values)} for pk, values in texts.items()])
     saved = []
     for suggestion in candidates:
         source = suggestion["source_id"]
@@ -141,11 +138,12 @@ def suggest_relations(*, org, actor, revision_id):
             created_by=actor,
         )
         record_event(
-            organization=org, actor=actor, event_type="document_graph.relation_suggested",
-            entity=relation, current={
-                "references": suggestion["evidence"],
-                "relation": as_dict(relation),
-            }, scope=rev.case.scope,
+            organization=org,
+            actor=actor,
+            event_type="document_graph.relation_suggested",
+            entity=relation,
+            current={"references": suggestion["evidence"], "relation": as_dict(relation)},
+            scope=rev.case.scope,
         )
         saved.append({"relation": as_dict(relation), "evidence": suggestion["evidence"]})
     return saved
