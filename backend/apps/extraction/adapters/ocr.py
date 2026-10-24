@@ -10,8 +10,8 @@ from pathlib import Path
 from django.conf import settings
 from PIL import Image, ImageOps
 
-from ..layout import Page, structure
 from ..language import annotate_parsed
+from ..layout import Page, structure
 from ..schema import Origin, ParsedDocument, warning
 from . import ExtractionFailure, Progress
 from .words import rows_from_words
