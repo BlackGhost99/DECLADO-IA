@@ -26,6 +26,7 @@ def test_ambiguous_languages_not_forced():
 
 def test_mixed_document_keeps_page_languages():
     from types import SimpleNamespace
+
     from apps.extraction.language import annotate_parsed
 
     def page(number, text):
