@@ -68,7 +68,7 @@ export function CaseDetailView({
       setDetail(await api.caseDetail(caseId));
       setTick((t) => t + 1);
     } catch (err) {
-      setError(errorText(err, "Dossier introuvable."));
+      setError(errorText(err, t("caseNotFound")));
     }
   }, [caseId]);
 
@@ -81,36 +81,36 @@ export function CaseDetailView({
     try {
       await action();
     } catch (err) {
-      setError(errorText(err, "Action impossible."));
+      setError(errorText(err, t("actionError")));
     }
     await reload();
   }
 
-  if (!detail) return <p>{error ?? "Chargement…"}</p>;
+  if (!detail) return <p>{error ?? t("loading")}</p>;
   const rev = detail.revision;
   const editable = canEdit && rev.is_editable;
 
   return (
     <>
       <p>
-        <button type="button" className="link" onClick={onBack}>← Tous les dossiers</button>
+        <button type="button" className="link" onClick={onBack}>← {t("allCases")}</button>
       </p>
       <section className="card" aria-labelledby="case-title">
         <h2 id="case-title">
           <span className="code">{detail.reference}</span> {detail.title}
         </h2>
         <p className="muted small">
-          Révision {rev.revision_no} · {rev.state_label} · {rev.mode_label}. {rev.status_note}
+          {t("revision")} {rev.revision_no} · {rev.state_label} · {rev.mode_label}. {rev.status_note}
         </p>
         <dl className="facts">
-          <dt>Importateur</dt>
-          <dd>{detail.importer?.name ?? <em className="muted">à renseigner</em>}</dd>
-          <dt>Agent</dt>
+          <dt>{t("importers")}</dt>
+          <dd>{detail.importer?.name ?? <em className="muted">{t("notProvided")}</em>}</dd>
+          <dt>{t("agent")}</dt>
           <dd>
-            {detail.assigned_to?.email ?? <span className="muted">non affecté</span>}{" "}
+            {detail.assigned_to?.email ?? <span className="muted">{t("notAssigned")}</span>}{" "}
             {canEdit && !detail.assigned_to && (
               <button type="button" onClick={() => act(() => api.assignCase(detail.id, me.id, detail.row_version))}>
-                Prendre le dossier
+                {t("takeCase")}
               </button>
             )}
           </dd>
@@ -141,6 +141,7 @@ function RevisionForm({
   editable: boolean;
   onSave: (data: Record<string, unknown>) => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState({
     planned_declaration_date: revision.planned_declaration_date ?? "",
     regime: revision.regime,
@@ -168,35 +169,36 @@ function RevisionForm({
     <form className="row" onSubmit={submit}>
       <fieldset disabled={!editable} className="row plain-fieldset">
         <label>
-          Date de déclaration prévue
+          {t("plannedDate")}
           <input type="date" value={form.planned_declaration_date} onChange={(e) => setForm({ ...form, planned_declaration_date: e.target.value })} />
         </label>
         <label>
-          Régime
+          {t("regime")}
           <input value={form.regime} onChange={(e) => setForm({ ...form, regime: e.target.value })} />
         </label>
         <label>
-          Édition du référentiel
+          {t("edition")}
           <select value={form.target_edition_id} onChange={(e) => setForm({ ...form, target_edition_id: e.target.value })}>
-            <option value="">À choisir</option>
+            <option value="">{t("toChoose")}</option>
             {editions.map((e) => (
               <option key={e.id} value={e.id}>{e.label}</option>
             ))}
           </select>
         </label>
-        <button type="submit">Enregistrer</button>
+        <button type="submit">{t("save")}</button>
       </fieldset>
     </form>
   );
 }
 
 function Completeness({ revision }: { revision: Revision }) {
+  const { t } = useI18n();
   const { blocking, warnings } = revision.completeness;
   return (
     <section className="card" aria-labelledby="completeness-title">
-      <h2 id="completeness-title">Avant calcul et validation</h2>
+      <h2 id="completeness-title">{t("beforeValidation")}</h2>
       {blocking.length === 0 ? (
-        <p>Aucun manque bloquant.</p>
+        <p>{t("noBlocking")}</p>
       ) : (
         <>
           <p className="muted small">{blocking.length} élément(s) à compléter. Le brouillon reste enregistrable.</p>
