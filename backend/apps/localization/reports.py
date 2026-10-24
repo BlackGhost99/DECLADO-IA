@@ -35,8 +35,11 @@ def summary_payload(*, case, locale: str) -> dict:
     revision = case.current_revision
     labels = MESSAGES[locale]
     return {
-        "locale": locale, "direction": "rtl" if locale == "ar" else "ltr",
-        "labels": labels, "reference": case.reference, "case_title": case.title,
+        "locale": locale,
+        "direction": "rtl" if locale == "ar" else "ltr",
+        "labels": labels,
+        "reference": case.reference,
+        "case_title": case.title,
         "state_code": revision.state,
         # Official legal wording is never translated here.
         "territory": revision.territory,
