@@ -11,7 +11,8 @@ from apps.organizations.permissions import HasActiveOrganization, require_roles
 
 from .classification import suggest_document_type
 from .engine import CaseContext, UnresolvedRegulatoryCondition, evaluate_requirements
-from .models import CompanyDocumentPolicy, DocumentRequirement, DocumentType
+from .models import CompanyDocumentPolicy, DocumentRequirement, DocumentType, RegulatorySource
+from .readiness import legal_coverage_gate
 
 # Seuls ces usages existants identifient un type sans ambiguïté.
 # "transport" ne prouve PAS qu'il s'agit d'un B/L ou d'une LTA.
@@ -185,3 +186,27 @@ class DocumentTypeListView(APIView):
         return Response(
             {"results": list(DocumentType.objects.filter(active=True).order_by("code").values("code", "label_fr"))}
         )
+
+
+class DocumentReadinessView(APIView):
+    """Conservative V1 gate. Never suggests that legal coverage is complete."""
+
+    permission_classes = [HasActiveOrganization]
+
+    def get(self, request, revision_id):
+        revision = CaseRevision.objects.for_organization(request.organization).filter(pk=revision_id).first()
+        if revision is None:
+            raise ApiError("NOT_FOUND", "Révision introuvable.", 404)
+        result = legal_coverage_gate(
+            verified_sources=RegulatorySource.objects.filter(verified_on__isnull=False).count(),
+            published_rules=DocumentRequirement.objects.filter(published=True, verified=True).count(),
+            coverage_certified=False,
+        )
+        if not revision.planned_declaration_date or not revision.regime:
+            result["blocking_reasons"].append("Régime et date de déclaration manquants.")
+        if revision.documents.filter(replaced_by__isnull=True).count() == 0:
+            result["blocking_reasons"].append("Aucune pièce jointe à cette révision.")
+        result["ready"] = False
+        result["revision_id"] = str(revision.pk)
+        result["regulatory_validation"] = False
+        return Response(result)
