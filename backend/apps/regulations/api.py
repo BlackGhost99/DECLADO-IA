@@ -229,9 +229,12 @@ class ConfirmDocumentTypeView(APIView):
     def post(self, request, link_id):
         data = ConfirmDocumentTypeInput(data=request.data)
         data.is_valid(raise_exception=True)
-        link = CaseDocument.objects.for_organization(request.organization).select_related("revision").filter(
-            pk=link_id, replaced_by__isnull=True
-        ).first()
+        link = (
+            CaseDocument.objects.for_organization(request.organization)
+            .select_related("revision")
+            .filter(pk=link_id, replaced_by__isnull=True)
+            .first()
+        )
         if link is None:
             raise ApiError("NOT_FOUND", "Pièce active introuvable.", 404)
         if not link.revision.is_editable:
