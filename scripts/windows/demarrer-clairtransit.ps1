@@ -8,6 +8,8 @@
 #     (hors OneDrive, pour ne pas synchroniser des milliers de fichiers) ;
 #   - rien n'est installé dans Windows : ni service, ni variable système, ni programme ;
 #   - base PostgreSQL portable sur un port libre (55432 ou suivant), Python et Node portables ;
+#   - antivirus ClamAV portable (signature Talos vérifiée par empreinte), écoute locale seulement :
+#     sans lui, l'application refuse tout dépôt de fichier ;
 #   - données de démonstration fictives uniquement.
 # Pour tout supprimer : arreter-clairtransit.ps1, puis effacer le dossier d'installation.
 #
@@ -30,6 +32,10 @@ $Depot = "https://github.com/BlackGhost99/DECLADO-IA"
 $UrlUv = "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip"
 $VersionNode = "v22.23.4"
 $UrlNode = "https://nodejs.org/dist/$VersionNode/node-$VersionNode-win-x64.zip"
+$VersionClamav = "1.5.4"
+$UrlClamav = "https://github.com/Cisco-Talos/clamav/releases/download/clamav-$VersionClamav/clamav-$VersionClamav.win.x64.zip"
+# Empreinte de l'archive officielle, contrôlée avec la signature GPG Talos (clé 707F0DB480836771).
+$Sha256Clamav = "0d9e0228b2674137ea1a2853566c98a0278ad52ab2582c3d6dbd75373848c395"
 $UrlPostgres = "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/16.9.0/embedded-postgres-binaries-windows-amd64-16.9.0.jar"
 $MotDePasseDemo = "demo-ClairTransit-2026"
 
@@ -139,8 +145,9 @@ try {
     Titre "ClairTransit, nouvelle interface (branche $Branche)"
     Info "Dossier d'installation : $Dossier"
     if (-not (Etape-Faite "accord")) {
-        Info "Le premier lancement télécharge environ 120 Mo (Python, Node, PostgreSQL, code)"
-        Info "puis environ 300 Mo de bibliothèques. Il faut prévoir 1 Go d'espace disque."
+        Info "Le premier lancement télécharge environ 120 Mo (Python, Node, PostgreSQL, code),"
+        Info "environ 330 Mo pour l'antivirus ClamAV et ses signatures, puis environ 300 Mo de bibliothèques."
+        Info "Il faut prévoir 2,5 Go d'espace disque."
         Info "Rien n'est installé dans Windows ; tout reste dans le dossier ci-dessus."
         $reponse = Read-Host "   Continuer ? (O/N)"
         if ($reponse -notmatch '^[oOyY]') { Info "Abandon, rien n'a été modifié."; return }
@@ -220,6 +227,45 @@ with tarfile.open(sys.argv[1], "r:xz") as archive:
     }
     Info "PostgreSQL portable : prêt"
 
+    $clamDossier = Join-Path $Outils "clamav"
+    $clamd = Join-Path $clamDossier "clamd.exe"
+    if (-not (Test-Path $clamd)) {
+        $zip = Join-Path $Telechargements "clamav-$VersionClamav.zip"
+        Telecharger $UrlClamav $zip
+        $empreinte = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
+        if ($empreinte -ne $Sha256Clamav) {
+            Remove-Item -Force $zip
+            throw "Archive ClamAV inattendue (empreinte $empreinte) : elle a été supprimée, rien n'est installé."
+        }
+        $tmp = Join-Path $Telechargements "clamav-extrait"
+        if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
+        Extraire-Zip $zip $tmp
+        $racine = Get-ChildItem $tmp -Directory | Select-Object -First 1
+        Move-Item $racine.FullName $clamDossier
+        Remove-Item -Recurse -Force $tmp
+        # Les fichiers de débogage (.pdb) et bibliothèques de compilation (.lib) ne servent pas à l'exécution.
+        Get-ChildItem $clamDossier -Recurse -Include *.pdb, *.lib | Remove-Item -Force
+    }
+    $clamBase = Join-Path $Donnees "clamav"
+    New-Item -ItemType Directory -Force $clamBase | Out-Null
+    $freshclamConf = Join-Path $clamDossier "freshclam.conf"
+    Set-Content -Path $freshclamConf -Encoding ASCII -Value @"
+DatabaseDirectory $clamBase
+UpdateLogFile $(Join-Path $Journaux "freshclam.txt")
+DatabaseMirror database.clamav.net
+"@
+    Titre "Signatures antivirus"
+    $ErrorActionPreference = "Continue"
+    & (Join-Path $clamDossier "freshclam.exe") "--config-file=$freshclamConf" "--stdout" | Out-Host
+    $miseAJour = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    $signatures = @(Get-ChildItem $clamBase -Include *.cvd, *.cld -Recurse -ErrorAction SilentlyContinue)
+    if ($signatures.Count -eq 0) {
+        throw "Aucune signature antivirus : la première installation a besoin d'Internet pour les télécharger (database.clamav.net)."
+    }
+    if ($miseAJour -ne 0) { Info "Mise à jour des signatures impossible (hors ligne ?) : les signatures déjà présentes sont utilisées." }
+    Info "ClamAV $VersionClamav : prêt"
+
     Titre "Code de l'application"
     $marqueCode = Join-Path $Code "backend\manage.py"
     if ($MettreAJour -or -not (Test-Path $marqueCode)) {
@@ -276,6 +322,20 @@ with psycopg.connect(host="127.0.0.1", port=int(sys.argv[1]), user="clairtransit
 '@
     Executer $python @("-I", $script, "$portBase") "Création de la base clairtransit impossible"
 
+    $portClamav = Port-Libre 3310
+    $clamdConf = Join-Path $clamDossier "clamd.conf"
+    Set-Content -Path $clamdConf -Encoding ASCII -Value @"
+DatabaseDirectory $clamBase
+LogFile $(Join-Path $Journaux "clamd.txt")
+TCPSocket $portClamav
+TCPAddr 127.0.0.1
+Foreground yes
+StreamMaxLength 60M
+"@
+    # Fenêtre cachée ; l'arrêt passe par etat.json, comme l'API et l'interface.
+    $antivirus = Start-Process -FilePath $clamd -WindowStyle Hidden -PassThru -ArgumentList "--config-file=`"$clamdConf`""
+    Info "Chargement des signatures antivirus (jusqu'à deux minutes)…"
+
     $portApi = Port-Libre 8000
     $portInterface = Port-Libre 5173
     if ($portInterface -eq $portApi) { $portInterface = Port-Libre ($portApi + 1) }
@@ -289,6 +349,8 @@ with psycopg.connect(host="127.0.0.1", port=int(sys.argv[1]), user="clairtransit
     $env:CSRF_TRUSTED_ORIGINS = "http://127.0.0.1:$portInterface,http://localhost:$portInterface"
     $env:PRIVATE_STORAGE_ROOT = Join-Path $Donnees "fichiers"
     $env:AI_PROVIDER = "disabled"
+    $env:CLAMAV_HOST = "127.0.0.1"
+    $env:CLAMAV_PORT = "$portClamav"
     $env:VITE_API_PROXY = "http://127.0.0.1:$portApi"
 
     Push-Location $backend
@@ -332,6 +394,7 @@ for edition in TariffEdition.objects.filter(label="Jeu F (CSV fictif)", publicat
     $etat = @{
         dossier = $Dossier
         processus = @(
+            @{ nom = "Antivirus"; pid = $antivirus.Id; debut = $antivirus.StartTime.ToString("o") },
             @{ nom = "API"; pid = $api.Id; debut = $api.StartTime.ToString("o") },
             @{ nom = "Interface"; pid = $interface.Id; debut = $interface.StartTime.ToString("o") }
         )
@@ -339,6 +402,7 @@ for edition in TariffEdition.objects.filter(label="Jeu F (CSV fictif)", publicat
     $etat | ConvertTo-Json -Depth 4 | Set-Content -Path $FichierEtat -Encoding UTF8
     Attendre-Port $portApi 60 "L'API"
     Attendre-Port $portInterface 60 "L'interface"
+    Attendre-Port $portClamav 180 "L'antivirus ClamAV"
 
     $adresse = "http://127.0.0.1:$portInterface"
     Start-Process $adresse
@@ -347,6 +411,7 @@ for edition in TariffEdition.objects.filter(label="Jeu F (CSV fictif)", publicat
     Info "Compte       : validateur@alpha.demo   (autres comptes : declarant@alpha.demo, admin@alpha.demo)"
     Info "Mot de passe : $MotDePasseDemo"
     Info "Deux fenêtres restent ouvertes (API et interface) : ne pas les fermer pendant l'utilisation."
+    Info "L'antivirus ClamAV tourne sans fenêtre, sur 127.0.0.1:$portClamav ; tout fichier déposé passe par lui."
     Info "Pour tout arrêter : powershell -ExecutionPolicy Bypass -File .\arreter-clairtransit.ps1"
     Info "La lecture des scans (OCR) n'est pas installée ici : les PDF à texte fonctionnent, les scans seront signalés."
 } catch {

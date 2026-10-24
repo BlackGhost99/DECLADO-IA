@@ -1,4 +1,4 @@
-﻿# ClairTransit : arrêt de ce que demarrer-clairtransit.ps1 a lancé (API, interface, base).
+﻿# ClairTransit : arrêt de ce que demarrer-clairtransit.ps1 a lancé (antivirus, API, interface, base).
 #   powershell -ExecutionPolicy Bypass -File .\arreter-clairtransit.ps1
 # Ne touche à aucun autre programme : chaque PID est vérifié avec son heure de démarrage.
 
