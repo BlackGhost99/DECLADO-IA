@@ -317,6 +317,16 @@ function Documents({
                 <td>
                   {link.document.original_name} <span className="small muted">v{link.document.version} · {link.document.type_label} · {formatBytes(link.document.bytes)}</span>
                   <div className="small muted code" title="Empreinte SHA-256">{link.document.sha256.slice(0, 16)}…</div>
+                  <div className="small" aria-label="Langue du document">
+                    Langue : {({fr:"Français",en:"English",es:"Español",ar:"العربية"} as Record<string,string>)[link.document.detected_locale ?? ""] ?? "Indéterminée"}
+                    {link.document.language_detection?.pages && (
+                      <details><summary>Langues par page</summary>
+                        <ul>{link.document.language_detection.pages.map((page,i) =>
+                          <li key={i}>Page {page.page ?? i+1} : {page.locale || "Indéterminée"} ({page.status})</li>
+                        )}</ul>
+                      </details>
+                    )}
+                  </div>
                 </td>
                 <td>{link.usage_label}</td>
                 <td>
