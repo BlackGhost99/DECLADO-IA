@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.accounts import api as accounts
+from apps.accounts import mfa_api
 from apps.audit import api as audit
 from apps.cases import api as cases
 from apps.clients import api as clients
@@ -24,6 +25,10 @@ urlpatterns = [
     path("auth/csrf", accounts.CsrfView.as_view()),
     path("auth/login", accounts.LoginView.as_view()),
     path("auth/logout", accounts.LogoutView.as_view()),
+    path("auth/mfa/setup", mfa_api.MFASetupView.as_view()),
+    path("auth/mfa/confirm", mfa_api.MFAConfirmView.as_view()),
+    path("auth/mfa/verify", mfa_api.MFAVerifyView.as_view()),
+    path("auth/mfa/status", mfa_api.MFAStatusView.as_view()),
     path("me", accounts.MeView.as_view()),
     path("me/locale", localization.UserLocaleView.as_view()),
     path("organization/locale", localization.OrganizationLocaleView.as_view()),

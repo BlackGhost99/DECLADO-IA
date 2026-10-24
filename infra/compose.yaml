@@ -12,6 +12,8 @@ x-backend-env: &backend-env
   PRIVATE_STORAGE_ROOT: /var/clairtransit/private
   CLAMAV_HOST: clamav
   CLAMAV_PORT: "3310"
+  MFA_ENFORCE: "false"  # environnement de developpement uniquement
+  AUTH_RATE_LIMIT_ENABLED: "false"
 
 services:
   clamav:
@@ -57,6 +59,28 @@ services:
       db: { condition: service_healthy }
       redis: { condition: service_started }
 
+  # Profil de démonstration uniquement : sauvegardes locales chiffrées toutes les 24 h.
+  # En production, utiliser un dépôt Restic distant et des secrets externes.
+  backup:
+    profiles: [backup]
+    build: ./backup
+    environment:
+      PGHOST: db
+      PGUSER: clairtransit
+      PGPASSWORD: clairtransit
+      PGDATABASE: clairtransit
+      PRIVATE_STORAGE_ROOT: /var/clairtransit/private
+      RESTIC_REPOSITORY: /var/clairtransit/backup-repository
+      RESTIC_PASSWORD: dev-only-not-for-production
+      BACKUP_ALLOW_LOCAL: "true"
+    volumes:
+      - private:/var/clairtransit/private:ro
+      - backuprepo:/var/clairtransit/backup-repository
+    command: ["/bin/sh", "-c", "while true; do /usr/local/bin/backup.sh; sleep 86400; done"]
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+
   frontend:
     build: ../frontend
     environment:
@@ -69,3 +93,4 @@ volumes:
   # Pièces des dossiers : hors de toute racine servie par le web.
   private:
   clamdb:
+  backuprepo:

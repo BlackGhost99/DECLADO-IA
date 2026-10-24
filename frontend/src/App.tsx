@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, type Me } from "./api";
 import { LoginForm } from "./LoginForm";
+import { MFAEnrollment } from "./MFAEnrollment";
 import { OrganizationPicker } from "./OrganizationPicker";
 import { Reference } from "./Reference";
 import { Workspace } from "./Workspace";
@@ -34,6 +35,14 @@ export default function App() {
   if (loading) return <p className="center">{t("loading")}</p>;
   if (!me) return <LoginForm onLoggedIn={(profile) => { setMe(profile); onAuthenticated(profile); }} />;
 
+  if (me.mfa_required_for_access && !me.mfa_enabled) {
+    return <MFAEnrollment onComplete={(profile) => { setMe(profile); onAuthenticated(profile); }} />;
+  }
+  if (me.mfa_required_for_access && !me.mfa_verified_session) {
+    return <main className="center"><div className="card"><p>Session à vérifier par MFA.</p>
+      <button onClick={() => void api.logout().then(() => setMe(null))}>Se reconnecter</button>
+    </div></main>;
+  }
   const active = me.memberships.find((m) => m.organization.id === me.active_organization_id);
   const logout = async () => {
     await api.logout();

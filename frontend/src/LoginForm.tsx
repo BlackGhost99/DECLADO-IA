@@ -8,13 +8,21 @@ export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [secondFactor, setSecondFactor] = useState(false);
+  const [code, setCode] = useState("");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      onLoggedIn(await api.login(email, password));
+      if (secondFactor) {
+        onLoggedIn(await api.verifyMfa(code));
+      } else {
+        const result = await api.login(email, password);
+        if ("mfa_required" in result) setSecondFactor(true);
+        else onLoggedIn(result);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("loginError"));
     } finally {
@@ -27,18 +35,23 @@ export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
       <form className="card login" onSubmit={submit} aria-labelledby="login-title">
         <LanguageSelector />
         <h1 id="login-title">{t("loginTitle")}</h1>
-        <label>
+        {secondFactor && <p>Entrez le code à six chiffres de votre application d’authentification, ou un code de récupération.</p>}
+        {!secondFactor && <label>
           {t("email")}
           <input type="email" autoComplete="username" required value={email}
                  onChange={(e) => setEmail(e.target.value)} />
-        </label>
-        <label>
+        </label>}
+        {!secondFactor && <label>
           {t("password")}
           <input type="password" autoComplete="current-password" required value={password}
                  onChange={(e) => setPassword(e.target.value)} />
-        </label>
+        </label>}
+        {secondFactor && <label>Code MFA
+          <input autoComplete="one-time-code" value={code} required
+                 onChange={(e) => setCode(e.target.value)} />
+        </label>}
         {error && <p role="alert" className="error">⚠ {error}</p>}
-        <button type="submit" disabled={busy}>{busy ? t("signingIn") : t("login")}</button>
+        <button type="submit" disabled={busy}>{busy ? t("signingIn") : secondFactor ? "Valider le code" : t("login")}</button>
       </form>
     </main>
   );
