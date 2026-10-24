@@ -1,6 +1,7 @@
 """Many-to-many documentary associations within one case revision."""
 from django.conf import settings
 from django.db import models
+
 from apps.core.models import OrganizationOwnedModel
 
 
@@ -21,10 +22,14 @@ class DocumentRelation(OrganizationOwnedModel):
         ("other", "Autre lien"),
     ])
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.PROPOSED)
-    provenance = models.CharField(max_length=20, choices=[("manual", "Manuel"), ("suggested", "Suggéré")], default="manual")
+    provenance = models.CharField(
+        max_length=20, choices=[("manual", "Manuel"), ("suggested", "Suggéré")], default="manual"
+    )
     rationale = models.CharField(max_length=500, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
-    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
