@@ -4,7 +4,7 @@ The kernel does not assert regulatory applicability. A separate fiscal-rule
 publication workflow must certify rates, dates, country, regime and legal sources.
 """
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 
 class TaxInputError(ValueError):
