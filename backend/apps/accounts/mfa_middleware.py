@@ -16,10 +16,7 @@ class MFAEnforcementMiddleware:
         if (
             settings.MFA_ENFORCE
             and path.startswith("/api/v1/")
-            and not (
-                path.startswith("/api/v1/auth/")
-                or path in ("/api/v1/me", "/api/v1/health")
-            )
+            and not (path.startswith("/api/v1/auth/") or path in ("/api/v1/me", "/api/v1/health"))
             and user is not None
             and user.is_authenticated
         ):
