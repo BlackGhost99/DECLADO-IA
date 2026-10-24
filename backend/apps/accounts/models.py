@@ -63,3 +63,13 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+class TotpDevice(models.Model):
+    """A single confirmed authenticator per account; raw secrets never stored."""
+
+    user = models.OneToOneField("accounts.User", on_delete=models.CASCADE, related_name="totp_device")
+    encrypted_secret = models.TextField()
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    last_step = models.BigIntegerField(default=-1)
+    recovery_hashes = models.JSONField(default=list)
