@@ -13,6 +13,7 @@ from .classification import suggest_document_type
 from .engine import CaseContext, UnresolvedRegulatoryCondition, evaluate_requirements
 from .models import CompanyDocumentPolicy, DocumentClassification, DocumentRequirement, DocumentType, RegulatorySource
 from .readiness import legal_coverage_gate
+from .taxonomy import FAMILIES, TYPES
 
 # Seuls ces usages existants identifient un type sans ambiguïté.
 # "transport" ne prouve PAS qu'il s'agit d'un B/L ou d'une LTA.
@@ -187,8 +188,19 @@ class DocumentTypeListView(APIView):
     permission_classes = [HasActiveOrganization]
 
     def get(self, request):
+        types = list(DocumentType.objects.filter(active=True).order_by("code").values("code", "label_fr", "label_en"))
         return Response(
-            {"results": list(DocumentType.objects.filter(active=True).order_by("code").values("code", "label_fr"))}
+            {
+                "version": "1.0",
+                "families": FAMILIES,
+                "results": [
+                    {
+                        **item,
+                        "family": TYPES[item["code"]].family if item["code"] in TYPES else "supporting",
+                    }
+                    for item in types
+                ],
+            }
         )
 
 
