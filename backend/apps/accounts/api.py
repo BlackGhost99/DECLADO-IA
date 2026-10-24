@@ -34,6 +34,7 @@ def me_payload(request) -> dict:
         "id": str(user.id),
         "email": user.email,
         "full_name": user.full_name,
+        "interface_locale": user.interface_locale,
         "is_reference_manager": user.is_reference_manager,
         "memberships": [
             {
@@ -42,6 +43,7 @@ def me_payload(request) -> dict:
                     "name": m.organization.name,
                     "is_demo": m.organization.is_demo,
                     "timezone": m.organization.timezone,
+                    "default_locale": m.organization.default_locale,
                 },
                 "roles": m.roles,
             }
