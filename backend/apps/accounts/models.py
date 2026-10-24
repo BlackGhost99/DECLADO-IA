@@ -73,3 +73,6 @@ class TotpDevice(models.Model):
     confirmed_at = models.DateTimeField(null=True, blank=True)
     last_step = models.BigIntegerField(default=-1)
     recovery_hashes = models.JSONField(default=list)
+
+    def __str__(self):
+        return f"MFA device for {self.user_id}"
