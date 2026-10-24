@@ -6,7 +6,7 @@ from apps.cases import api as cases
 from apps.clients import api as clients
 from apps.extraction import api as extraction
 from apps.organizations import api as organizations
-from apps.regulations.api import CaseDocumentChecklistView
+from apps.regulations.api import CaseDocumentChecklistView, DocumentTypesView
 from apps.tariffs import api as tariffs
 
 from .api import HealthView
@@ -24,6 +24,8 @@ urlpatterns = [
     path("importers", clients.ImporterListView.as_view()),
     path("importers/<uuid:pk>", clients.ImporterDetailView.as_view()),
     path("audit-events", audit.AuditEventListView.as_view()),
+    path("document-types", DocumentTypesView.as_view()),
+    path("case-documents/<uuid:link_id>/classify", cases.CaseDocumentClassifyView.as_view()),
     path("cases", cases.CaseListView.as_view()),
     path("cases/<uuid:case_id>", cases.CaseDetailView.as_view()),
     path("cases/<uuid:case_id>/assign", cases.CaseAssignView.as_view()),
