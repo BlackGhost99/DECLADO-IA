@@ -114,6 +114,21 @@ Un échec d’OCR ou d’IA doit laisser possible la saisie manuelle. Un changem
 | DOC-04 | P0 | Prévisualiser PDF/images ; afficher feuille/cellule pour Excel ; téléchargement soumis aux droits |
 | DOC-05 | P0 | Signaler fichier protégé, corrompu, non lisible ou dépassant la limite ; préserver les autres pièces du dossier |
 
+### Numérisation des pièces
+
+Un dossier peut compter plusieurs dizaines de feuilles papier. L’agent les numérise en une fois ; l’application sépare les pièces et lui montre le résultat avant tout rattachement.
+
+| ID | Priorité | Exigence et résultat vérifiable |
+|---|---|---|
+| NUM-01 | P0 | Déposer un lot du scanner : un ou plusieurs fichiers PDF, PNG, JPEG ou TIFF, découpés en pages dans l’ordre du dépôt ; originaux conservés ; nombre de pages par lot limité et affiché |
+| NUM-02 | P0 | Proposer un découpage en pièces : titre reconnu en haut de page (facture, connaissement, colisage, certificat d’origine, assurance), mention « page k/n », page blanche ; chaque proposition dit sa raison ; une page sans indice reste « non classée », jamais devinée |
+| NUM-03 | P0 | Prendre les pages en photo (téléphone ou webcam) ; la pièce et son type sont choisis à la prise de vue ; la photo est recadrée sur la feuille |
+| NUM-04 | P0 | Lire chaque page : couche texte du PDF, sinon OCR sur le serveur ; page remise à l’endroit ; page peu lisible signalée |
+| NUM-05 | P0 | Laisser l’agent corriger : couper, joindre, déplacer, pivoter, retirer, remettre, changer le type, reprendre une page à la même place ; le découpage proposé ne refait jamais un choix de l’agent |
+| NUM-06 | P0 | Rattacher sur action explicite : une pièce PDF par pièce, nommée d’après le dossier et le type, avec sa provenance (lot et numéros de page) ; lecture des factures lancée ; les pages non classées restent dans le lot |
+| NUM-07 | P0 | Ne rien inventer : sans OCR ou sur page illisible, aucun titre, type ou valeur n’est déduit ; la page est signalée pour reprise ou saisie |
+| NUM-08 | P0 | Isolation par société, droits de préparation (lecture seule sinon), révision non modifiable refusée, journal de chaque geste ; fonctionne sans internet (OCR sur le serveur de l’agence) |
+
 Limites initiales proposées : 50 Mo par fichier, 500 pages par facture PDF et 1 000 lignes par dossier de référence. L’import administratif du référentiel accepte au moins le PDF de 551 pages. Ces limites sont configurables et à réviser après mesure.
 
 ### Extraction et contrôle documentaire

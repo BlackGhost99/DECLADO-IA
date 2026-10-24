@@ -37,7 +37,13 @@ def find_duplicates(organization, sha256: str, *, exclude_id=None):
 
 
 def store_upload(
-    *, organization, actor, upload, declared_mime: str = "", supersedes: Document | None = None
+    *,
+    organization,
+    actor,
+    upload,
+    declared_mime: str = "",
+    supersedes: Document | None = None,
+    allow_tiff: bool = False,
 ) -> Document:
     """Stocke l'original puis contrôle son contenu ; un refus n'enregistre rien (DOC-01, DOC-05)."""
     if upload.size is not None and upload.size > max_bytes():
@@ -52,7 +58,9 @@ def store_upload(
     try:
         if stored.size > max_bytes():
             raise Rejected("FILE_TOO_LARGE", "Fichier trop volumineux.", {"max_bytes": max_bytes()})
-        result = sniff(storage.path_for_reading(stored.key), name=upload.name, declared_mime=declared_mime)
+        result = sniff(
+            storage.path_for_reading(stored.key), name=upload.name, declared_mime=declared_mime, allow_tiff=allow_tiff
+        )
     except Rejected as exc:
         storage.discard(stored.key)
         status = 413 if exc.code == "FILE_TOO_LARGE" else 422
