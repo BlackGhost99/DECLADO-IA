@@ -10,6 +10,7 @@ from apps.localization import api as localization
 from apps.organizations import api as organizations
 from apps.regulations.api import (
     CaseDocumentChecklistView,
+    ConfirmDocumentTypeView,
     DocumentReadinessView,
     DocumentTypeListView,
     OrganizationDocumentPolicyView,
@@ -48,6 +49,7 @@ urlpatterns = [
     path("revisions/<uuid:revision_id>", cases.RevisionDetailView.as_view()),
     path("revisions/<uuid:revision_id>/document-checklist", CaseDocumentChecklistView.as_view()),
     path("revisions/<uuid:revision_id>/document-readiness", DocumentReadinessView.as_view()),
+    path("case-documents/<uuid:link_id>/confirm-type", ConfirmDocumentTypeView.as_view()),
     path("document-types", DocumentTypeListView.as_view()),
     path("organization/document-policies", OrganizationDocumentPolicyView.as_view()),
     path("revisions/<uuid:revision_id>/invoices", cases.InvoiceCreateView.as_view()),
