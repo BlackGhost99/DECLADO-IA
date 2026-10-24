@@ -8,7 +8,6 @@ from apps.core.exceptions import ApiError
 from apps.organizations.models import Role
 from apps.organizations.permissions import HasActiveOrganization
 
-
 LOCALES = ("fr", "en", "es", "ar")
 
 class LocalePayload(serializers.Serializer):
