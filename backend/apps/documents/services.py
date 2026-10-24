@@ -66,7 +66,9 @@ def store_upload(
             raise ApiError("MALWARE_DETECTED", "Fichier refusé par l'analyse antivirus.", 422) from None
         except antivirus.ScanUnavailable:
             logger.error("Scanner ClamAV indisponible organisation=%s sha256=%s", organization.id, staged.sha256)
-            raise ApiError("MALWARE_SCAN_UNAVAILABLE", "Contrôle antivirus indisponible. Réessayer plus tard.", 503) from None
+            raise ApiError(
+                "MALWARE_SCAN_UNAVAILABLE", "Contrôle antivirus indisponible. Réessayer plus tard.", 503
+            ) from None
 
         try:
             result = sniff(staged.path, name=upload.name, declared_mime=declared_mime, allow_tiff=allow_tiff)
