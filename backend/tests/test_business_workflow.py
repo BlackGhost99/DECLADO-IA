@@ -1,7 +1,8 @@
 import pytest
+
 from apps.cases.workflow_policy import allowed_transition
-from apps.organizations.business_permissions import has_feature
 from apps.organizations.business_models import BusinessProfile, OrganizationBusinessProfile
+from apps.organizations.business_permissions import has_feature
 from apps.organizations.models import Membership, Organization
 
 
