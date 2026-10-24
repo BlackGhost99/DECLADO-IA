@@ -45,7 +45,8 @@ def _matches(rule, context: CaseContext):
             return False
     conditions = rule.conditions or {}
     if set(conditions) - SUPPORTED_FLAGS:
-        raise UnresolvedRegulatoryCondition(f"Conditions non prises en charge : {set(conditions) - SUPPORTED_FLAGS}")
+        unknown = set(conditions) - SUPPORTED_FLAGS
+        raise UnresolvedRegulatoryCondition(f"Conditions non prises en charge : {unknown}")
     checks = {
         "requires_previous_regime": context.has_previous_regime,
         "requires_privileged_regime": context.has_privileged_regime,
@@ -60,7 +61,12 @@ def _matches(rule, context: CaseContext):
 
 def evaluate_requirements(context: CaseContext, regulatory_rules, company_policies=()):
     """Union additive des exigences légales et des politiques internes, sans effacement possible."""
-    if context.country not in {"GA", "CM", "CG", "TD", "CF", "GQ"} or not context.declaration_date or not context.regime or not context.operation:
+    if (
+        context.country not in {"GA", "CM", "CG", "TD", "CF", "GQ"}
+        or not context.declaration_date
+        or not context.regime
+        or not context.operation
+    ):
         raise UnresolvedRegulatoryCondition("Contexte douanier incomplet")
     by_code = {}
     for rule in regulatory_rules:
