@@ -28,9 +28,7 @@ class GraphView(APIView):
     def get(self, request, revision_id):
         rev = services._revision(request.organization, revision_id)
         items = (
-            DocumentRelation.objects.for_organization(request.organization)
-            .filter(revision=rev)
-            .order_by("created_at")
+            DocumentRelation.objects.for_organization(request.organization).filter(revision=rev).order_by("created_at")
         )
         return Response({"revision_id": str(rev.id), "relations": [services.as_dict(item) for item in items]})
 
@@ -38,8 +36,7 @@ class GraphView(APIView):
         data = RelationInput(data=request.data)
         data.is_valid(raise_exception=True)
         relation = services.add_relation(
-            org=request.organization, actor=request.user,
-            revision_id=revision_id, **data.validated_data
+            org=request.organization, actor=request.user, revision_id=revision_id, **data.validated_data
         )
         return Response(services.as_dict(relation), status=201)
 
@@ -51,8 +48,7 @@ class ReviewView(APIView):
         data = ReviewInput(data=request.data)
         data.is_valid(raise_exception=True)
         relation = services.review_relation(
-            org=request.organization, actor=request.user,
-            relation_id=relation_id, **data.validated_data
+            org=request.organization, actor=request.user, relation_id=relation_id, **data.validated_data
         )
         return Response(services.as_dict(relation))
 
@@ -61,7 +57,5 @@ class SuggestView(APIView):
     permission_classes = [require_roles(Role.DECLARANT, Role.VALIDATOR)]
 
     def post(self, request, revision_id):
-        suggestions = services.suggest_relations(
-            org=request.organization, actor=request.user, revision_id=revision_id
-        )
+        suggestions = services.suggest_relations(org=request.organization, actor=request.user, revision_id=revision_id)
         return Response({"proposals": suggestions, "count": len(suggestions)})
