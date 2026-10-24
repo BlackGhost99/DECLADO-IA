@@ -71,7 +71,7 @@ export function Reference() {
         <section className="card" aria-labelledby="node-title">
           <h2 id="node-title">
             <span className="code">{detail.code_display}</span>{" "}
-            {detail.label || <em className="muted">libellé absent de cette source</em>}
+            {detail.label || <em className="muted">{t("noSourceLabel")}</em>}
           </h2>
           {detail.edition.warning && <p className="warning" role="note">ⓘ {detail.edition.warning}</p>}
           <p className="muted small">
