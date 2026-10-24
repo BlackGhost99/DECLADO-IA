@@ -202,6 +202,13 @@ def execute(run_id) -> None:
     try:
         with transaction.atomic():
             merge(run, parsed)
+            detection = parsed.stats.get("language_detection", {})
+            if detection:
+                # Store hints separately from immutable uploads and original extracted values.
+                document = run.document
+                document.detected_locale = detection.get("locale", "")
+                document.language_detection = detection
+                document.save(update_fields=["detected_locale", "language_detection", "updated_at"])
     except ApiError as exc:
         _fail(run, exc.error_code, str(exc.detail))
     except Exception:
