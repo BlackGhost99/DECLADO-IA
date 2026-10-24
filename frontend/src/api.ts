@@ -16,6 +16,9 @@ export interface Me {
   memberships: Membership[];
   active_organization_id: string | null;
   interface_locale: "fr" | "en" | "es" | "ar";
+  mfa_enabled: boolean;
+  mfa_verified_session: boolean;
+  mfa_required_for_access: boolean;
 }
 
 export interface Importer {
@@ -548,7 +551,10 @@ export type Preview =
 
 export const api = {
   me: () => request<Me>("GET", "/me"),
-  login: (email: string, password: string) => request<Me>("POST", "/auth/login", { email, password }),
+  login: (email: string, password: string) => request<Me | { mfa_required: true }>("POST", "/auth/login", { email, password }),
+  verifyMfa: (code: string) => request<Me>("POST", "/auth/mfa/verify", { code }),
+  setupMfa: () => request<{ secret: string; provisioning_uri: string }>("POST", "/auth/mfa/setup"),
+  confirmMfa: (code: string) => request<{ enabled: boolean; recovery_codes: string[] }>("POST", "/auth/mfa/confirm", { code }),
   logout: () => request<void>("POST", "/auth/logout"),
   selectOrganization: (organization_id: string) =>
     request<Me>("POST", "/me/active-organization", { organization_id }),
