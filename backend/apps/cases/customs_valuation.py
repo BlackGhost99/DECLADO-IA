@@ -1,6 +1,6 @@
 """Auditable valuation arithmetic, not a legal determination of customs value."""
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from .tax_engine import TaxInputError, decimal_value
 
