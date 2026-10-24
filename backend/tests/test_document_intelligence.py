@@ -95,7 +95,7 @@ def test_wrong_tenant_invoice_link_never_crosses_revisions(world):
             org=a, actor=ua, revision_id=ra.id, document_id=da.id,
             invoice_id=ib.id, kind="insurance",
         )
-    assert error.value.code == "NOT_FOUND"
+    assert error.value.error_code == "NOT_FOUND"
     assert not DocumentInvoiceLink.objects.exists()
 
 
