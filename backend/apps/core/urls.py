@@ -38,14 +38,18 @@ urlpatterns = [
     path("revisions/<uuid:revision_id>/document-intelligence", document_graph.DocumentIntelligenceView.as_view()),
     path("revisions/<uuid:revision_id>/document-invoice-links", document_graph.ManualInvoiceLinkView.as_view()),
     path("revisions/<uuid:revision_id>/shipments", document_graph.ShipmentCreateView.as_view()),
-    path("revisions/<uuid:revision_id>/shipments/<uuid:shipment_id>/links",
-         document_graph.ShipmentLinkCreateView.as_view()),
-    path("document-intelligence/links/<str:model>/<uuid:link_id>/review",
-         document_graph.IntelligenceReviewView.as_view()),
-    path("document-intelligence/shipments/<uuid:shipment_id>/confirm",
-         document_graph.ShipmentConfirmView.as_view()),
-    path("document-intelligence/conflicts/<uuid:conflict_id>/resolve",
-         document_graph.IntelligenceConflictResolveView.as_view()),
+    path(
+        "revisions/<uuid:revision_id>/shipments/<uuid:shipment_id>/links",
+        document_graph.ShipmentLinkCreateView.as_view(),
+    ),
+    path(
+        "document-intelligence/links/<str:model>/<uuid:link_id>/review", document_graph.IntelligenceReviewView.as_view()
+    ),
+    path("document-intelligence/shipments/<uuid:shipment_id>/confirm", document_graph.ShipmentConfirmView.as_view()),
+    path(
+        "document-intelligence/conflicts/<uuid:conflict_id>/resolve",
+        document_graph.IntelligenceConflictResolveView.as_view(),
+    ),
     path("revisions/<uuid:revision_id>/document-graph/suggest", document_graph.SuggestView.as_view()),
     path("document-relations/<uuid:relation_id>/review", document_graph.ReviewView.as_view()),
     path("cases/<uuid:case_id>/summary", localization.CaseSummaryView.as_view()),
