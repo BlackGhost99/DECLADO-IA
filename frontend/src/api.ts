@@ -210,6 +210,8 @@ export interface DocumentInfo {
   readability: string;
   readability_label: string;
   inspection_notes: string[];
+  detected_locale?: "fr" | "en" | "es" | "ar" | "";
+  language_detection?: { locale: string; status: string; method: string; pages?: { page: number | null; locale: string; status: string }[]; zones?: { page: number | null; row: number; locale: string }[] };
   previewable: boolean;
   uploaded_by: UserBrief;
   created_at: string;
