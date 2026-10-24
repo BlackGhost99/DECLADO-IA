@@ -10,13 +10,8 @@ from apps.organizations.permissions import HasActiveOrganization
 from .engine import CaseContext, UnresolvedRegulatoryCondition, evaluate_requirements
 from .models import CompanyDocumentPolicy, DocumentRequirement, DocumentType
 
-# Seuls ces usages existants identifient un type sans ambiguïté.
-# "transport" ne prouve PAS qu'il s'agit d'un B/L ou d'une LTA.
-KNOWN_USAGE_TYPES = {
-    "invoice": "commercial_invoice",
-    "packing_list": "packing_list",
-    "origin": "certificate_of_origin",
-}
+from .taxonomy import FAMILIES, LEGACY_UNAMBIGUOUS, catalog
+
 TRANSPORT_MODES = {"sea", "air", "road", "rail", "multimodal"}
 
 
@@ -90,9 +85,10 @@ class CaseDocumentChecklistView(APIView):
                 "case_document_id": str(link.pk),
                 "filename": link.document.original_name,
                 "usage": link.usage,
+                "document_type_code": link.document_type_code,
                 "readability": link.document.readability,
             }
-            code = KNOWN_USAGE_TYPES.get(link.usage)
+            code = link.document_type_code or LEGACY_UNAMBIGUOUS.get(link.usage)
             if code:
                 received.setdefault(code, []).append(payload)
             else:
@@ -125,3 +121,12 @@ class CaseDocumentChecklistView(APIView):
                 ),
             }
         )
+
+
+class DocumentTypesView(APIView):
+    """Stable taxonomy for upload forms, regardless of any legal publication."""
+
+    permission_classes = [HasActiveOrganization]
+
+    def get(self, request):
+        return Response({"version": "1.0", "families": FAMILIES, "types": catalog()})
