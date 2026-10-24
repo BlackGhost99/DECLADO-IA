@@ -299,6 +299,12 @@ export function Activation({ token, onDone }: { token: string; onDone: (me: Me) 
   const [joined, setJoined] = useState<Me | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [current, setCurrent] = useState<Me | null>(null);
+
+  useEffect(() => {
+    // Activer ce lien ferme la session ouverte dans ce navigateur : on le dit avant.
+    api.me().then(setCurrent, () => setCurrent(null));
+  }, []);
 
   useEffect(() => {
     api.lookupInvitation(token).then(
@@ -363,6 +369,12 @@ export function Activation({ token, onDone }: { token: string; onDone: (me: Me) 
           <li>{tr("onb.stepMfa")}</li>
         </ol>
         <p className="onb-lead">{tr("onb.invitedAs", { roles, organization: preview.organization_name })}</p>
+        {current && current.email.toLowerCase() !== preview.email.toLowerCase() && (
+          <p className="onb-note" role="status">
+            <Icon name="info" size={18} />
+            <span>{tr("onb.otherSession", { email: current.email })}</span>
+          </p>
+        )}
         <Field label={tr("email")}>
           <input id="act-email" type="email" value={preview.email} readOnly autoComplete="username" />
         </Field>

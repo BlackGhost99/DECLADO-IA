@@ -4,6 +4,7 @@
  */
 export const miseEnRoute = {
   fr: {
+    "onb.otherSession": "Ce navigateur est connecté au compte {email}. Activer ce compte-ci fermera cette session, y compris dans vos autres onglets. Pour garder les deux, ouvrez le lien dans une fenêtre de navigation privée.",
     "mfa.scanQr": "Scannez ce QR code avec votre application d'authentification (Google Authenticator, Aegis ou Microsoft Authenticator).",
     "mfa.qrLabel": "QR code de configuration de la double authentification",
     "mfa.orKey": "Si vous ne pouvez pas scanner, saisissez cette clé dans l'application :",
@@ -132,6 +133,7 @@ export const miseEnRoute = {
     "event.membership.reactivated": "Utilisateur réactivé",
   },
   en: {
+    "onb.otherSession": "This browser is signed in as {email}. Activating this account will close that session, including in your other tabs. To keep both, open the link in a private window.",
     "mfa.scanQr": "Scan this QR code with your authenticator app (Google Authenticator, Aegis or Microsoft Authenticator).",
     "mfa.qrLabel": "Two-factor authentication setup QR code",
     "mfa.orKey": "If you cannot scan it, enter this key in the app:",
@@ -260,6 +262,7 @@ export const miseEnRoute = {
     "event.membership.reactivated": "User reactivated",
   },
   es: {
+    "onb.otherSession": "Este navegador tiene abierta la sesión de {email}. Activar esta cuenta cerrará esa sesión, también en sus otras pestañas. Para conservar ambas, abra el enlace en una ventana privada.",
     "mfa.scanQr": "Escanee este código QR con su aplicación de autenticación (Google Authenticator, Aegis o Microsoft Authenticator).",
     "mfa.qrLabel": "Código QR de configuración de la autenticación de dos factores",
     "mfa.orKey": "Si no puede escanearlo, introduzca esta clave en la aplicación:",
@@ -388,6 +391,7 @@ export const miseEnRoute = {
     "event.membership.reactivated": "Usuario reactivado",
   },
   ar: {
+    "onb.otherSession": "هذا المتصفح مسجَّل الدخول بحساب {email}. تفعيل هذا الحساب سيغلق تلك الجلسة، بما في ذلك في علاماتك الأخرى. للاحتفاظ بالاثنين، افتح الرابط في نافذة تصفح خاصة.",
     "mfa.scanQr": "امسح رمز QR هذا بتطبيق المصادقة (Google Authenticator أو Aegis أو Microsoft Authenticator).",
     "mfa.qrLabel": "رمز QR لإعداد المصادقة الثنائية",
     "mfa.orKey": "إذا تعذّر المسح، أدخل هذا المفتاح في التطبيق:",

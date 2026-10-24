@@ -57,6 +57,16 @@ export default function App() {
     void refresh();
   }, [refresh]);
 
+  // Un autre onglet a pu changer de compte (activation d'une invitation, déconnexion) :
+  // on relit le profil au retour sur l'onglet plutôt que d'afficher des refus incompréhensibles.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh().catch(() => undefined);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refresh]);
+
   if (loading) return <p className="center">{t("loading")}</p>;
   const [entry, token] = route.parts;
   if (entry === "activation" && token) return <Activation key={token} token={token} onDone={signedIn} />;
