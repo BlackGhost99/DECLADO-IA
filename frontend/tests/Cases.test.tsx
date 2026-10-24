@@ -4,7 +4,7 @@ import { Cases } from "../src/Cases";
 import { decimalInput } from "../src/CaseDetail";
 
 const membership = {
-  organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville" },
+  organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville", default_locale: "fr" },
   roles: ["declarant" as const],
 };
 
