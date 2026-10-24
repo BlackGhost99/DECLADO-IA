@@ -58,11 +58,15 @@ def annotate_parsed(doc, pages) -> None:
         for row in page.rows:
             result = detect_language(row.text)
             if result["locale"]:
-                zone_results.append({
-                    "page": number, "row": row.index,
-                    "locale": result["locale"], "method": result["method"],
-                    "scores": result["scores"],
-                })
+                zone_results.append(
+                    {
+                        "page": number,
+                        "row": row.index,
+                        "locale": result["locale"],
+                        "method": result["method"],
+                        "scores": result["scores"],
+                    }
+                )
     overall["pages"] = page_results
     overall["zones"] = zone_results[:1000]
     overall["zone_results_truncated"] = len(zone_results) > 1000
