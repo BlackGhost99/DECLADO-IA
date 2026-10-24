@@ -1,4 +1,5 @@
 """Référentiel documentaire et réglementaire global ; les sociétés ne peuvent qu'ajouter des exigences."""
+
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -65,9 +66,7 @@ class DocumentRequirement(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=(
-                    Q(valid_until__isnull=True)
-                    | Q(valid_from__isnull=True)
-                    | Q(valid_until__gt=models.F("valid_from"))
+                    Q(valid_until__isnull=True) | Q(valid_from__isnull=True) | Q(valid_until__gt=models.F("valid_from"))
                 ),
                 name="doc_req_valid_interval",
             )
@@ -89,6 +88,7 @@ class DocumentRequirement(models.Model):
             raise ValidationError({"conditions": "Condition non prise en charge ; laisser non publiée."})
         if any(not isinstance(v, bool) for v in self.conditions.values()):
             raise ValidationError({"conditions": "Les conditions connues doivent être booléennes."})
+
 
 class CompanyDocumentPolicy(models.Model):
     """Exigences ajoutées par une société ; aucune fonction de désactivation de la loi."""

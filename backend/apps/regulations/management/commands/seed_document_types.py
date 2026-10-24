@@ -1,4 +1,5 @@
 """Vocabulaire documentaire, distinct des obligations juridiques."""
+
 from django.core.management.base import BaseCommand
 
 from apps.regulations.models import DocumentType

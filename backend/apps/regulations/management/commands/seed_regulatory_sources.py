@@ -1,4 +1,5 @@
 """Source CEMAC enregistrée en brouillon ; l'applicabilité doit être validée."""
+
 from datetime import date
 
 from django.core.management.base import BaseCommand

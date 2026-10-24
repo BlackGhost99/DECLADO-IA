@@ -1,4 +1,5 @@
 """Moteur déterministe de sélection documentaire ; aucune règle juridique inventée."""
+
 from dataclasses import dataclass
 from datetime import date
 
