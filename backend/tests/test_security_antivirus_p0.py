@@ -43,10 +43,10 @@ def all_files(folder: Path):
     ],
 )
 def test_scanner_failure_is_fail_closed(workspace, settings, monkeypatch, error, expected_status, expected_code):
-    def reject(_path):
+    def reject(_stream):
         raise error
 
-    monkeypatch.setattr(antivirus, "scan_file", reject)
+    monkeypatch.setattr(antivirus.Stream, "verdict", reject)
     client, case_id = workspace
     result = upload(client, case_id, "facture.pdf", make_pdf(["Dossier fictif"]))
     assert result.status_code == expected_status, result.content
@@ -65,6 +65,36 @@ def test_real_clamav_rejects_harmless_eicar_signature(workspace, settings):
     assert result.json()["code"] == "MALWARE_DETECTED"
     assert Document.objects.count() == 0
     assert not all_files(settings.PRIVATE_STORAGE_ROOT / "documents")
+    assert not all_files(settings.PRIVATE_STORAGE_ROOT / "quarantine")
+
+
+def test_unreachable_scanner_refuses_before_staging(workspace, settings):
+    settings.CLAMAV_PORT = 1
+    client, case_id = workspace
+    result = upload(client, case_id, "facture.pdf", make_pdf(["Dossier fictif"]))
+    assert result.status_code == 503, result.content
+    assert result.json()["code"] == "MALWARE_SCAN_UNAVAILABLE"
+    assert Document.objects.count() == 0
+    assert not all_files(settings.PRIVATE_STORAGE_ROOT / "quarantine")
+
+
+def test_eicar_verdict_does_not_reopen_quarantined_file(workspace, settings, monkeypatch):
+    """Windows Defender removes EICAR as soon as it is written: clamd must already have the bytes."""
+    from apps.documents import quarantine
+
+    real_stage = quarantine.stage
+
+    def stage_then_removed(*args, **kwargs):
+        staged = real_stage(*args, **kwargs)
+        staged.path.unlink()
+        return staged
+
+    monkeypatch.setattr(quarantine, "stage", stage_then_removed)
+    client, case_id = workspace
+    result = upload(client, case_id, "controle.pdf", EICAR)
+    assert result.status_code == 422, result.content
+    assert result.json()["code"] == "MALWARE_DETECTED"
+    assert Document.objects.count() == 0
     assert not all_files(settings.PRIVATE_STORAGE_ROOT / "quarantine")
 
 
