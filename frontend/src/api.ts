@@ -4,7 +4,7 @@
 export type Role = "declarant" | "validator" | "org_admin";
 
 export interface Membership {
-  organization: { id: string; name: string; is_demo: boolean; timezone: string };
+  organization: { id: string; name: string; is_demo: boolean; timezone: string; default_locale: "fr" | "en" | "es" | "ar" };
   roles: Role[];
 }
 
@@ -15,6 +15,7 @@ export interface Me {
   is_reference_manager: boolean;
   memberships: Membership[];
   active_organization_id: string | null;
+  interface_locale: "fr" | "en" | "es" | "ar";
 }
 
 export interface Importer {
@@ -209,6 +210,8 @@ export interface DocumentInfo {
   readability: string;
   readability_label: string;
   inspection_notes: string[];
+  detected_locale?: "fr" | "en" | "es" | "ar" | "";
+  language_detection?: { locale: string; status: string; method: string; pages?: { page: number | null; locale: string; status: string }[]; zones?: { page: number | null; row: number; locale: string }[] };
   previewable: boolean;
   uploaded_by: UserBrief;
   created_at: string;

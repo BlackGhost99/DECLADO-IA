@@ -30,6 +30,8 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.organizations",
+    "apps.localization",
+    "apps.document_graph",
     "apps.audit",
     "apps.clients",
     "apps.tariffs",
@@ -86,6 +88,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "fr"
+LANGUAGES = [("fr", "Français"), ("en", "English"), ("es", "Español"), ("ar", "العربية")]
 TIME_ZONE = "UTC"  # stockage en UTC ; affichage selon le fuseau de la société
 USE_I18N = True
 USE_TZ = True
@@ -152,7 +155,7 @@ DOCUMENT_LINK_TTL_SECONDS = env.int("DOCUMENT_LINK_TTL_SECONDS", default=300)
 
 # Extraction des factures (lot 3). Limite de pages proposée par le cahier des charges, révisable après mesure.
 EXTRACTION_MAX_PAGES = env.int("EXTRACTION_MAX_PAGES", default=500)
-OCR_LANGUAGES = env("OCR_LANGUAGES", default="fra+eng")
+OCR_LANGUAGES = env("OCR_LANGUAGES", default="fra+eng+spa+ara")
 OCR_PAGE_TIMEOUT_SECONDS = env.int("OCR_PAGE_TIMEOUT_SECONDS", default=120)
 # Aucun fournisseur d'IA n'est raccordé : « disabled » tant que fournisseur, contrat et corpus ne sont pas fixés.
 AI_PROVIDER = env("AI_PROVIDER", default="disabled")

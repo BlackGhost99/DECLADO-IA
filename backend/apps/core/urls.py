@@ -4,7 +4,9 @@ from apps.accounts import api as accounts
 from apps.audit import api as audit
 from apps.cases import api as cases
 from apps.clients import api as clients
+from apps.document_graph import api as document_graph
 from apps.extraction import api as extraction
+from apps.localization import api as localization
 from apps.organizations import api as organizations
 from apps.regulations.api import CaseDocumentChecklistView, DocumentTypeListView, OrganizationDocumentPolicyView
 from apps.tariffs import api as tariffs
@@ -17,6 +19,8 @@ urlpatterns = [
     path("auth/login", accounts.LoginView.as_view()),
     path("auth/logout", accounts.LogoutView.as_view()),
     path("me", accounts.MeView.as_view()),
+    path("me/locale", localization.UserLocaleView.as_view()),
+    path("organization/locale", localization.OrganizationLocaleView.as_view()),
     path("me/active-organization", accounts.ActiveOrganizationView.as_view()),
     path("organization/members", organizations.MemberListView.as_view()),
     path("organization/members/<uuid:member_id>/roles", organizations.MemberRolesView.as_view()),
@@ -24,6 +28,10 @@ urlpatterns = [
     path("importers", clients.ImporterListView.as_view()),
     path("importers/<uuid:pk>", clients.ImporterDetailView.as_view()),
     path("audit-events", audit.AuditEventListView.as_view()),
+    path("revisions/<uuid:revision_id>/document-graph", document_graph.GraphView.as_view()),
+    path("revisions/<uuid:revision_id>/document-graph/suggest", document_graph.SuggestView.as_view()),
+    path("document-relations/<uuid:relation_id>/review", document_graph.ReviewView.as_view()),
+    path("cases/<uuid:case_id>/summary", localization.CaseSummaryView.as_view()),
     path("cases", cases.CaseListView.as_view()),
     path("cases/<uuid:case_id>", cases.CaseDetailView.as_view()),
     path("cases/<uuid:case_id>/assign", cases.CaseAssignView.as_view()),

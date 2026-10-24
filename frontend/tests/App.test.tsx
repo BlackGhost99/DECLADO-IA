@@ -1,6 +1,9 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../src/App";
+import { I18nProvider } from "../src/i18n";
+
+function renderApp() { return render(<I18nProvider><App /></I18nProvider>); }
 
 const me = {
   id: "u1",
@@ -23,7 +26,7 @@ afterEach(() => vi.restoreAllMocks());
 describe("App", () => {
   it("affiche le formulaire de connexion quand la session est absente", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(() => json(401, { code: "NOT_AUTHENTICATED" }));
-    render(<App />);
+    renderApp();
     expect(await screen.findByRole("heading", { name: /connexion/i })).toBeInTheDocument();
   });
 
@@ -34,7 +37,7 @@ describe("App", () => {
       if (url.endsWith("/auth/csrf")) return Promise.resolve(new Response(null, { status: 204 }));
       return json(400, { code: "INVALID_CREDENTIALS", message: "Identifiants incorrects." });
     });
-    render(<App />);
+    renderApp();
     fireEvent.change(await screen.findByLabelText(/e-mail/i), { target: { value: "x@y.z" } });
     fireEvent.change(screen.getByLabelText(/mot de passe/i), { target: { value: "bad" } });
     fireEvent.click(screen.getByRole("button", { name: /se connecter/i }));
@@ -50,7 +53,7 @@ describe("App", () => {
       if (url.endsWith("/importers")) return json(200, { count: 1, results: [{ id: "i", name: "Comptoir Fictif Bêta", identifiers: { nif: "DEMO-B-0001" }, contacts: [], address: "", notes: "", row_version: 1 }] });
       return json(404, { code: "NOT_FOUND", message: url, init });
     });
-    render(<App />);
+    renderApp();
     fireEvent.click(await screen.findByRole("button", { name: "Transit Bêta (démo)" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Importateurs" }));
     expect(await screen.findByText("Comptoir Fictif Bêta")).toBeInTheDocument();
@@ -79,7 +82,7 @@ describe("App", () => {
       if (url.includes("/tariffs/nodes/")) return json(200, node);
       return json(404, {});
     });
-    render(<App />);
+    renderApp();
     fireEvent.click(await screen.findByRole("tab", { name: "Référentiel" }));
     fireEvent.change(await screen.findByLabelText(/code, préfixe/i), { target: { value: "autres" } });
     fireEvent.click(screen.getByRole("button", { name: "Rechercher" }));
