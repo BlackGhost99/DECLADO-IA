@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, request } from "./api";
-import { useI18n } from "./i18n";
+import { tr, useI18n } from "./i18n";
 
 interface Requirement {
   document_type: string;
@@ -93,7 +93,7 @@ function ClassificationPicker({
 
   useEffect(() => {
     void request<{ results: { code: string; label_fr: string }[] }>("GET", "/document-types")
-      .then((page) => setTypes(page.results), () => setError("Catalogue indisponible."));
+      .then((page) => setTypes(page.results), () => setError(tr("chk.catalogUnavailable")));
   }, []);
 
   async function submit() {
@@ -104,23 +104,23 @@ function ClassificationPicker({
       });
       onConfirmed();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Confirmation impossible.");
+      setError(err instanceof ApiError ? err.message : tr("chk.confirmFailed"));
     }
   }
 
   return <div className="row">
     <strong>{doc.filename}</strong>
-    <label>Type vérifié
+    <label>{tr("chk.verifiedType")}
       <select value={choice} onChange={(e) => setChoice(e.target.value)}>
-        <option value="">Sélectionner</option>
+        <option value="">{tr("choose")}</option>
         {types.map((item) => <option key={item.code} value={item.code}>{item.label_fr}</option>)}
       </select>
     </label>
-    <label>Justification
+    <label>{tr("chk.justification")}
       <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />
     </label>
     <button type="button" disabled={!choice || reason.trim().length < 3} onClick={() => void submit()}>
-      Confirmer
+      {tr("chk.confirm")}
     </button>
     {error && <p role="alert" className="error">{error}</p>}
   </div>;

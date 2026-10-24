@@ -1,6 +1,7 @@
 // Visionneuse PDF intégrée (pdf.js) : pages, zoom, et surlignage de la zone d'où vient une valeur lue.
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
+import { tr } from "./i18n";
 
 type PdfDoc = {
   numPages: number;
@@ -118,7 +119,7 @@ export function PdfViewer({
       <div className="viewer-bar">
         <span className="viewer-name" title={name}><Icon name="menu" size={20} /> {name}</span>
         <label className="viewer-pagebox">
-          <span className="visually-hidden">Page</span>
+          <span className="visually-hidden">{tr("pdf.page")}</span>
           <input
             type="number"
             min={1}
@@ -132,28 +133,28 @@ export function PdfViewer({
           <span aria-live="polite">/ {pages}</span>
         </label>
         <span className="viewer-tools">
-          <button type="button" className="icon-button" disabled={zoom <= 0.6} onClick={() => setZoom(Math.round((zoom - 0.2) * 10) / 10)} aria-label="Réduire">
+          <button type="button" className="icon-button" disabled={zoom <= 0.6} onClick={() => setZoom(Math.round((zoom - 0.2) * 10) / 10)} aria-label={tr("pdf.zoomOut")}>
             <Icon name="minus" size={18} />
           </button>
           <span className="viewer-zoom">{Math.round(zoom * 100)}%</span>
-          <button type="button" className="icon-button" disabled={zoom >= 2.4} onClick={() => setZoom(Math.round((zoom + 0.2) * 10) / 10)} aria-label="Agrandir">
+          <button type="button" className="icon-button" disabled={zoom >= 2.4} onClick={() => setZoom(Math.round((zoom + 0.2) * 10) / 10)} aria-label={tr("pdf.zoomIn")}>
             <Icon name="plus" size={18} />
           </button>
         </span>
         <span className="viewer-tools">
-          <button type="button" className="icon-button" onClick={onDownload} aria-label="Télécharger">
+          <button type="button" className="icon-button" onClick={onDownload} aria-label={tr("common.download")}>
             <Icon name="download" size={18} />
           </button>
-          <button type="button" className="icon-button" onClick={() => printPdf(url)} aria-label="Imprimer">
+          <button type="button" className="icon-button" onClick={() => printPdf(url)} aria-label={tr("pdf.print")}>
             <Icon name="printer" size={18} />
           </button>
-          <a className="icon-button" href={url} target="_blank" rel="noreferrer" aria-label="Ouvrir dans un nouvel onglet">
+          <a className="icon-button" href={url} target="_blank" rel="noreferrer" aria-label={tr("pdf.newTab")}>
             <Icon name="external" size={18} />
           </a>
         </span>
       </div>
       <div className="viewer-body pdf-body">
-        {!doc && <p className="muted center-text">Chargement de la pièce…</p>}
+        {!doc && <p className="muted center-text">{tr("pdf.loading")}</p>}
         <div className="pdf-page" style={size ? { width: size.w, height: size.h } : undefined}>
           <canvas ref={canvasRef} style={size ? { width: size.w, height: size.h } : undefined} />
           {box && (

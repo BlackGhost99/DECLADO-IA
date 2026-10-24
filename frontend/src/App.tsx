@@ -13,7 +13,7 @@ import { OrganizationPicker } from "./OrganizationPicker";
 import { ReferenceAdmin, TariffSearch } from "./Reference";
 import { currentCase, navigate, useRoute, type Route } from "./router";
 import { eventIcon, eventLabel, initials, relativeTime } from "./ui";
-import { LanguageSelector, useBusinessLabels, useI18n } from "./i18n";
+import { LanguageSelector, tr, useBusinessLabels, useI18n, type MessageKey } from "./i18n";
 import { useLocaleSync } from "./i18n/sync";
 
 export default function App() {
@@ -65,9 +65,9 @@ export default function App() {
     return (
       <main className="login-page">
         <section className="card login">
-          <p>Session à vérifier par MFA.</p>
+          <p>{tr("mfa.verifySession")}</p>
           <button type="button" className="btn-primary btn-block" onClick={() => void logout()}>
-            Se reconnecter
+            {tr("mfa.signInAgain")}
           </button>
         </section>
       </main>
@@ -93,34 +93,34 @@ export default function App() {
 
 interface NavItem {
   path: string;
-  label: string;
+  label: MessageKey;
   icon: IconName;
   /** Entrée liée au dossier ouvert : elle mène à l'onglet correspondant de ce dossier. */
   caseTab?: string;
 }
 
 const NAV_MAIN: NavItem[] = [
-  { path: "", label: "Tableau de bord", icon: "home" },
-  { path: "dossiers", label: "Mes dossiers", icon: "folder" },
-  { path: "nouveau", label: "Nouveau dossier", icon: "plus" },
+  { path: "", label: "nav.dashboard", icon: "home" },
+  { path: "dossiers", label: "nav.myCases", icon: "folder" },
+  { path: "nouveau", label: "nav.newCase", icon: "plus" },
 ];
 
 const NAV_CASE: NavItem[] = [
-  { path: "documents", label: "Documents", icon: "file", caseTab: "documents" },
-  { path: "marchandises", label: "Marchandises", icon: "box", caseTab: "marchandises" },
-  { path: "recherche", label: "Recherche tarifaire", icon: "search" },
-  { path: "calculs", label: "Calculs", icon: "calculator", caseTab: "calculs" },
-  { path: "controles", label: "Contrôles", icon: "checkCircle", caseTab: "controles" },
-  { path: "validation", label: "Validation", icon: "shield", caseTab: "validation" },
-  { path: "export", label: "Export", icon: "upload", caseTab: "export" },
+  { path: "documents", label: "nav.documents", icon: "file", caseTab: "documents" },
+  { path: "marchandises", label: "nav.goods", icon: "box", caseTab: "marchandises" },
+  { path: "recherche", label: "nav.tariffSearch", icon: "search" },
+  { path: "calculs", label: "nav.calculations", icon: "calculator", caseTab: "calculs" },
+  { path: "controles", label: "nav.controls", icon: "checkCircle", caseTab: "controles" },
+  { path: "validation", label: "nav.validation", icon: "shield", caseTab: "validation" },
+  { path: "export", label: "nav.export", icon: "upload", caseTab: "export" },
 ];
 
 const NAV_ADMIN: NavItem[] = [
-  { path: "referentiel", label: "Référentiel", icon: "book" },
-  { path: "administration", label: "Administration", icon: "settings" },
+  { path: "referentiel", label: "nav.reference", icon: "book" },
+  { path: "administration", label: "nav.administration", icon: "settings" },
 ];
 
-const CEMAC = ["Gabon", "Cameroun", "Congo", "RCA", "Guinée équatoriale", "Tchad"];
+const CEMAC: MessageKey[] = ["country.gabon", "country.cameroon", "country.congo", "country.car", "country.eqGuinea", "country.chad"];
 
 /** Pays de la CEMAC : seul le Gabon est ouvert ; les autres sont annoncés, jamais simulés. */
 function CountryMenu() {
@@ -129,15 +129,15 @@ function CountryMenu() {
     <div className="menu-wrap">
       <button type="button" className="country" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)}>
         <span className="flag-ga" aria-hidden="true" />
-        Gabon
+        {tr("country.gabon")}
         <Icon name="chevronDown" size={16} />
       </button>
       {open && (
-        <ul className="menu" role="menu" aria-label="Pays">
+        <ul className="menu" role="menu" aria-label={tr("country.menu")}>
           {CEMAC.map((c) => (
-            <li key={c} role="menuitem" aria-disabled={c !== "Gabon"} className={c === "Gabon" ? "current" : "disabled"}>
-              {c}
-              <small>{c === "Gabon" ? "actif" : "à venir"}</small>
+            <li key={c} role="menuitem" aria-disabled={c !== "country.gabon"} className={c === "country.gabon" ? "current" : "disabled"}>
+              {tr(c)}
+              <small>{c === "country.gabon" ? tr("country.active") : tr("country.soon")}</small>
             </li>
           ))}
         </ul>
@@ -156,19 +156,19 @@ function Notifications({ membership }: { membership: Membership }) {
   }, [open, allowed, events]);
   return (
     <div className="menu-wrap">
-      <button type="button" className="icon-button bell" aria-expanded={open} onClick={() => setOpen(!open)} title="Notifications">
+      <button type="button" className="icon-button bell" aria-expanded={open} onClick={() => setOpen(!open)} title={tr("notif.title")}>
         <Icon name="bell" size={22} />
-        <span className="visually-hidden">Notifications</span>
+        <span className="visually-hidden">{tr("notif.title")}</span>
       </button>
       {open && (
-        <div className="menu menu-wide" role="dialog" aria-label="Notifications">
-          <strong className="menu-title">Activité récente</strong>
+        <div className="menu menu-wide" role="dialog" aria-label={tr("notif.title")}>
+          <strong className="menu-title">{tr("activity.recent")}</strong>
           {!allowed ? (
-            <p className="muted small">Les notifications personnelles arrivent dans une prochaine version.</p>
+            <p className="muted small">{tr("notif.personalSoon")}</p>
           ) : events === null ? (
-            <p className="muted small">Chargement…</p>
+            <p className="muted small">{tr("loading")}</p>
           ) : events.length === 0 ? (
-            <p className="muted small">Aucune activité.</p>
+            <p className="muted small">{tr("activity.none")}</p>
           ) : (
             <ul className="activity">
               {events.map((e) => (
@@ -176,7 +176,7 @@ function Notifications({ membership }: { membership: Membership }) {
                   <span className="activity-icon"><Icon name={eventIcon(e.event_type)} size={16} /></span>
                   <span>
                     <strong>{eventLabel(e.event_type)}</strong>
-                    <small>{e.actor_email ?? "système"}</small>
+                    <small>{e.actor_email ?? tr("activity.system")}</small>
                   </span>
                   <time dateTime={e.at}>{relativeTime(e.at)}</time>
                 </li>
@@ -218,7 +218,7 @@ function UserMenu({
         <Icon name="chevronDown" size={18} className="user-chevron" />
       </button>
       {open && (
-        <div className="menu menu-right user-menu" role="menu" aria-label="Compte">
+        <div className="menu menu-right user-menu" role="menu" aria-label={tr("account.menu")}>
           {active && <p className="menu-title">{active.organization.name}</p>}
           {active && me.memberships.length > 1 && <OrganizationPicker me={me} onChange={onChangeOrg} compact />}
           <button type="button" role="menuitem" onClick={onLogout}>
@@ -271,8 +271,8 @@ function Layout({
 
   const name = me.full_name || me.email;
   const roleLabel = active
-    ? active.roles.map((r) => labels.role(r, ROLE_LABELS[r])).join(", ") || "Aucun rôle"
-    : "Gestionnaire du référentiel";
+    ? active.roles.map((r) => labels.role(r, ROLE_LABELS[r])).join(", ") || tr("role.none")
+    : tr("role.referenceManager");
 
   return (
     <div className="app">
@@ -284,7 +284,7 @@ function Layout({
             <small>Customs AI</small>
           </span>
         </a>
-        <nav aria-label="Navigation principale">
+        <nav aria-label={tr("nav.main")}>
           {groups.map((group, i) => (
             <ul key={i} className="nav-group">
               {group.map((item) => (
@@ -296,7 +296,7 @@ function Layout({
                     onClick={() => go(item)}
                   >
                     <Icon name={item.icon} />
-                    {item.label}
+                    {tr(item.label)}
                     {NAV_ADMIN.includes(item) && <Icon name="chevronRight" size={16} className="nav-chevron" />}
                   </button>
                 </li>
@@ -310,7 +310,7 @@ function Layout({
             <strong>CEMAC</strong>
             <ul>
               {CEMAC.map((c) => (
-                <li key={c}>{c}</li>
+                <li key={c}>{tr(c)}</li>
               ))}
             </ul>
           </div>
@@ -323,8 +323,8 @@ function Layout({
             <form role="search" className="topsearch" onSubmit={search}>
               <Icon name="search" />
               <input
-                aria-label="Rechercher un dossier"
-                placeholder="Rechercher un dossier, un importateur, un B/L…"
+                aria-label={tr("search.caseLabel")}
+                placeholder={tr("search.casePlaceholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -333,7 +333,7 @@ function Layout({
             <span />
           )}
           <div className="topbar-right">
-            {active?.organization.is_demo && <span className="demo-flag">{t("demo")} · données fictives</span>}
+            {active?.organization.is_demo && <span className="demo-flag">{t("demo")} · {tr("demo.fictitious")}</span>}
             <div className="topbar-lang">
               <LanguageSelector />
             </div>
@@ -389,6 +389,6 @@ function Page({ route, me, active }: { route: Route; me: Me; active: Membership 
     case "export":
       return <CasePicker tab={first} me={me} />;
     default:
-      return <p>Page introuvable.</p>;
+      return <p>{tr("page.notFound")}</p>;
   }
 }

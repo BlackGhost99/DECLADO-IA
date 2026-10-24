@@ -41,11 +41,11 @@ export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
           <Logo size={48} />
           <span>
             <strong>ClairTransit</strong>
-            <small>Assistant de préparation douanière</small>
+            <small>{t("dash.heroSub")}</small>
           </span>
         </div>
         <h1 id="login-title">{t("loginTitle")}</h1>
-        {secondFactor && <p>Entrez le code à six chiffres de votre application d’authentification, ou un code de récupération.</p>}
+        {secondFactor && <p>{t("mfa.enterCode")}</p>}
         {!secondFactor && (
           <label>
             {t("email")}
@@ -62,14 +62,14 @@ export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
         )}
         {secondFactor && (
           <label>
-            Code MFA
+            {t("mfa.code")}
             <input autoComplete="one-time-code" value={code} required
                    onChange={(e) => setCode(e.target.value)} />
           </label>
         )}
         {error && <p role="alert" className="error">⚠ {error}</p>}
         <button type="submit" className="btn-primary btn-block" disabled={busy}>
-          {busy ? t("signingIn") : secondFactor ? "Valider le code" : t("login")}
+          {busy ? t("signingIn") : secondFactor ? t("mfa.validate") : t("login")}
         </button>
       </form>
     </main>
