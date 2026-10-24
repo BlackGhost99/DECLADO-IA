@@ -42,7 +42,7 @@ const FIELD_KEYS: Record<string, MessageKey> = {
   supplier_name: "supplier", invoice_number: "invoiceNumber",
   invoice_date: "date", currency: "currency", incoterm: "incotermLabel",
   declared_total: "printedTotal", source_reference: "supplierRef",
-  description_raw: "description", quantity: "quantity", unit: "unit",
+  description_raw: "description", quantity: "fieldQuantity", unit: "unit",
   unit_price: "unitPrice", amount: "amount", origin_country: "origin",
   "code:customs": "customsCode", "code:supplier": "supplierCode",
   "code:ambiguous": "ambiguousCode",
