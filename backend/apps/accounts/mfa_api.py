@@ -4,6 +4,8 @@ import time
 
 from django.contrib.auth import get_user_model, login
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect
 from rest_framework import serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -72,6 +74,7 @@ class MFAConfirmView(APIView):
         return Response({"enabled": True, "recovery_codes": visible_codes})
 
 
+@method_decorator(csrf_protect, name="dispatch")
 class MFAVerifyView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
