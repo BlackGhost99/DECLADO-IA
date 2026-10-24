@@ -7,6 +7,7 @@ from apps.clients import api as clients
 from apps.extraction import api as extraction
 from apps.organizations import api as organizations
 from apps.localization import api as localization
+from apps.document_graph import api as document_graph
 from apps.tariffs import api as tariffs
 
 from .api import HealthView
