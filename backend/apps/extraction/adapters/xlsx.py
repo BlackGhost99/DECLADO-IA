@@ -6,6 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..layout import Item, Page, Row, structure
+from ..language import annotate_parsed
 from ..schema import ParsedDocument, Span, warning
 from . import ExtractionFailure, Progress
 
@@ -95,6 +96,7 @@ def extract(path: Path, *, progress: Progress) -> ParsedDocument:
         pages.append(Page(number=None, rows=rows, merge_gap=0, sheet=name, exact_columns=True))
     progress("structuration", len(names), len(names))
     doc = structure(pages)
+    annotate_parsed(doc, pages)
     if external:
         warnings.append(warning("EXTERNAL_LINK", "Le classeur contient des liens externes : ils n'ont pas été suivis."))
     doc.warnings.extend(warnings)
