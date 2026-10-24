@@ -65,7 +65,7 @@ export function OriginBadge({ origin, source }: { origin?: string; source?: Fiel
   const { t } = useI18n();
   if (!origin && !source) return null;
   const kind = origin === "manual" ? "manual" : (source?.origin ?? (origin === "extracted" ? "read" : origin ?? ""));
-  const label = ORIGIN_KEYS[kind] ? t(ORIGIN_KEYS[kind]) : kind;
+  const label = kind === "ocr" ? "OCR" : ORIGIN_KEYS[kind] ? t(ORIGIN_KEYS[kind]) : kind;
   const where = origin === "manual" ? "" : spanText(source?.span);
   const title = [
     source?.span?.excerpt ? `${t("originalText")} « ${source.span.excerpt} »` : "",
