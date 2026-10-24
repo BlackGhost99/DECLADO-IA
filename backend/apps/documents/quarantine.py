@@ -3,6 +3,7 @@
 import hashlib
 import os
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,7 +19,8 @@ class Quarantined:
     sha256: str
 
 
-def stage(upload, max_bytes: int) -> Quarantined:
+def stage(upload, max_bytes: int, on_chunk: Callable[[bytes], None] | None = None) -> Quarantined:
+    """Copy an upload into quarantine; on_chunk sees each chunk before it touches the disk."""
     root = Path(settings.PRIVATE_STORAGE_ROOT) / "quarantine"
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     path = root / secrets.token_hex(24)
@@ -36,6 +38,8 @@ def stage(upload, max_bytes: int) -> Quarantined:
                         {"max_bytes": max_bytes},
                     )
                 digest.update(chunk)
+                if on_chunk:
+                    on_chunk(chunk)
                 destination.write(chunk)
         return Quarantined(path, size, digest.hexdigest())
     except BaseException:

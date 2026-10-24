@@ -56,16 +56,28 @@ def store_upload(
             413,
             {"bytes": upload.size, "max_bytes": max_bytes()},
         )
-    staged = quarantine.stage(upload, max_bytes())
+    staged = None
     stored = None
     try:
         try:
-            antivirus.scan_file(staged.path)
+            # The bytes reach clamd while they are staged: the verdict never needs the quarantined
+            # file again, which a desktop antivirus may already have locked or removed.
+            with antivirus.open_stream() as scanner:
+                staged = quarantine.stage(upload, max_bytes(), on_chunk=scanner.feed)
+                scanner.verdict()
         except antivirus.MalwareDetected:
-            logger.warning("Document malveillant refusé organisation=%s sha256=%s", organization.id, staged.sha256)
+            logger.warning(
+                "Document malveillant refusé organisation=%s sha256=%s",
+                organization.id,
+                getattr(staged, "sha256", None),
+            )
             raise ApiError("MALWARE_DETECTED", "Fichier refusé par l'analyse antivirus.", 422) from None
         except antivirus.ScanUnavailable:
-            logger.error("Scanner ClamAV indisponible organisation=%s sha256=%s", organization.id, staged.sha256)
+            logger.error(
+                "Scanner ClamAV indisponible organisation=%s sha256=%s",
+                organization.id,
+                getattr(staged, "sha256", None),
+            )
             raise ApiError(
                 "MALWARE_SCAN_UNAVAILABLE", "Contrôle antivirus indisponible. Réessayer plus tard.", 503
             ) from None
@@ -115,7 +127,8 @@ def store_upload(
             raise
         return document
     finally:
-        staged.path.unlink(missing_ok=True)
+        if staged:
+            staged.path.unlink(missing_ok=True)
 
 
 def issue_access(*, document: Document, user, disposition: str) -> dict:
