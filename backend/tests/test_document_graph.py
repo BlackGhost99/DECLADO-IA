@@ -35,8 +35,14 @@ def test_shared_transport_links_multiple_invoices(world):
     inv_a = make_link(org, user, revision, "invoice-a.pdf")
     inv_b = make_link(org, user, revision, "invoice-b.pdf")
     for invoice in (inv_a, inv_b):
-        add_relation(org=org, actor=user, revision_id=revision.pk,
-                     source_id=transport.pk, target_id=invoice.pk, kind="shared_transport")
+        add_relation(
+            org=org,
+            actor=user,
+            revision_id=revision.pk,
+            source_id=transport.pk,
+            target_id=invoice.pk,
+            kind="shared_transport",
+        )
     assert DocumentRelation.objects.for_organization(org).filter(source=transport).count() == 2
 
 
@@ -49,8 +55,9 @@ def test_cross_tenant_document_is_rejected(world):
     doc_a = make_link(a, user_a, rev_a, "a.pdf")
     doc_b = make_link(b, user_b, rev_b, "b.pdf")
     with pytest.raises(ApiError):
-        add_relation(org=a, actor=user_a, revision_id=rev_a.pk,
-                     source_id=doc_a.pk, target_id=doc_b.pk, kind="same_shipment")
+        add_relation(
+            org=a, actor=user_a, revision_id=rev_a.pk, source_id=doc_a.pk, target_id=doc_b.pk, kind="same_shipment"
+        )
     assert not DocumentRelation.objects.exists()
 
 
@@ -60,8 +67,7 @@ def test_duplicate_relation_is_rejected(world):
     rev = make_revision(org, user, "GRAPH-DUP")
     left = make_link(org, user, rev, "a.pdf")
     right = make_link(org, user, rev, "b.pdf")
-    args = dict(org=org, actor=user, revision_id=rev.pk,
-                source_id=left.pk, target_id=right.pk, kind="same_shipment")
+    args = dict(org=org, actor=user, revision_id=rev.pk, source_id=left.pk, target_id=right.pk, kind="same_shipment")
     add_relation(**args)
     with pytest.raises(ApiError):
         add_relation(**args)
