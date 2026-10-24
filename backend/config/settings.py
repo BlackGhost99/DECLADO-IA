@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.organizations",
+    "apps.localization",
     "apps.audit",
     "apps.clients",
     "apps.tariffs",
@@ -85,6 +86,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "fr"
+LANGUAGES = [("fr", "Français"), ("en", "English"), ("es", "Español"), ("ar", "العربية")]
 TIME_ZONE = "UTC"  # stockage en UTC ; affichage selon le fuseau de la société
 USE_I18N = True
 USE_TZ = True
