@@ -1,4 +1,5 @@
 """Many-to-many documentary associations within one case revision."""
+
 from django.conf import settings
 from django.db import models
 
