@@ -6,7 +6,6 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
     dependencies = [
         ("accounts", "0002_user_interface_locale"),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
