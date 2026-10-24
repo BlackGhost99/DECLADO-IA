@@ -23,10 +23,24 @@
 - Les associations documentaires doivent être explicables : références concordantes, fournisseur, PO, B/L, dates, produits, destinataire, etc. Les associations ambiguës restent à vérifier humainement.
 - Prévoir un `AI Gateway` multi-fournisseurs ; ne pas disperser les SDK OpenAI/Anthropic/Google/Groq dans le domaine métier. Le système doit continuer à fonctionner en mode manuel si le fournisseur IA est indisponible.
 - Langues prévues dès l'architecture : **FR, EN, ES, AR** ; interface, langue de société, langue des documents/OCR et langue des sorties sont séparées. Préparer le RTL. Les textes officiels du référentiel restent conservés dans leur langue/source d'origine.
-- Sécurité : isolation multi-tenant stricte, MFA à terme, chiffrement, secrets uniquement backend, audit append-only, sauvegardes, limitation/validation des uploads et antivirus reconnu. **Ne pas développer d'antivirus maison** ; privilégier un scanner auto-hébergé (ClamAV en V1) avant OCR/IA/stockage métier.
+- Sécurité : isolation multi-tenant stricte, MFA, chiffrement, secrets uniquement backend, audit append-only, sauvegardes, limitation/validation des uploads et antivirus reconnu. **Ne pas développer d'antivirus maison** ; privilégier un scanner auto-hébergé (ClamAV en V1) avant OCR/IA/stockage métier.
 - Ne jamais envoyer un document client à un service public d'analyse de fichiers. Les intégrations IA/sécurité externes doivent minimiser les données transmises et respecter les exigences de confidentialité.
 - « Validé » dans ClairTransit signifie **validé en interne**, jamais accepté par la Douane.
 - Toute donnée fictive de démonstration doit être explicitement marquée fictive ; ne jamais afficher un taux, une taxe, une compatibilité SYDONIA ou une obligation réglementaire comme vraie sans source vérifiée.
+
+## Organisation du travail en 5 conversations
+
+Pour les développements structurants, organiser le travail en **5 conversations distinctes mais coordonnées**, toutes sur le même ClairTransit Core :
+
+1. **Documents douaniers & règles CEMAC** — taxonomie, exigences documentaires, réglementation versionnée, contrôles et readiness.
+2. **Multi-métiers & ClairTransit Core** — profils d'organisation, capacités, workflows et parcours Transit/Importateur/Logisticien/Conseil.
+3. **IA invisible & intelligence documentaire** — extraction, graphe documentaire, relations M:N, AI Gateway, anomalies et revue humaine.
+4. **Multilingue natif** — FR/EN/ES/AR, OCR multilingue, langues organisation/utilisateur/document/sortie et RTL.
+5. **Sécurité & fiabilité** — isolation multi-tenant, ClamAV/quarantaine, MFA, API/secrets, sauvegardes, restauration et sécurité IA.
+
+Chaque conversation doit lire `main`, les PR ouvertes et les derniers commits avant de coder ; rester dans son périmètre sauf dépendance vérifiée ; ne pas dupliquer ni écraser le travail d'une autre conversation ; pousser sur une branche dédiée ; exécuter la CI ; fusionner seulement après validation ; documenter ce qui est terminé, les limites et la prochaine priorité.
+
+Ces conversations sont des **axes de travail**, pas cinq produits indépendants : modèles partagés, règles d'isolation, audit, référentiels et conventions restent communs.
 
 ## Document de référence
 
