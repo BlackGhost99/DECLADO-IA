@@ -2,6 +2,7 @@
 
 from datetime import date
 
+from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
 from apps.regulations.models import DocumentRequirement, DocumentType, RegulatorySource
@@ -32,6 +33,7 @@ class Command(BaseCommand):
     help = "Importe en BROUILLON des exigences CEMAC pour revue juridique, sans activation"
 
     def handle(self, *args, **kwargs):
+        call_command("seed_document_types", stdout=self.stdout)
         source, _ = RegulatorySource.objects.get_or_create(
             reference="11/22-CEMAC-UEAC-010A-CM-38",
             defaults={
