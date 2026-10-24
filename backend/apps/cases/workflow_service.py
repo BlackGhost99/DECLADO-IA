@@ -1,13 +1,14 @@
 """Transactional, audited workflow changes scoped to an organization."""
 from django.db import transaction
+
 from apps.audit.services import record_event
 from apps.core.exceptions import ApiError
 from apps.organizations.context import active_memberships
-from .models import CaseRevision
-from .workflow_policy import allowed_transition
-from .validation_policy import can_validate
 from .completeness import evaluate
+from .models import CaseRevision
+from .validation_policy import can_validate
 from .validation_readiness import validation_readiness
+from .workflow_policy import allowed_transition
 
 
 @transaction.atomic
