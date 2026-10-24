@@ -42,3 +42,13 @@ class ReviewView(APIView):
         data = ReviewInput(data=request.data)
         data.is_valid(raise_exception=True)
         return Response(services.as_dict(services.review_relation(org=request.organization, actor=request.user, relation_id=relation_id, **data.validated_data)))
+
+
+class SuggestView(APIView):
+    permission_classes = [require_roles(Role.DECLARANT, Role.VALIDATOR)]
+
+    def post(self, request, revision_id):
+        suggestions = services.suggest_relations(
+            org=request.organization, actor=request.user, revision_id=revision_id
+        )
+        return Response({"proposals": suggestions, "count": len(suggestions)})
