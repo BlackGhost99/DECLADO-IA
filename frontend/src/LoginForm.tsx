@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { api, ApiError, type Me } from "./api";
+import { LanguageSelector, useI18n } from "./i18n";
 
 export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
+  const {t} = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +16,7 @@ export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
     try {
       onLoggedIn(await api.login(email, password));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Connexion impossible. Réessayez.");
+      setError(err instanceof ApiError ? err.message : t("loginError"));
     } finally {
       setBusy(false);
     }
@@ -23,19 +25,20 @@ export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
   return (
     <main className="center">
       <form className="card login" onSubmit={submit} aria-labelledby="login-title">
-        <h1 id="login-title">Connexion à ClairTransit</h1>
+        <LanguageSelector />
+        <h1 id="login-title">{t("loginTitle")}</h1>
         <label>
-          Adresse e-mail
+          {t("email")}
           <input type="email" autoComplete="username" required value={email}
                  onChange={(e) => setEmail(e.target.value)} />
         </label>
         <label>
-          Mot de passe
+          {t("password")}
           <input type="password" autoComplete="current-password" required value={password}
                  onChange={(e) => setPassword(e.target.value)} />
         </label>
         {error && <p role="alert" className="error">⚠ {error}</p>}
-        <button type="submit" disabled={busy}>{busy ? "Connexion…" : "Se connecter"}</button>
+        <button type="submit" disabled={busy}>{busy ? t("signingIn") : t("login")}</button>
       </form>
     </main>
   );
