@@ -5,6 +5,7 @@ from pathlib import Path
 from django.conf import settings
 
 from ..layout import structure
+from ..language import annotate_parsed
 from ..schema import ParsedDocument, warning
 from . import ExtractionFailure, Progress
 from .words import rows_from_words
@@ -70,6 +71,7 @@ def extract(path: Path, *, ocr: bool, progress: Progress) -> ParsedDocument:
                 warnings.extend(result.warnings)
         progress("structuration", count, count)
     doc = structure(pages)
+    annotate_parsed(doc, pages)
     doc.warnings.extend(warnings)
     if without_text and not ocr:
         doc.warnings.append(
