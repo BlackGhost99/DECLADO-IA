@@ -2,6 +2,7 @@
 
 This is a preparation summary, never a customs declaration or legal translation.
 """
+
 from datetime import date
 
 SUPPORTED = ("fr", "en", "es", "ar")
