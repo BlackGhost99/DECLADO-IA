@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 
 from apps.documents import antivirus
 from apps.documents.models import Document
@@ -105,6 +106,7 @@ def test_organization_isolation_still_applies_after_antivirus(workspace, session
 
 def test_document_catalog_is_precise_and_legally_non_authoritative(workspace):
     client, _case_id = workspace
+    call_command("seed_document_types")
     result = client.get("/api/v1/document-types")
     assert result.status_code == 200, result.content
     types = result.json()["results"]
