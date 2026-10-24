@@ -38,10 +38,13 @@ def references(text):
             key = (kind, value)
             if key not in seen:
                 seen.add(key)
-                found.append({
-                    "kind": kind, "value": value,
-                    "excerpt": text[max(0, match.start() - 20):match.end() + 20][:160],
-                })
+                found.append(
+                    {
+                        "kind": kind,
+                        "value": value,
+                        "excerpt": text[max(0, match.start() - 20) : match.end() + 20][:160],
+                    }
+                )
     return found
 
 
