@@ -95,9 +95,11 @@ class CaseDocumentChecklistView(APIView):
         )
         document_ids = [link.document_id for link in received_links]
         excerpts_by_document = {}
-        spans = SourceSpan.objects.filter(
-            organization=request.organization, document_id__in=document_ids
-        ).exclude(excerpt="").order_by("document_id", "page_index")[:1000]
+        spans = (
+            SourceSpan.objects.filter(organization=request.organization, document_id__in=document_ids)
+            .exclude(excerpt="")
+            .order_by("document_id", "page_index")[:1000]
+        )
         for span in spans:
             excerpts_by_document.setdefault(span.document_id, []).append(span.excerpt)
         received = {}
