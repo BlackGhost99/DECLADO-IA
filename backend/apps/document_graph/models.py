@@ -77,9 +77,7 @@ class ShipmentDocument(OrganizationOwnedModel):
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["shipment", "document"], name="graph_unique_shipment_document")
-        ]
+        constraints = [models.UniqueConstraint(fields=["shipment", "document"], name="graph_unique_shipment_document")]
 
 
 class ShipmentInvoice(OrganizationOwnedModel):
@@ -154,6 +152,4 @@ class DocumentConflict(OrganizationOwnedModel):
     resolved_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["revision", "kind", "key"], name="graph_unique_conflict")
-        ]
+        constraints = [models.UniqueConstraint(fields=["revision", "kind", "key"], name="graph_unique_conflict")]
