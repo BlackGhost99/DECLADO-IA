@@ -2,7 +2,7 @@ name: ClairTransit CI
 
 on:
   push:
-    branches: [main, feature/document-regulatory-referential]
+    branches: [main, feature/document-regulatory-referential, security/p0-clamav-taxonomy-20261024]
   pull_request:
 
 jobs:
@@ -60,7 +60,7 @@ jobs:
               raise SystemExit("ClamAV did not become ready")
           PY
       - name: Style
-        run: ruff check . && ruff format --check .
+        run: ruff check . && ruff format --diff .
       - name: Migrations à jour
         run: python manage.py makemigrations --check --dry-run
       - name: Migrations applicables
