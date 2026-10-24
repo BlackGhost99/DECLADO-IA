@@ -378,8 +378,12 @@ def replace_document(*, org, actor, link_id, upload, declared_mime="") -> CaseDo
         organization=org, actor=actor, upload=upload, declared_mime=declared_mime, supersedes=head
     )
     new = CaseDocument.objects.create(
-        organization=org, revision=old.revision, document=document, usage=old.usage,
-        document_type_code=old.document_type_code, added_by=actor
+        organization=org,
+        revision=old.revision,
+        document=document,
+        usage=old.usage,
+        document_type_code=old.document_type_code,
+        added_by=actor,
     )
     old.replaced_by = new
     bump(old)
@@ -415,8 +419,13 @@ def classify_case_document(*, org, actor, link_id, document_type_code: str) -> C
     bump(link)
     link.save(update_fields=["document_type_code", "usage", "row_version", "updated_at"])
     _event(
-        org, actor, "case.document_classified", link, link.revision.case,
-        previous, {"document_type_code": link.document_type_code, "usage": link.usage},
+        org,
+        actor,
+        "case.document_classified",
+        link,
+        link.revision.case,
+        previous,
+        {"document_type_code": link.document_type_code, "usage": link.usage},
     )
     return link
 
