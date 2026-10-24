@@ -16,7 +16,6 @@ from apps.documents.models import Document
 from apps.documents.sniff import JPEG, PDF, PNG, XLSX
 from apps.documents.storage import get_storage
 from apps.extraction import services as extraction
-
 from apps.extraction.codes import FINDING_MESSAGES
 from apps.extraction.models import FieldObservation
 from apps.organizations.models import Role
