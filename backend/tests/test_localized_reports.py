@@ -8,7 +8,8 @@ from apps.localization.reports import summary_payload
 @pytest.mark.parametrize("locale", ["fr", "en", "es", "ar"])
 def test_internal_summary_languages(locale):
     rev = SimpleNamespace(
-        state="draft", territory="GA",
+        state="draft",
+        territory="GA",
         documents=SimpleNamespace(count=lambda: 3),
         invoices=SimpleNamespace(count=lambda: 2),
     )
