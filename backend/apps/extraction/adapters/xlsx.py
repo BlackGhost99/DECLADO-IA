@@ -5,8 +5,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from ..layout import Item, Page, Row, structure
 from ..language import annotate_parsed
+from ..layout import Item, Page, Row, structure
 from ..schema import ParsedDocument, Span, warning
 from . import ExtractionFailure, Progress
 
