@@ -153,6 +153,12 @@ PRIVATE_STORAGE_ROOT = Path(env("PRIVATE_STORAGE_ROOT", default=str(BASE_DIR / "
 DOCUMENT_MAX_BYTES = env.int("DOCUMENT_MAX_BYTES", default=50 * 1024 * 1024)
 DOCUMENT_LINK_TTL_SECONDS = env.int("DOCUMENT_LINK_TTL_SECONDS", default=300)
 
+# Security gate for every external document upload. Never bypass the daemon.
+CLAMAV_HOST = env("CLAMAV_HOST", default="127.0.0.1")
+CLAMAV_PORT = env.int("CLAMAV_PORT", default=3310)
+CLAMAV_CONNECT_TIMEOUT = env.int("CLAMAV_CONNECT_TIMEOUT", default=5)
+CLAMAV_SCAN_TIMEOUT = env.int("CLAMAV_SCAN_TIMEOUT", default=120)
+
 # Extraction des factures (lot 3). Limite de pages proposée par le cahier des charges, révisable après mesure.
 EXTRACTION_MAX_PAGES = env.int("EXTRACTION_MAX_PAGES", default=500)
 OCR_LANGUAGES = env("OCR_LANGUAGES", default="fra+eng+spa+ara")
