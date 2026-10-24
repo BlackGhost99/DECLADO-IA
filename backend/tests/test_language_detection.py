@@ -23,3 +23,23 @@ def test_numeric_invoice_is_unknown():
 
 def test_ambiguous_languages_not_forced():
     assert detect_language("facture fournisseur montant invoice supplier amount")["locale"] == ""
+
+def test_mixed_document_keeps_page_languages():
+    from types import SimpleNamespace
+    from apps.extraction.language import annotate_parsed
+
+    def page(number, text):
+        return SimpleNamespace(number=number, rows=[
+            SimpleNamespace(index=0, text=text)
+        ])
+
+    parsed = SimpleNamespace(stats={})
+    annotate_parsed(parsed, [
+        page(1, "Facture fournisseur quantité montant marchandise"),
+        page(2, "Invoice supplier quantity amount freight"),
+        page(3, "Factura proveedor descripción cantidad importe"),
+    ])
+    pages = parsed.stats["language_detection"]["pages"]
+    assert [item["locale"] for item in pages] == ["fr", "en", "es"]
+    assert parsed.stats["language_detection"]["locale"] == ""
+    assert len(parsed.stats["language_detection"]["zones"]) == 3
