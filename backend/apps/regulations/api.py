@@ -9,7 +9,6 @@ from apps.organizations.permissions import HasActiveOrganization
 
 from .engine import CaseContext, UnresolvedRegulatoryCondition, evaluate_requirements
 from .models import CompanyDocumentPolicy, DocumentRequirement, DocumentType
-
 from .taxonomy import FAMILIES, LEGACY_UNAMBIGUOUS, catalog
 
 TRANSPORT_MODES = {"sea", "air", "road", "rail", "multimodal"}
@@ -129,4 +128,4 @@ class DocumentTypesView(APIView):
     permission_classes = [HasActiveOrganization]
 
     def get(self, request):
-        return Response({"version": "1.0", "families": FAMILIES, "types": catalog()})
+        return Response({"version": "1.0", "families": FAMILIES, "types": catalog(), "results": catalog()})
