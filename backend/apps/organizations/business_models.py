@@ -1,5 +1,6 @@
 """Profils métier et agences, sans modifier le modèle historique Organization."""
 from django.db import models
+
 from apps.core.models import TimestampedModel
 
 
