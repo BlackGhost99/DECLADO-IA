@@ -7,6 +7,7 @@ from apps.clients import api as clients
 from apps.extraction import api as extraction
 from apps.organizations import api as organizations
 from apps.tariffs import api as tariffs
+from apps.regulations.api import CaseDocumentChecklistView
 
 from .api import HealthView
 
@@ -32,6 +33,7 @@ urlpatterns = [
     path("cases/<uuid:case_id>/audit", cases.CaseAuditView.as_view()),
     path("case-documents/<uuid:link_id>/replace", cases.CaseDocumentReplaceView.as_view()),
     path("revisions/<uuid:revision_id>", cases.RevisionDetailView.as_view()),
+    path("revisions/<uuid:revision_id>/document-checklist", CaseDocumentChecklistView.as_view()),
     path("revisions/<uuid:revision_id>/invoices", cases.InvoiceCreateView.as_view()),
     path("revisions/<uuid:revision_id>/goods-lines", cases.GoodsLineCreateView.as_view()),
     path("invoices/<uuid:invoice_id>", cases.InvoiceDetailView.as_view()),
