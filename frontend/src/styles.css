@@ -65,3 +65,7 @@ td.row { gap: 0.4rem; }
 .badge-manual { border-color: #2d6a2d; color: #2d6a2d; }
 .flags { margin: 0.2rem 0 0; padding-left: 1rem; color: var(--badge); }
 .proposals > li { margin-bottom: 0.75rem; }
+
+/* Arabic RTL support uses logical direction, not reversed tariff identifiers. */
+[dir="rtl"] .topbar { direction: rtl; }
+[dir="rtl"] th, [dir="rtl"] td { text-align: start; }
