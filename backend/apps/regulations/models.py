@@ -73,7 +73,7 @@ class DocumentRequirement(models.Model):
             raise ValidationError({"conditions": "Les conditions connues doivent être booléennes."})
 
     class Meta:
-        indexes = [models.Index(fields=["published", "verified", "valid_from"])]
+        indexes = [models.Index(fields=["published", "verified", "valid_from"], name="regulations_publish_idx")]
         constraints = [
             models.CheckConstraint(
                 condition=Q(valid_until__isnull=True) | Q(valid_from__isnull=True) | Q(valid_until__gt=models.F("valid_from")),
@@ -95,7 +95,7 @@ class CompanyDocumentPolicy(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        indexes = [models.Index(fields=["organization", "active"])]
+        indexes = [models.Index(fields=["organization", "active"], name="regulations_org_active_idx")]
 
 
 class RequirementEvaluation(models.Model):
