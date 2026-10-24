@@ -12,9 +12,9 @@ from apps.core.concurrency import bump, check_version
 from apps.core.exceptions import ApiError
 from apps.documents import services as documents
 from apps.documents.models import Document
-from apps.regulations.taxonomy import require_type
 from apps.extraction import services as extraction
 from apps.organizations.models import Membership, Role
+from apps.regulations.taxonomy import require_type
 from apps.tariffs import services as tariffs
 from apps.tariffs.codes import normalize_code
 from apps.tariffs.models import PublicationState, TariffNode
@@ -299,7 +299,18 @@ def _link_document(org, actor, revision, document, usage, idempotency_key="", do
     return link
 
 
-def attach_upload(*, org, actor, revision, upload, usage, declared_mime="", duplicate_action="", idempotency_key="", document_type_code=""):
+def attach_upload(
+    *,
+    org,
+    actor,
+    revision,
+    upload,
+    usage,
+    declared_mime="",
+    duplicate_action="",
+    idempotency_key="",
+    document_type_code="",
+):
     """DOC-01/02/03 : dépôt contrôlé. Un fichier identique déjà présent est signalé ; l'utilisateur décide."""
     if idempotency_key:
         existing = CaseDocument.objects.for_organization(org).filter(idempotency_key=idempotency_key).first()
