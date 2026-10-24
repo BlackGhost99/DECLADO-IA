@@ -199,7 +199,32 @@ Après validation V1 Transit :
 3. logisticien intégré ;
 4. audit/conseil.
 
-## 7. Règle de collaboration
+## 7. État consolidé des cinq modules
+
+Vérification du 24 octobre 2026 après les fusions du jour :
+
+| Axe | État dans `main` | Référence |
+|---|---|---|
+| Documents douaniers & règles CEMAC | Socle réglementaire, politiques/checklists, confirmation humaine et suggestions fondées sur le texte fusionnés ; complétude juridique CEMAC exhaustive encore à alimenter/valider par sources | PR #10, #11, #13, #15, #31 |
+| Multi-métiers & ClairTransit Core | Développement présent sur `feature/multi-business-core`, mais **pas encore intégré à `main`** ; PR #7 divergente et sans CI au dernier contrôle | PR #7 |
+| IA invisible & intelligence documentaire | Graphe M:N, expéditions, conflits et revue humaine fusionnés ; fournisseur IA externe/AI Gateway complet reste une évolution contrôlée | PR #17 |
+| Multilingue natif | FR/EN/ES/AR et RTL opérationnels fusionnés ; QA arabe réelle et quelques messages dynamiques restent à compléter | PR #8, #14 |
+| Sécurité & fiabilité | ClamAV fail-closed, quarantaine, taxonomie, MFA TOTP, protections API et sauvegardes/restauration fusionnés | PR #16, #18 |
+
+Règle de synthèse : ne pas déclarer un axe « terminé » uniquement parce que son architecture existe. La référence est ce qui est effectivement fusionné dans `main`, couvert par tests/CI et documenté.
+
+## 8. Organisation du travail en cinq conversations
+
+Conserver cinq conversations de travail distinctes et coordonnées :
+1. Documents douaniers & règles CEMAC.
+2. Multi-métiers & ClairTransit Core.
+3. IA invisible & intelligence documentaire.
+4. Multilingue natif.
+5. Sécurité & fiabilité.
+
+Chaque conversation relit `main`, les PR ouvertes et les derniers commits avant modification. Elle travaille sur une branche dédiée, évite les duplications, exécute la CI et ne fusionne qu'après validation. Les cinq conversations partagent le même ClairTransit Core et ne constituent pas cinq applications indépendantes.
+
+## 9. Règle de collaboration
 
 Avant toute modification importante : **lire PR, branches et derniers commits**. Claude et ChatGPT travaillent sur le même produit ; ne jamais travailler à partir d'un état supposé ancien.
 
