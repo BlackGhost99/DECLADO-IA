@@ -229,6 +229,18 @@ export const EVENT_LABELS: Record<string, string> = {
   "tariff.edition_withdrawn": "Édition du tarif retirée",
   "tariff.issue_resolved": "Anomalie du tarif résolue",
   "tariff.node_corrected": "Code du tarif corrigé",
+  "scan.batch_created": "Lot numérisé créé",
+  "scan.files_added": "Pages numérisées déposées",
+  "scan.photo_added": "Photo ajoutée",
+  "scan.capture_finished": "Prise de vue terminée",
+  "scan.sorting_proposed": "Découpage en pièces proposé",
+  "scan.page_updated": "Page du lot modifiée",
+  "scan.page_replaced": "Page reprise",
+  "scan.piece_split": "Pièce coupée",
+  "scan.piece_joined": "Pièces jointes",
+  "scan.piece_type_set": "Type de pièce choisi",
+  "scan.batch_attached": "Lot rattaché au dossier",
+  "scan.batch_cancelled": "Lot abandonné",
 };
 
 export const eventLabel = (type: string) => EVENT_LABELS[type] ?? type;
@@ -237,6 +249,7 @@ export function eventIcon(type: string): IconName {
   if (type.includes("failed")) return "alert";
   if (type.startsWith("goods_line.code_decided")) return "checkCircle";
   if (type.startsWith("case.document") || type.startsWith("document")) return "file";
+  if (type.startsWith("scan")) return "layers";
   if (type.startsWith("extraction") || type.startsWith("invoice")) return "eye";
   if (type.startsWith("goods_line")) return "box";
   if (type.startsWith("case")) return "folder";

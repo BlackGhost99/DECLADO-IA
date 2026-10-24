@@ -339,7 +339,7 @@ def test_without_ocr_pages_are_flagged_and_nothing_is_invented(case, monkeypatch
     assert batch["pieces"] == [] and batch["counts"]["unclassified"] == 1
 
 
-# --- T01 : isolation et rôles ----------------------------------------------------------------
+# --- T44 : isolation et rôles (NUM-08) ------------------------------------------------------
 
 
 def test_other_company_cannot_see_or_change_a_batch(case, session):

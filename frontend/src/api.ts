@@ -582,6 +582,79 @@ export type Preview =
       sheets: { name: string; truncated: boolean; rows: { row: number; cells: { ref: string; value: string | null; formula: string | null }[] }[] }[];
     };
 
+// ---- Numérisation : lots du scanner et photos, découpés en pièces avant rattachement --------
+
+export type ScanSource = "scanner" | "camera";
+
+export interface ScanCounts {
+  pages: number;
+  pending: number;
+  kept: number;
+  unclassified: number;
+  blank_removed: number;
+  hard_to_read: number;
+  pieces: number;
+}
+
+export interface ScanBatchSummary {
+  id: string;
+  case_id: string;
+  source: ScanSource;
+  source_label: string;
+  label: string;
+  state: "open" | "processing" | "to_sort" | "attached" | "cancelled";
+  state_label: string;
+  created_by: UserBrief;
+  created_at: string;
+  attached_at: string | null;
+  job: { state: Job["state"]; phase: string; progress: Job["progress"]; error_message: string | null } | null;
+  counts: ScanCounts;
+}
+
+export interface ScanPageInfo {
+  id: string;
+  number: number | null;
+  source_name: string;
+  source_page: number;
+  state: "pending" | "read" | "failed";
+  state_label: string;
+  rotation: number;
+  blank: boolean;
+  hard_to_read: boolean;
+  removed: "" | "blank" | "user" | "replaced";
+  removed_label: string;
+  replaces_id: string | null;
+  title: string;
+  reference: string;
+  page_marker: string;
+  text_origin: string;
+  notes: string[];
+  piece_id: string | null;
+  has_image: boolean;
+}
+
+export interface ScanPiece {
+  id: string;
+  ordinal: number;
+  usage: string;
+  usage_label: string;
+  reason: string;
+  usage_by_user: boolean;
+  page_ids: string[];
+  case_document: CaseDocument | null;
+}
+
+export interface ScanBatch extends ScanBatchSummary {
+  sources: { id: string; name: string; page_count: number | null; error: string }[];
+  pieces: ScanPiece[];
+  pages: ScanPageInfo[];
+  max_pages: number;
+}
+
+/** Image d'une page (servie par l'API, tournée comme l'agent l'a choisi). */
+export const scanPageImage = (page: Pick<ScanPageInfo, "id" | "rotation">, thumb = true) =>
+  `${BASE}/scan-pages/${page.id}/image?${thumb ? "size=thumb&" : ""}r=${page.rotation}`;
+
 export const api = {
   me: () => request<Me>("GET", "/me"),
   login: (email: string, password: string) => request<Me>("POST", "/auth/login", { email, password }),
@@ -654,6 +727,35 @@ export const api = {
   proposals: (goodsId: string) => request<{ results: ProposalSet[] }>("GET", `/goods-lines/${goodsId}/proposals`),
   propose: (goodsId: string, data: { edition_id?: string; query?: string; explicit?: boolean }) =>
     request<ProposalSet>("POST", `/goods-lines/${goodsId}/proposals`, data),
+  scanBatches: (caseId: string) =>
+    request<{ results: ScanBatchSummary[]; max_pages: number }>("GET", `/cases/${caseId}/scan-batches`),
+  createScanBatch: (caseId: string, source: ScanSource, label = "") =>
+    request<ScanBatch>("POST", `/cases/${caseId}/scan-batches`, { source, label }),
+  scanBatch: (id: string) => request<ScanBatch>("GET", `/scan-batches/${id}`),
+  addScanFiles: (id: string, files: File[]) => {
+    const form = new FormData();
+    for (const file of files) form.append("files", file);
+    return upload<ScanBatch>(`/scan-batches/${id}/files`, form);
+  },
+  addScanPhoto: (id: string, file: Blob, target: { piece_id?: string; usage?: string }) => {
+    const form = new FormData();
+    form.append("file", file, file instanceof File ? file.name : "photo.jpg");
+    if (target.piece_id) form.append("piece_id", target.piece_id);
+    if (target.usage) form.append("usage", target.usage);
+    return upload<{ page_id: string; batch: ScanBatch }>(`/scan-batches/${id}/photos`, form);
+  },
+  scanAction: (id: string, action: "finish" | "attach" | "cancel") =>
+    request<ScanBatch>("POST", `/scan-batches/${id}/${action}`, {}),
+  updateScanPage: (id: string, data: { rotation?: number; removed?: boolean; piece_id?: string | null; usage?: string }) =>
+    request<ScanBatch>("PATCH", `/scan-pages/${id}`, data),
+  splitScanPage: (id: string) => request<ScanBatch>("POST", `/scan-pages/${id}/split`, {}),
+  replaceScanPage: (id: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return upload<ScanBatch>(`/scan-pages/${id}/replace`, form);
+  },
+  updateScanPiece: (id: string, usage: string) => request<ScanBatch>("PATCH", `/scan-pieces/${id}`, { usage }),
+  joinScanPiece: (id: string) => request<ScanBatch>("POST", `/scan-pieces/${id}/join-previous`, {}),
 };
 
 export const ROLE_LABELS: Record<Role, string> = {
