@@ -11,9 +11,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.audit.services import record_event
 from apps.accounts.mfa import rate_limit
 from apps.accounts.models import TotpDevice
+from apps.audit.services import record_event
 from apps.core.exceptions import ApiError
 from apps.organizations.context import (
     active_memberships,
