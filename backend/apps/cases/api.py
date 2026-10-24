@@ -62,6 +62,8 @@ def document_payload(doc: Document) -> dict:
         "readability": doc.readability,
         "readability_label": doc.get_readability_display(),
         "inspection_notes": doc.inspection_notes,
+        "detected_locale": doc.detected_locale,
+        "language_detection": doc.language_detection,
         "previewable": doc.previewable,
         "uploaded_by": user_brief(doc.uploaded_by),
         "created_at": doc.created_at,

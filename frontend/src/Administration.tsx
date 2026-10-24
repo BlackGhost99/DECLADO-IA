@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, ROLE_LABELS, type Importer, type Member, type Membership } from "./api";
+import { DocumentPolicies } from "./DocumentPolicies";
 import { Icon } from "./Icon";
 import { Chip, initials, PageHeader } from "./ui";
 
@@ -7,7 +8,7 @@ import { Chip, initials, PageHeader } from "./ui";
 export function Administration({ membership }: { membership: Membership }) {
   const canEdit = membership.roles.some((r) => r === "declarant" || r === "validator");
   const isAdmin = membership.roles.includes("org_admin");
-  const [tab, setTab] = useState<"importers" | "users">("importers");
+  const [tab, setTab] = useState<"importers" | "documents" | "users">("importers");
 
   return (
     <>
@@ -16,13 +17,22 @@ export function Administration({ membership }: { membership: Membership }) {
         <button type="button" role="tab" aria-selected={tab === "importers"} onClick={() => setTab("importers")}>
           <Icon name="folder" size={18} /> Importateurs
         </button>
+        <button type="button" role="tab" aria-selected={tab === "documents"} onClick={() => setTab("documents")}>
+          <Icon name="file" size={18} /> Pièces du dossier
+        </button>
         {isAdmin && (
           <button type="button" role="tab" aria-selected={tab === "users"} onClick={() => setTab("users")}>
             <Icon name="users" size={18} /> Utilisateurs
           </button>
         )}
       </div>
-      {tab === "importers" ? <Importers canEdit={canEdit} /> : <Members />}
+      {tab === "importers" ? (
+        <Importers canEdit={canEdit} />
+      ) : tab === "documents" ? (
+        <DocumentPolicies isAdmin={isAdmin} />
+      ) : (
+        <Members />
+      )}
     </>
   );
 }

@@ -690,3 +690,30 @@ body { font-size: 15px; background: var(--bg); color: var(--text); }
   .calc-card .calc-stats.stats { grid-template-columns: minmax(0, 1fr); }
   .calc-card > .card-head { flex-wrap: wrap; gap: 8px; }
 }
+
+/* Langue de l'interface, dans la barre du haut et sur l'écran de connexion. */
+.topbar-lang { margin-right: 18px; }
+.topbar-lang select, .login-lang select { height: 30px; min-height: 0; padding: 0 8px; border: 1px solid #dfe5ea; border-radius: 6px; background-color: #fff; font-size: 13px; color: #1d2a31; }
+.login-lang { display: flex; justify-content: flex-end; }
+.doc-rules { display: grid; gap: 14px; margin-top: 14px; }
+.doc-rules .card { margin: 0; }
+.doc-languages { padding: 0 8px 8px 46px; color: #5d6970; }
+
+/* Arabe (RTL) : la mise en page se retourne, jamais les codes, montants ou dates. */
+[dir="rtl"] .nav-chevron, [dir="rtl"] .user-chevron { margin-left: 0; margin-right: auto; transform: scaleX(-1); }
+[dir="rtl"] .user-chevron { margin-right: 30px; }
+[dir="rtl"] .user { padding: 4px 18px 4px 0; border-left: 0; border-right: 1px solid #eef1f4; text-align: right; }
+[dir="rtl"] .demo-flag { margin-right: 0; margin-left: 22px; }
+[dir="rtl"] .bell { margin-right: 0; margin-left: 15px; }
+[dir="rtl"] .topbar-lang { margin-right: 0; margin-left: 18px; }
+[dir="rtl"] .country-slot { right: auto; left: 15px; }
+[dir="rtl"] .doc-item { text-align: right; border-left: 0; border-right: 3px solid transparent; padding: 13px 16px 13px 8px; }
+[dir="rtl"] .doc-item.selected { border-right-color: #1b8f4d; border-radius: 0 8px 8px 0; }
+[dir="rtl"] .doc-languages { padding: 0 46px 8px 8px; }
+[dir="rtl"] th, [dir="rtl"] td, [dir="rtl"] label { text-align: start; }
+[dir="rtl"] .code, [dir="rtl"] input[type="number"], [dir="rtl"] input[type="date"] { direction: ltr; unicode-bidi: isolate; }
+[dir="rtl"] iframe.preview, [dir="rtl"] img.preview-image { direction: ltr; }
+@media (min-width: 861px) {
+  [dir="rtl"] .app { background: linear-gradient(270deg, var(--side-2) 240px, var(--bg) 240px); }
+  [dir="rtl"] .dash .hero-art { left: auto; right: 624px; transform: scaleX(-1); }
+}

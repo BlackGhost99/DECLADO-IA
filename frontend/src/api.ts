@@ -4,7 +4,7 @@
 export type Role = "declarant" | "validator" | "org_admin";
 
 export interface Membership {
-  organization: { id: string; name: string; is_demo: boolean; timezone: string };
+  organization: { id: string; name: string; is_demo: boolean; timezone: string; default_locale: "fr" | "en" | "es" | "ar" };
   roles: Role[];
 }
 
@@ -15,6 +15,10 @@ export interface Me {
   is_reference_manager: boolean;
   memberships: Membership[];
   active_organization_id: string | null;
+  interface_locale: "fr" | "en" | "es" | "ar";
+  mfa_enabled: boolean;
+  mfa_verified_session: boolean;
+  mfa_required_for_access: boolean;
 }
 
 export interface Importer {
@@ -231,6 +235,8 @@ export interface DocumentInfo {
   readability: string;
   readability_label: string;
   inspection_notes: string[];
+  detected_locale?: "fr" | "en" | "es" | "ar" | "";
+  language_detection?: { locale: string; status: string; method: string; pages?: { page: number | null; locale: string; status: string }[]; zones?: { page: number | null; row: number; locale: string }[] };
   previewable: boolean;
   uploaded_by: UserBrief;
   created_at: string;
@@ -584,7 +590,10 @@ export type Preview =
 
 export const api = {
   me: () => request<Me>("GET", "/me"),
-  login: (email: string, password: string) => request<Me>("POST", "/auth/login", { email, password }),
+  login: (email: string, password: string) => request<Me | { mfa_required: true }>("POST", "/auth/login", { email, password }),
+  verifyMfa: (code: string) => request<Me>("POST", "/auth/mfa/verify", { code }),
+  setupMfa: () => request<{ secret: string; provisioning_uri: string }>("POST", "/auth/mfa/setup"),
+  confirmMfa: (code: string) => request<{ enabled: boolean; recovery_codes: string[] }>("POST", "/auth/mfa/confirm", { code }),
   logout: () => request<void>("POST", "/auth/logout"),
   selectOrganization: (organization_id: string) =>
     request<Me>("POST", "/me/active-organization", { organization_id }),
@@ -651,6 +660,25 @@ export const api = {
     request<Divergence>("POST", `/divergences/${id}/resolve`, { resolution, reason }),
   goodsFromInvoice: (invoiceId: string) =>
     request<{ results: GoodsLine[] }>("POST", `/invoices/${invoiceId}/goods-lines`, {}),
+  documentIntelligence: (revisionId: string) =>
+    request<DocumentIntelligence>("GET", "/revisions/" + revisionId + "/document-intelligence"),
+  analyzeDocuments: (revisionId: string) =>
+    request<DocumentIntelligence>("POST", "/revisions/" + revisionId + "/document-intelligence", {}),
+  addDocumentInvoiceLink: (revisionId: string, document_id: string, invoice_id: string, kind: string) =>
+    request<GraphAssociation>("POST", "/revisions/" + revisionId + "/document-invoice-links",
+      { document_id, invoice_id, kind }),
+  addShipment: (revisionId: string, reference: string) =>
+    request<{ id: string }>("POST", "/revisions/" + revisionId + "/shipments", { reference }),
+  addShipmentAssociation: (revisionId: string, shipmentId: string, target_type: string, target_id: string) =>
+    request<GraphAssociation>("POST", "/revisions/" + revisionId + "/shipments/" + shipmentId + "/links",
+      { target_type, target_id }),
+  reviewGraphLink: (model: string, id: string, status: "confirmed" | "rejected") =>
+    request<GraphAssociation>("POST", "/document-intelligence/links/" + model + "/" + id + "/review",
+      { status }),
+  confirmGraphShipment: (id: string) =>
+    request<{ id: string }>("POST", "/document-intelligence/shipments/" + id + "/confirm", {}),
+  resolveGraphConflict: (id: string, reason: string) =>
+    request<{ id: string }>("POST", "/document-intelligence/conflicts/" + id + "/resolve", { reason }),
   proposals: (goodsId: string) => request<{ results: ProposalSet[] }>("GET", `/goods-lines/${goodsId}/proposals`),
   propose: (goodsId: string, data: { edition_id?: string; query?: string; explicit?: boolean }) =>
     request<ProposalSet>("POST", `/goods-lines/${goodsId}/proposals`, data),
@@ -661,3 +689,42 @@ export const ROLE_LABELS: Record<Role, string> = {
   validator: "Validateur",
   org_admin: "Administrateur",
 };
+
+
+export interface GraphAssociation {
+  id: string;
+  status: "proposed" | "confirmed" | "rejected";
+  evidence: { kind?: string; value?: string; method?: string }[];
+  reviewed_at: string | null;
+  document_id?: string;
+  invoice_id?: string;
+  shipment_id?: string;
+  revision_id?: string;
+  kind?: string;
+}
+
+export interface DocumentIntelligence {
+  revision_id: string;
+  engine: string;
+  ai_provider: string;
+  shipments: {
+    id: string;
+    reference: string;
+    status: "proposed" | "confirmed";
+    method: string;
+    documents: GraphAssociation[];
+    invoices: GraphAssociation[];
+  }[];
+  document_invoices: GraphAssociation[];
+  conflicts: {
+    id: string;
+    kind: string;
+    document_id: string | null;
+    invoice_id: string | null;
+    status: "open" | "resolved";
+    detail: Record<string, string>;
+    resolution: string;
+  }[];
+  pending_count: number;
+  created?: Record<string, number>;
+}

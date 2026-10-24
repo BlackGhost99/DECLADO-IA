@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ApiError, type EditionBrief, type GoodsLine, type Revision, type UserBrief } from "./api";
 import { Icon, type IconName } from "./Icon";
+import { useBusinessLabels } from "./i18n";
 
 export type EditionOption = EditionBrief & { warning: string | null };
 
@@ -73,7 +74,8 @@ export function Chip({ tone, children, icon }: { tone: Tone; children: ReactNode
 }
 
 export function StateChip({ state, label }: { state: string; label: string }) {
-  return <Chip tone={STATE_TONES[state] ?? "gray"}>{label}</Chip>;
+  const labels = useBusinessLabels();
+  return <Chip tone={STATE_TONES[state] ?? "gray"}>{labels.state(state, label)}</Chip>;
 }
 
 /** Carte de statistique : pictogramme coloré, libellé, valeur. */

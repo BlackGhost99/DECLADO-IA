@@ -3,10 +3,12 @@ import { api, type CaseSummary, type Importer, type Me, type Membership } from "
 import { Icon } from "./Icon";
 import { navigate } from "./router";
 import { errorText, fmtDate, initials, PageHeader, personName, relativeTime, StateChip } from "./ui";
+import { useBusinessLabels } from "./i18n";
 
 export const canEditCases = (m: Membership) => m.roles.some((r) => r === "declarant" || r === "validator");
 
 export function Cases({ membership, me, initialQuery = "" }: { membership: Membership; me: Pick<Me, "id">; initialQuery?: string }) {
+  const labels = useBusinessLabels();
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [states, setStates] = useState<[string, string][]>([]);
   const [importers, setImporters] = useState<Importer[]>([]);
@@ -65,7 +67,7 @@ export function Cases({ membership, me, initialQuery = "" }: { membership: Membe
             <select value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })}>
               <option value="">Tous</option>
               {states.map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+                <option key={value} value={value}>{labels.state(value, label)}</option>
               ))}
             </select>
           </label>
