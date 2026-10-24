@@ -27,10 +27,7 @@ def _document(org, rev, pk):
 
 def as_dict(link):
     return {
-        "id": str(link.pk), "revision_id": str(link.revision_id),
-        "source_id": str(link.source_id), "target_id": str(link.target_id),
-        "kind": link.kind, "status": link.status,
-        "provenance": link.provenance, "rationale": link.rationale,
+
         "reviewed_at": link.reviewed_at,
     }
 
@@ -80,8 +77,15 @@ def review_relation(*, org, actor, relation_id, status):
     relation.reviewed_by = actor
     relation.reviewed_at = timezone.now()
     relation.save(update_fields=["status", "reviewed_by", "reviewed_at", "updated_at"])
-    record_event(organization=org, actor=actor, event_type="document_graph.relation_reviewed",
-                 entity=relation, previous=before, current=as_dict(relation), scope=relation.revision.case.scope)
+    record_event(
+        organization=org,
+        actor=actor,
+        event_type="document_graph.relation_reviewed",
+        entity=relation,
+        previous=before,
+        current=as_dict(relation),
+        scope=relation.revision.case.scope,
+    )
     return relation
 
 @transaction.atomic
