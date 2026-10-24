@@ -1,13 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, ROLE_LABELS, type Importer, type Me, type Member, type Membership } from "./api";
 import { Cases } from "./Cases";
+import { DocumentPolicies } from "./DocumentPolicies";
 import { Reference } from "./Reference";
 
 export function Workspace({ membership, me }: { membership: Membership; me: Pick<Me, "id"> }) {
   const canEdit = membership.roles.some((r) => r === "declarant" || r === "validator");
   const isAdmin = membership.roles.includes("org_admin");
 
-  const [tab, setTab] = useState<"cases" | "reference" | "importers">("cases");
+  const [tab, setTab] = useState<"cases" | "reference" | "importers" | "documents">("cases");
 
   return (
     <>
@@ -21,6 +22,9 @@ export function Workspace({ membership, me }: { membership: Membership; me: Pick
         <button type="button" role="tab" aria-selected={tab === "reference"} onClick={() => setTab("reference")}>
           Référentiel
         </button>
+        <button type="button" role="tab" aria-selected={tab === "documents"} onClick={() => setTab("documents")}>
+          Documents
+        </button>
         <button type="button" role="tab" aria-selected={tab === "importers"} onClick={() => setTab("importers")}>
           Importateurs
         </button>
@@ -29,6 +33,8 @@ export function Workspace({ membership, me }: { membership: Membership; me: Pick
         <Cases membership={membership} me={me} />
       ) : tab === "reference" ? (
         <Reference />
+      ) : tab === "documents" ? (
+        <DocumentPolicies isAdmin={isAdmin} />
       ) : (
         <>
           <Importers canEdit={canEdit} />
