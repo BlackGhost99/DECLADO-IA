@@ -1,4 +1,5 @@
 """Conservative document-type suggestions. Filename evidence is never legal validation."""
+
 import re
 import unicodedata
 
