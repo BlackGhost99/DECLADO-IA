@@ -13,10 +13,7 @@ def applicable_rules(*, territory, regime, tariff_code, on_date):
         regime=regime,
         tariff_code=tariff_code,
         valid_from__lte=on_date,
-    ).filter(
-        Q(valid_to__isnull=True)
-        | Q(valid_to__gt=on_date)
-    )
+    ).filter(Q(valid_to__isnull=True) | Q(valid_to__gt=on_date))
     rules = [
         VerifiedFiscalRule(
             code=item.code,
