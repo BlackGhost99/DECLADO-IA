@@ -1,4 +1,5 @@
 import { api, ROLE_LABELS, type Me } from "./api";
+import { useI18n } from "./i18n";
 
 interface Props {
   me: Me;
@@ -7,12 +8,13 @@ interface Props {
 }
 
 export function OrganizationPicker({ me, onChange, compact }: Props) {
+  const { t } = useI18n();
   const select = async (id: string) => onChange(await api.selectOrganization(id));
 
   if (compact) {
     return (
       <label className="inline">
-        <span className="visually-hidden">Changer de société</span>
+        <span className="visually-hidden">{t("orgSwitch")}</span>
         <select value={me.active_organization_id ?? ""} onChange={(e) => void select(e.target.value)}>
           {me.memberships.map((m) => (
             <option key={m.organization.id} value={m.organization.id}>{m.organization.name}</option>
@@ -23,12 +25,12 @@ export function OrganizationPicker({ me, onChange, compact }: Props) {
   }
 
   if (me.memberships.length === 0) {
-    return <p role="alert">Votre compte n'est rattaché à aucune société active. Contactez votre administrateur.</p>;
+    return <p role="alert">{t("orgNone")}</p>;
   }
 
   return (
     <section className="card">
-      <h1>Choisissez une société</h1>
+      <h1>{t("orgChoose")}</h1>
       <ul className="plain">
         {me.memberships.map((m) => (
           <li key={m.organization.id}>
