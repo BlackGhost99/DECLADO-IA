@@ -10,7 +10,6 @@ from apps.organizations.permissions import HasActiveOrganization
 from .engine import CaseContext, UnresolvedRegulatoryCondition, evaluate_requirements
 from .models import CompanyDocumentPolicy, DocumentRequirement, DocumentType
 
-
 # Seuls ces usages existants identifient un type sans ambiguïté.
 # "transport" ne prouve PAS qu'il s'agit d'un B/L ou d'une LTA.
 KNOWN_USAGE_TYPES = {
