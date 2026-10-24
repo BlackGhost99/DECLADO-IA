@@ -65,7 +65,7 @@ def propose_links(documents):
             continue
         ids = sorted(unique)
         for i, left in enumerate(ids):
-            for right in ids[i + 1:]:
+            for right in ids[i + 1 :]:
                 key = (left, right)
                 proposals.setdefault(key, []).append(
                     {
