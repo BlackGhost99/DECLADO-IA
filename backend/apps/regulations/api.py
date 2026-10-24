@@ -6,10 +6,12 @@ from rest_framework.views import APIView
 
 from apps.cases.models import CaseDocument, CaseRevision
 from apps.core.exceptions import ApiError
+from apps.extraction.models import SourceSpan
 from apps.organizations.models import Role
 from apps.organizations.permissions import HasActiveOrganization, require_roles
 
 from .classification import suggest_document_type
+from .content_classifier import suggest_from_excerpts
 from .engine import CaseContext, UnresolvedRegulatoryCondition, evaluate_requirements
 from .models import CompanyDocumentPolicy, DocumentClassification, DocumentRequirement, DocumentType, RegulatorySource
 from .readiness import legal_coverage_gate
@@ -91,6 +93,15 @@ class CaseDocumentChecklistView(APIView):
         received_links = list(
             revision.documents.filter(replaced_by__isnull=True).select_related("document").order_by("created_at")
         )
+        document_ids = [link.document_id for link in received_links]
+        excerpts_by_document = {}
+        spans = (
+            SourceSpan.objects.filter(organization=request.organization, document_id__in=document_ids)
+            .exclude(excerpt="")
+            .order_by("document_id", "page_index")[:1000]
+        )
+        for span in spans:
+            excerpts_by_document.setdefault(span.document_id, []).append(span.excerpt)
         received = {}
         unclassified = []
         for link in received_links:
@@ -99,7 +110,8 @@ class CaseDocumentChecklistView(APIView):
                 "filename": link.document.original_name,
                 "usage": link.usage,
                 "readability": link.document.readability,
-                "classification": suggest_document_type(link.document.original_name),
+                "classification": suggest_from_excerpts(excerpts_by_document.get(link.document_id, [])),
+                "filename_hint": suggest_document_type(link.document.original_name),
             }
             code = classifications.get(link.pk) or KNOWN_USAGE_TYPES.get(link.usage)
             if code:
