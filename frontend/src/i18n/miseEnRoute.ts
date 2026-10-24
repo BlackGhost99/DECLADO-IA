@@ -4,6 +4,9 @@
  */
 export const miseEnRoute = {
   fr: {
+    "mfa.scanQr": "Scannez ce QR code avec votre application d'authentification (Google Authenticator, Aegis ou Microsoft Authenticator).",
+    "mfa.qrLabel": "QR code de configuration de la double authentification",
+    "mfa.orKey": "Si vous ne pouvez pas scanner, saisissez cette clé dans l'application :",
     "onb.setupTitle": "Mise en service de ClairTransit",
     "onb.setupLead": "Ce serveur est neuf : aucun compte et aucune société n'existent encore. Créez le compte de l'exploitant ClairTransit.",
     "onb.setupNote": "Ce compte crée et suspend les sociétés clientes. Il ne voit pas leurs dossiers ni leurs documents.",
@@ -129,6 +132,9 @@ export const miseEnRoute = {
     "event.membership.reactivated": "Utilisateur réactivé",
   },
   en: {
+    "mfa.scanQr": "Scan this QR code with your authenticator app (Google Authenticator, Aegis or Microsoft Authenticator).",
+    "mfa.qrLabel": "Two-factor authentication setup QR code",
+    "mfa.orKey": "If you cannot scan it, enter this key in the app:",
     "onb.setupTitle": "Set up ClairTransit",
     "onb.setupLead": "This server is new: no account and no company exist yet. Create the ClairTransit operator account.",
     "onb.setupNote": "This account creates and suspends client companies. It cannot see their cases or documents.",
@@ -254,6 +260,9 @@ export const miseEnRoute = {
     "event.membership.reactivated": "User reactivated",
   },
   es: {
+    "mfa.scanQr": "Escanee este código QR con su aplicación de autenticación (Google Authenticator, Aegis o Microsoft Authenticator).",
+    "mfa.qrLabel": "Código QR de configuración de la autenticación de dos factores",
+    "mfa.orKey": "Si no puede escanearlo, introduzca esta clave en la aplicación:",
     "onb.setupTitle": "Puesta en servicio de ClairTransit",
     "onb.setupLead": "Este servidor es nuevo: todavía no existe ninguna cuenta ni empresa. Cree la cuenta del operador de ClairTransit.",
     "onb.setupNote": "Esta cuenta crea y suspende las empresas clientes. No ve sus expedientes ni sus documentos.",
@@ -379,6 +388,9 @@ export const miseEnRoute = {
     "event.membership.reactivated": "Usuario reactivado",
   },
   ar: {
+    "mfa.scanQr": "امسح رمز QR هذا بتطبيق المصادقة (Google Authenticator أو Aegis أو Microsoft Authenticator).",
+    "mfa.qrLabel": "رمز QR لإعداد المصادقة الثنائية",
+    "mfa.orKey": "إذا تعذّر المسح، أدخل هذا المفتاح في التطبيق:",
     "onb.setupTitle": "تشغيل ClairTransit لأول مرة",
     "onb.setupLead": "هذا الخادم جديد: لا يوجد بعد أي حساب ولا أي شركة. أنشئ حساب مشغّل ClairTransit.",
     "onb.setupNote": "هذا الحساب ينشئ الشركات العميلة ويعلّقها. لا يرى ملفاتها ولا مستنداتها.",

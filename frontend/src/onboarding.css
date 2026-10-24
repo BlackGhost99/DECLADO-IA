@@ -94,3 +94,8 @@
 }
 .onb-table-wrap { position: relative; }
 .onb-small a { color: var(--primary); font-weight: 600; }
+.onb-mfa { display: flex; gap: 14px; align-items: center; }
+.onb-mfa p { margin: 0; font-size: 13.5px; }
+.onb-qr { width: 168px; height: 168px; flex: 0 0 auto; max-width: 100%; border: 1px solid var(--border); border-radius: 6px; }
+.onb-secret { font-family: ui-monospace, Consolas, monospace; font-size: 13px; background: var(--gray-bg); padding: 6px 8px; border-radius: 4px; overflow-wrap: anywhere; direction: ltr; unicode-bidi: embed; }
+@media (max-width: 560px) { .onb-mfa { flex-direction: column; align-items: flex-start; } }
