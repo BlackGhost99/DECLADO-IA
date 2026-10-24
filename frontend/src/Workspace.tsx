@@ -3,10 +3,11 @@ import { api, ApiError, ROLE_LABELS, type Importer, type Me, type Member, type M
 import { Cases } from "./Cases";
 import { DocumentPolicies } from "./DocumentPolicies";
 import { Reference } from "./Reference";
-import { useI18n } from "./i18n";
+import { useI18n, useBusinessLabels } from "./i18n";
 
 export function Workspace({ membership, me }: { membership: Membership; me: Pick<Me, "id"> }) {
   const { t } = useI18n();
+  const labels = useBusinessLabels();
   const canEdit = membership.roles.some((r) => r === "declarant" || r === "validator");
   const isAdmin = membership.roles.includes("org_admin");
 
@@ -15,7 +16,7 @@ export function Workspace({ membership, me }: { membership: Membership; me: Pick
   return (
     <>
       <p className="muted">
-        {t("roles")} {membership.roles.map((r) => ROLE_LABELS[r]).join(", ") || t("none")}.
+        {t("roles")} {membership.roles.map((r) => labels.role(r, ROLE_LABELS[r])).join(", ") || t("none")}.
       </p>
       <div role="tablist" className="tabs">
         <button type="button" role="tab" aria-selected={tab === "cases"} onClick={() => setTab("cases")}>
@@ -121,6 +122,7 @@ function Importers({ canEdit }: { canEdit: boolean }) {
 
 function Members() {
   const { t } = useI18n();
+  const labels = useBusinessLabels();
   const [members, setMembers] = useState<Member[]>([]);
   useEffect(() => {
     void api.members().then((p) => setMembers(p.results));
@@ -137,7 +139,7 @@ function Members() {
           {members.map((m) => (
             <tr key={m.id}>
               <td>{m.email}</td>
-              <td>{m.roles.map((r) => ROLE_LABELS[r]).join(", ")}</td>
+              <td>{m.roles.map((r) => labels.role(r, ROLE_LABELS[r])).join(", ")}</td>
               <td>{m.active ? t("active") : t("inactive")}</td>
             </tr>
           ))}
