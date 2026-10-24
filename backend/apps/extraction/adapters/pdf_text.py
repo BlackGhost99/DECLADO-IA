@@ -4,8 +4,8 @@ from pathlib import Path
 
 from django.conf import settings
 
-from ..layout import structure
 from ..language import annotate_parsed
+from ..layout import structure
 from ..schema import ParsedDocument, warning
 from . import ExtractionFailure, Progress
 from .words import rows_from_words
