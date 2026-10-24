@@ -15,8 +15,6 @@ export function actionFor(check: CodeCheck, proposal: Pick<Proposal, "code">): "
   return "replace";
 }
 
-const ACTION_LABELS = { classify: "Classer sous ce code", complete: "Compléter avec ce code", replace: "Remplacer par ce code" };
-
 export function ProposalsPanel({ goods, editionId, editable, act }: { goods: GoodsLine; editionId: string; editable: boolean; act: Act }) {
   const { t } = useI18n();
   const check = goods.latest_check;
