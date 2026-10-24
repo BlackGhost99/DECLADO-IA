@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { api, ApiError, type Evidence, type NodeDetail, type RecordDetail, type SearchResult } from "./api";
-import { useI18n } from "./i18n";
+import { useI18n, type MessageKey } from "./i18n";
 
-const QUALITY: Record<string, string> = { known: "lu", unknown: "inconnu (vide)", unparseable: "non numérique" };
-const STATES: Record<string, string> = {
-  extracted: "extrait de la source",
-  derived: "déduit de la hiérarchie",
-  review_required: "à vérifier",
-  validated: "validé",
+const QUALITY_KEYS: Record<string, MessageKey> = {
+  known: "originRead", unknown: "unknownBlank", unparseable: "notNumeric",
+};
+const STATE_KEYS: Record<string, MessageKey> = {
+  extracted: "extractedFrom", derived: "derivedHierarchy",
+  review_required: "toReview", validated: "validated",
 };
 
 export function Reference() {
@@ -76,7 +76,7 @@ export function Reference() {
           {detail.edition.warning && <p className="warning" role="note">ⓘ {detail.edition.warning}</p>}
           <p className="muted small">
             {detail.edition.label} — {detail.edition.source.kind_label}
-            {detail.edition.source.is_derived_copy && " (copie dérivée, original non fourni)"}
+            {detail.edition.source.is_derived_copy && ` (${t("derivedCopy")})`}
           </p>
           <nav aria-label={t("path")} className="small">
             {detail.ancestors.map((a) => (
@@ -93,7 +93,7 @@ export function Reference() {
             <dt>{t("tariffDeclarable")}</dt>
             <dd>{detail.declarable ? t("yes") : t("no")}</dd>
             <dt>{t("status")}</dt>
-            <dd>{STATES[detail.validation_state] ?? detail.validation_state}</dd>
+            <dd>{STATE_KEYS[detail.validation_state] ? t(STATE_KEYS[detail.validation_state]) : detail.validation_state}</dd>
             <dt>{t("proof")}</dt>
             <dd>
               {detail.evidence ? (
@@ -101,7 +101,7 @@ export function Reference() {
                   {t("open")} {detail.evidence.location}
                 </button>
               ) : (
-                "déduit de la hiérarchie"
+                t("derivedHierarchy")
               )}
             </dd>
           </dl>
@@ -111,8 +111,8 @@ export function Reference() {
               <ul>
                 {detail.issues.map((i) => (
                   <li key={i.id}>
-                    [{i.severity === "blocking" ? "Bloquante" : i.severity === "review" ? "À vérifier" : "Info"}]{" "}
-                    {i.message} {i.state === "resolved" && "(résolue)"}
+                    [{i.severity === "blocking" ? t("blocking") : i.severity === "review" ? t("toReview") : "Info"}]{" "}
+                    {i.message} {i.state === "resolved" && `(${t("resolved")})`}
                   </li>
                 ))}
               </ul>
@@ -131,7 +131,7 @@ export function Reference() {
                     <tr key={r.column}>
                       <td>{r.column}</td>
                       <td>{r.raw_value || "—"}</td>
-                      <td>{QUALITY[r.quality] ?? r.quality}</td>
+                      <td>{QUALITY_KEYS[r.quality] ? t(QUALITY_KEYS[r.quality]) : r.quality}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -187,7 +187,7 @@ export function Reference() {
               <h3>Preuve : {record.location}</h3>
               <p className="muted small">
                 {record.source.title}
-                {record.source.is_derived_copy && " (copie dérivée)"} · empreinte {record.source.sha256.slice(0, 12)}…
+                {record.source.is_derived_copy && ` (${t("derivedCopy")})`} · empreinte {record.source.sha256.slice(0, 12)}…
               </p>
               {record.raw_text ? (
                 <pre className="note">{record.raw_text}</pre>
