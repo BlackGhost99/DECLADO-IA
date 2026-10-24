@@ -110,6 +110,8 @@ class CaseDocument(OrganizationOwnedModel):
     revision = models.ForeignKey(CaseRevision, on_delete=models.PROTECT, related_name="documents")
     document = models.ForeignKey("documents.Document", on_delete=models.PROTECT, related_name="case_links")
     usage = models.CharField(max_length=20, choices=Usage.choices, default=Usage.OTHER)
+    # Taxonomie canonique, stable ; une pièce héritée peut rester non classifiée.
+    document_type_code = models.CharField(max_length=60, blank=True, default="")
     added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     # Remplacement : l'ancien rattachement reste visible et pointe vers son successeur.
     replaced_by = models.OneToOneField("self", null=True, blank=True, on_delete=models.PROTECT, related_name="replaces")
