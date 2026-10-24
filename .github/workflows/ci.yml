@@ -18,7 +18,12 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U clairtransit" --health-interval 5s --health-retries 10
+      clamav:
+        image: clamav/clamav:1.4
+        ports: ["3310:3310"]
     env:
+      CLAMAV_HOST: 127.0.0.1
+      CLAMAV_PORT: "3310"
       DJANGO_DEBUG: "true"
       DATABASE_URL: postgres://clairtransit:clairtransit@localhost:5432/clairtransit
     defaults:
@@ -34,6 +39,26 @@ jobs:
       - name: Tesseract (OCR des scans, lot 3)
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng
       - run: pip install -r requirements-dev.txt
+      - name: Wait for clamd signatures and daemon
+        run: |
+          python - <<'PY'
+          import socket
+          import time
+
+          for _ in range(120):
+              try:
+                  with socket.create_connection(("127.0.0.1", 3310), timeout=2) as conn:
+                      conn.settimeout(3)
+                      conn.sendall(b"zPING\\0")
+                      if conn.recv(64).startswith(b"PONG"):
+                          print("ClamAV ready")
+                          break
+              except OSError:
+                  pass
+              time.sleep(2)
+          else:
+              raise SystemExit("ClamAV did not become ready")
+          PY
       - name: Style
         run: ruff check . && ruff format --check .
       - name: Migrations à jour
