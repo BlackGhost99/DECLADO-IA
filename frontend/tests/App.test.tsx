@@ -18,7 +18,11 @@ function json(status: number, body: unknown) {
   return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  window.location.hash = "";
+  sessionStorage.clear();
+});
 
 describe("App", () => {
   it("affiche le formulaire de connexion quand la session est absente", async () => {
@@ -52,11 +56,11 @@ describe("App", () => {
     });
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Transit Bêta (démo)" }));
-    fireEvent.click(await screen.findByRole("tab", { name: "Importateurs" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Administration" }));
     expect(await screen.findByText("Comptoir Fictif Bêta")).toBeInTheDocument();
     const call = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/me/active-organization"))!;
     expect((call[1]!.headers as Record<string, string>)["X-CSRFToken"]).toBe("tok123");
-    await waitFor(() => expect(screen.getByText("Démonstration")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Démonstration · données fictives/)).toBeInTheDocument());
   });
 
   it("affiche la fiche d'un code avec l'avertissement historique et la valeur inconnue", async () => {
@@ -80,7 +84,7 @@ describe("App", () => {
       return json(404, {});
     });
     render(<App />);
-    fireEvent.click(await screen.findByRole("tab", { name: "Référentiel" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Recherche tarifaire" }));
     fireEvent.change(await screen.findByLabelText(/code, préfixe/i), { target: { value: "autres" } });
     fireEvent.click(screen.getByRole("button", { name: "Rechercher" }));
     fireEvent.click(await screen.findByRole("button", { name: /0101\.90\.00/ }));

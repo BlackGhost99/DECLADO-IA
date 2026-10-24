@@ -109,6 +109,28 @@ export interface EditionBrief {
   publication_state: "draft" | "consultation" | "operational" | "withdrawn";
 }
 
+export interface Edition extends EditionBrief {
+  warning: string | null;
+  hs_version?: string;
+  effective_from?: string | null;
+  applicability_verified?: boolean;
+  published_at?: string | null;
+  source?: { title: string; kind_label: string; is_derived_copy: boolean };
+}
+
+export interface ImportRunInfo {
+  id: string;
+  source: string;
+  source_kind: string;
+  importer_name: string;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  counts: { tariff_lines?: number; issues?: Record<string, number> } & Record<string, unknown>;
+  edition_id: string | null;
+  open_issues: number;
+}
+
 export interface NodeBrief {
   id: string;
   code: string | null;
@@ -496,6 +518,14 @@ export interface Revision {
   territory: string;
   planned_declaration_date: string | null;
   regime: string;
+  client_reference?: string;
+  transport_mode?: string;
+  transport_mode_label?: string;
+  entry_office?: string;
+  origin_country?: string;
+  provenance_country?: string;
+  priority?: string;
+  priority_label?: string;
   is_editable: boolean;
   row_version: number;
   target_edition: (EditionBrief & { warning: string | null }) | null;
@@ -523,6 +553,15 @@ export interface CaseSummary {
 
 export interface CaseDetail extends CaseSummary {
   revision: Revision;
+}
+
+export interface OrgAuditEvent {
+  id: string;
+  at: string;
+  actor_email: string | null;
+  event_type: string;
+  entity_type: string;
+  entity_id: string;
 }
 
 export interface AuditEntry {
@@ -556,7 +595,8 @@ export const api = {
     request<{ results: SearchResult[] }>("GET", `/tariffs/search?q=${encodeURIComponent(q)}`),
   tariffNode: (id: string) => request<NodeDetail>("GET", `/tariffs/nodes/${id}`),
   tariffRecord: (id: string) => request<RecordDetail>("GET", `/tariffs/records/${id}`),
-  editions: () => request<(EditionBrief & { warning: string | null })[]>("GET", "/tariffs/editions"),
+  editions: () => request<Edition[]>("GET", "/tariffs/editions"),
+  importRuns: () => request<Page<ImportRunInfo>>("GET", "/reference-imports"),
   cases: (params: Record<string, string>) =>
     request<{ results: CaseSummary[]; states: [string, string][] }>(
       "GET",
@@ -567,6 +607,7 @@ export const api = {
   assignCase: (id: string, assignee_id: string | null, row_version: number) =>
     request<CaseSummary>("POST", `/cases/${id}/assign`, { assignee_id, row_version }),
   updateRevision: (id: string, data: Record<string, unknown>) => request<Revision>("PATCH", `/revisions/${id}`, data),
+  auditEvents: () => request<Page<OrgAuditEvent>>("GET", "/audit-events"),
   caseAudit: (id: string) => request<{ results: AuditEntry[] }>("GET", `/cases/${id}/audit`),
   documentLimits: () => request<{ max_bytes: number; accepted: string[] }>("GET", "/documents/limits"),
   uploadDocument: (caseId: string, file: File, usage: string, duplicateAction = "", idempotencyKey = "") => {

@@ -141,6 +141,21 @@ def next_reference(org) -> str:
     return f"DOS-{year}-{seq.last_value:04d}"
 
 
+PREPARATION_FIELDS = (
+    "client_reference",
+    "transport_mode",
+    "entry_office",
+    "origin_country",
+    "provenance_country",
+    "priority",
+)
+
+
+def _prep_value(field, value):
+    """Les pays sont des codes ISO en majuscules ; les autres valeurs restent telles que saisies."""
+    return value.upper() if field in ("origin_country", "provenance_country") else value
+
+
 @transaction.atomic
 def create_case(*, org, actor, data: dict) -> CustomsCase:
     importer = importer_for(org, data["importer_id"]) if data.get("importer_id") else None
@@ -164,6 +179,7 @@ def create_case(*, org, actor, data: dict) -> CustomsCase:
         regime=data.get("regime", ""),
         target_edition=edition,
         created_by=actor,
+        **{f: _prep_value(f, data[f]) for f in PREPARATION_FIELDS if data.get(f)},
     )
     case.current_revision = revision
     case.save(update_fields=["current_revision"])
@@ -229,7 +245,7 @@ def assign_case(*, org, actor, membership, case_id, expected: int | None, assign
     return case
 
 
-REVISION_FIELDS = ("planned_declaration_date", "regime", "territory", "target_edition")
+REVISION_FIELDS = ("planned_declaration_date", "regime", "territory", "target_edition", *PREPARATION_FIELDS)
 
 
 @transaction.atomic
@@ -238,12 +254,14 @@ def update_revision(*, org, actor, revision_id, expected: int | None, data: dict
     check_version(revision, expected)
     _require_editable(revision)
     before = {f: _jsonable(getattr(revision, f)) for f in REVISION_FIELDS}
-    for field in ("planned_declaration_date", "regime", "territory"):
+    for field in ("planned_declaration_date", "regime", "territory", *PREPARATION_FIELDS):
         if field in data:
             setattr(
                 revision,
                 field,
-                data[field] if data[field] is not None else ("" if field != "planned_declaration_date" else None),
+                _prep_value(field, data[field])
+                if data[field] is not None
+                else ("" if field != "planned_declaration_date" else None),
             )
     if "target_edition_id" in data:
         revision.target_edition = edition_for(actor, data["target_edition_id"]) if data["target_edition_id"] else None
