@@ -147,7 +147,9 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
     "COERCE_DECIMAL_TO_STRING": True,
     "UNAUTHENTICATED_USER": "django.contrib.auth.models.AnonymousUser",
-    "DEFAULT_THROTTLE_CLASSES": [] if DEBUG else [
+    "DEFAULT_THROTTLE_CLASSES": []
+    if DEBUG
+    else [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
