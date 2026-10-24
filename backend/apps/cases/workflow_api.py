@@ -39,3 +39,26 @@ class WorkflowTransitionView(APIView):
             "state": revision.state,
             "row_version": revision.row_version,
         })
+
+
+class ValidationReadinessView(APIView):
+    """Preview blockers without changing the dossier or recording an approval."""
+    permission_classes = [HasActiveOrganization]
+
+    def get(self, request, revision_id):
+        from .models import CaseRevision
+        from .completeness import evaluate
+        from .validation_readiness import validation_readiness
+
+        if not has_feature(request.user, request.organization, "cases"):
+            raise ApiError("FEATURE_DENIED", "Gestion de dossiers non autorisée.", 403)
+        revision = (
+            CaseRevision.objects.for_organization(request.organization)
+            .select_related("case", "target_edition")
+            .filter(pk=revision_id)
+            .first()
+        )
+        if revision is None:
+            raise ApiError("NOT_FOUND", "Révision introuvable.", 404)
+        result = validation_readiness(revision, evaluate(revision))
+        return Response({"revision_id": str(revision.pk), "ready": result["complete"], **result})
