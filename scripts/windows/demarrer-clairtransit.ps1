@@ -295,8 +295,23 @@ DatabaseMirror database.clamav.net
     if (-not (Etape-Faite "dependances")) {
         Titre "Bibliothèques (premier lancement ou mise à jour, quelques minutes)"
         Executer $uv @("pip", "install", "--python", $python, "-r", (Join-Path $backend "requirements.txt")) "Installation des bibliothèques Python impossible"
+        # Une connexion lente ou coupée (ECONNRESET) fait échouer npm : on réessaie avant d'abandonner.
+        $env:npm_config_fetch_retries = "5"
+        $env:npm_config_fetch_retry_mintimeout = "20000"
+        $env:npm_config_fetch_retry_maxtimeout = "120000"
         Push-Location $frontend
-        try { Executer $node @($npmCli, "ci", "--no-audit", "--no-fund") "Installation des bibliothèques de l'interface impossible" }
+        try {
+            for ($essai = 1; $essai -le 3; $essai++) {
+                try {
+                    Executer $node @($npmCli, "ci", "--no-audit", "--no-fund") "Installation des bibliothèques de l'interface impossible"
+                    break
+                } catch {
+                    if ($essai -eq 3) { throw }
+                    Info "Échec du téléchargement (réseau ?), nouvel essai dans 15 secondes ($essai/3)…"
+                    Start-Sleep -Seconds 15
+                }
+            }
+        }
         finally { Pop-Location }
         Marquer-Etape "dependances"
     }
