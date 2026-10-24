@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.clients",
     "apps.tariffs",
     "apps.documents",
+    "apps.regulations",
     "apps.cases",
     "apps.extraction",
 ]
