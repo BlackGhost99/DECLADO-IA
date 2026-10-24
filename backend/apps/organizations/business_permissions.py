@@ -5,7 +5,9 @@ from .context import active_memberships
 PROFILE_FEATURES = {
     BusinessProfile.TRANSIT: frozenset({"cases", "documents", "tariff", "taxes", "declaration"}),
     BusinessProfile.IMPORTER: frozenset({"cases", "documents", "tariff", "taxes", "estimates"}),
-    BusinessProfile.LOGISTICS: frozenset({"cases", "documents", "tariff", "taxes", "declaration", "agencies", "transport"}),
+    BusinessProfile.LOGISTICS: frozenset(
+        {"cases", "documents", "tariff", "taxes", "declaration", "agencies", "transport"}
+    ),
     BusinessProfile.EXPERT: frozenset({"cases", "documents", "tariff", "taxes", "audit"}),
 }
 KNOWN_FEATURES = frozenset().union(*PROFILE_FEATURES.values())
