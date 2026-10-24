@@ -7,6 +7,7 @@ Aucun secret réel ne doit figurer dans le dépôt.
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -48,6 +49,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.accounts.mfa_middleware.MFAEnforcementMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -106,6 +108,27 @@ CSRF_COOKIE_SAMESITE = "Lax"
 # Le cookie CSRF reste lisible par le client web pour l'en-tête X-CSRFToken.
 CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60 * 10)
+
+# MFA is required for every production user, including technical administrators.
+# A dedicated Fernet key is required: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+MFA_ENFORCE = env.bool("MFA_ENFORCE", default=not DEBUG)
+MFA_ENCRYPTION_KEY = env("MFA_ENCRYPTION_KEY", default="")
+AUTH_RATE_LIMIT_ENABLED = env.bool("AUTH_RATE_LIMIT_ENABLED", default=not DEBUG)
+if MFA_ENFORCE and not MFA_ENCRYPTION_KEY:
+    raise ImproperlyConfigured("MFA_ENCRYPTION_KEY is required when MFA_ENFORCE is enabled")
+
+# All production login attempt counters are shared between workers.
+CACHES = {
+    "default": (
+        {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "clairtransit-test"}
+        if DEBUG
+        else {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": env("CACHE_URL", default="redis://localhost:6379/1"),
+        }
+    )
+}
+
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
