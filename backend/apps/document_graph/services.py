@@ -5,6 +5,7 @@ from django.utils import timezone
 from apps.audit.services import record_event
 from apps.cases.models import CaseDocument, CaseRevision
 from apps.core.exceptions import ApiError
+
 from .models import DocumentRelation
 
 KINDS = {"same_shipment", "supports_invoice", "shared_insurance", "shared_transport", "other"}
