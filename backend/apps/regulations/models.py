@@ -1,5 +1,6 @@
 """Référentiel documentaire et réglementaire global ; les sociétés ne peuvent qu'ajouter des exigences."""
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -134,7 +135,7 @@ class DocumentClassification(models.Model):
     )
     organization = models.ForeignKey("organizations.Organization", on_delete=models.PROTECT)
     document_type = models.ForeignKey(DocumentType, on_delete=models.PROTECT)
-    confirmed_by = models.ForeignKey("accounts.User", on_delete=models.PROTECT)
+    confirmed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     confirmed_at = models.DateTimeField(auto_now_add=True)
     reason = models.CharField(max_length=300)
 
