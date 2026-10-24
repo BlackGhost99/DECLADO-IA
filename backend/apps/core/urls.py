@@ -6,6 +6,9 @@ from apps.cases import api as cases
 from apps.clients import api as clients
 from apps.extraction import api as extraction
 from apps.organizations import api as organizations
+from apps.organizations import business_api
+from apps.organizations import validation_api
+from apps.cases import workflow_api
 from apps.tariffs import api as tariffs
 
 from .api import HealthView
@@ -17,6 +20,8 @@ urlpatterns = [
     path("auth/logout", accounts.LogoutView.as_view()),
     path("me", accounts.MeView.as_view()),
     path("me/active-organization", accounts.ActiveOrganizationView.as_view()),
+    path("organization/validation-policy", validation_api.ValidationPolicyView.as_view()),
+    path("organization/business-profile", business_api.BusinessProfileView.as_view()),
     path("organization/members", organizations.MemberListView.as_view()),
     path("organization/members/<uuid:member_id>/roles", organizations.MemberRolesView.as_view()),
     path("organization/members/<uuid:member_id>/deactivate", organizations.MemberDeactivateView.as_view()),
@@ -31,6 +36,8 @@ urlpatterns = [
     path("cases/<uuid:case_id>/documents/reuse", cases.CaseDocumentReuseView.as_view()),
     path("cases/<uuid:case_id>/audit", cases.CaseAuditView.as_view()),
     path("case-documents/<uuid:link_id>/replace", cases.CaseDocumentReplaceView.as_view()),
+    path("revisions/<uuid:revision_id>/validation-readiness", workflow_api.ValidationReadinessView.as_view()),
+    path("revisions/<uuid:revision_id>/transition", workflow_api.WorkflowTransitionView.as_view()),
     path("revisions/<uuid:revision_id>", cases.RevisionDetailView.as_view()),
     path("revisions/<uuid:revision_id>/invoices", cases.InvoiceCreateView.as_view()),
     path("revisions/<uuid:revision_id>/goods-lines", cases.GoodsLineCreateView.as_view()),
