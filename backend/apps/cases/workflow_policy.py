@@ -1,5 +1,6 @@
 """Restricted preparatory transitions; final validation is deliberately excluded."""
 from dataclasses import dataclass
+
 from apps.organizations.models import Role
 
 
