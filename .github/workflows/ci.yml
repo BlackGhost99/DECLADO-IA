@@ -49,7 +49,7 @@ jobs:
               try:
                   with socket.create_connection(("127.0.0.1", 3310), timeout=2) as conn:
                       conn.settimeout(3)
-                      conn.sendall(b"zPING\\0")
+                      conn.sendall(b"zPING" + bytes([0]))
                       if conn.recv(64).startswith(b"PONG"):
                           print("ClamAV ready")
                           break
