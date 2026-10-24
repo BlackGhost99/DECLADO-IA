@@ -12,6 +12,7 @@ from apps.core.concurrency import bump, check_version
 from apps.core.exceptions import ApiError
 from apps.documents import services as documents
 from apps.documents.models import Document
+from apps.regulations.taxonomy import require_type
 from apps.extraction import services as extraction
 from apps.organizations.models import Membership, Role
 from apps.tariffs import services as tariffs
@@ -271,12 +272,13 @@ def create_revision(*, org, actor, case_id, reason: str):
 # --- Pièces ----------------------------------------------------------------------------
 
 
-def _link_document(org, actor, revision, document, usage, idempotency_key="") -> CaseDocument:
+def _link_document(org, actor, revision, document, usage, idempotency_key="", document_type_code="") -> CaseDocument:
     link = CaseDocument.objects.create(
         organization=org,
         revision=revision,
         document=document,
         usage=usage,
+        document_type_code=document_type_code,
         added_by=actor,
         idempotency_key=idempotency_key,
     )
@@ -290,13 +292,14 @@ def _link_document(org, actor, revision, document, usage, idempotency_key="") ->
             "document": str(document.id),
             "sha256": document.sha256,
             "usage": usage,
+            "document_type_code": document_type_code,
             "name": document.original_name,
         },
     )
     return link
 
 
-def attach_upload(*, org, actor, revision, upload, usage, declared_mime="", duplicate_action="", idempotency_key=""):
+def attach_upload(*, org, actor, revision, upload, usage, declared_mime="", duplicate_action="", idempotency_key="", document_type_code=""):
     """DOC-01/02/03 : dépôt contrôlé. Un fichier identique déjà présent est signalé ; l'utilisateur décide."""
     if idempotency_key:
         existing = CaseDocument.objects.for_organization(org).filter(idempotency_key=idempotency_key).first()
@@ -332,17 +335,17 @@ def attach_upload(*, org, actor, revision, upload, usage, declared_mime="", dupl
             )
         try:
             with transaction.atomic():
-                link = _link_document(org, actor, revision, document, usage, idempotency_key)
+                link = _link_document(org, actor, revision, document, usage, idempotency_key, document_type_code)
         except IntegrityError:
             raise ApiError("IDEMPOTENCY_KEY_REUSED", "Requête déjà en cours de traitement.", 409) from None
     return link, True
 
 
 @transaction.atomic
-def reuse_document(*, org, actor, revision, document_id, usage) -> CaseDocument:
+def reuse_document(*, org, actor, revision, document_id, usage, document_type_code="") -> CaseDocument:
     _require_editable(revision)
     document = _get(Document.objects.for_organization(org), document_id)
-    return _link_document(org, actor, revision, document, usage)
+    return _link_document(org, actor, revision, document, usage, document_type_code=document_type_code)
 
 
 @transaction.atomic
@@ -364,7 +367,8 @@ def replace_document(*, org, actor, link_id, upload, declared_mime="") -> CaseDo
         organization=org, actor=actor, upload=upload, declared_mime=declared_mime, supersedes=head
     )
     new = CaseDocument.objects.create(
-        organization=org, revision=old.revision, document=document, usage=old.usage, added_by=actor
+        organization=org, revision=old.revision, document=document, usage=old.usage,
+        document_type_code=old.document_type_code, added_by=actor
     )
     old.replaced_by = new
     bump(old)
@@ -379,6 +383,31 @@ def replace_document(*, org, actor, link_id, upload, declared_mime="") -> CaseDo
         {"document": str(document.id), "sha256": document.sha256, "version": document.version},
     )
     return new
+
+
+@transaction.atomic
+def classify_case_document(*, org, actor, link_id, document_type_code: str) -> CaseDocument:
+    """Human classification of an attached scan or legacy document; always audited."""
+    spec = require_type(document_type_code)
+    link = _get(
+        CaseDocument.objects.for_organization(org)
+        .select_for_update(of=("self",))
+        .select_related("revision__case"),
+        link_id,
+    )
+    _require_editable(link.revision)
+    if link.replaced_by_id:
+        raise ApiError("ALREADY_REPLACED", "Classer la dernière version de la pièce.", 409)
+    previous = {"document_type_code": link.document_type_code, "usage": link.usage}
+    link.document_type_code = document_type_code
+    link.usage = spec.usage
+    bump(link)
+    link.save(update_fields=["document_type_code", "usage", "row_version", "updated_at"])
+    _event(
+        org, actor, "case.document_classified", link, link.revision.case,
+        previous, {"document_type_code": link.document_type_code, "usage": link.usage},
+    )
+    return link
 
 
 # --- Factures et lignes --------------------------------------------------------------
