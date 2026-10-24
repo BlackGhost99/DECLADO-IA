@@ -1,5 +1,5 @@
 import { api, ROLE_LABELS, type Me } from "./api";
-import { useI18n } from "./i18n";
+import { useI18n, useBusinessLabels } from "./i18n";
 
 interface Props {
   me: Me;
@@ -9,6 +9,7 @@ interface Props {
 
 export function OrganizationPicker({ me, onChange, compact }: Props) {
   const { t } = useI18n();
+  const labels = useBusinessLabels();
   const select = async (id: string) => onChange(await api.selectOrganization(id));
 
   if (compact) {
@@ -37,7 +38,7 @@ export function OrganizationPicker({ me, onChange, compact }: Props) {
             <button type="button" onClick={() => void select(m.organization.id)}>
               {m.organization.name}
             </button>{" "}
-            <span className="muted">{m.roles.map((r) => ROLE_LABELS[r]).join(", ")}</span>
+            <span className="muted">{m.roles.map((r) => labels.role(r, ROLE_LABELS[r])).join(", ")}</span>
           </li>
         ))}
       </ul>
