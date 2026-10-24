@@ -2,6 +2,7 @@
 
 import time
 
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
@@ -42,6 +43,7 @@ def me_payload(request) -> dict:
         "is_reference_manager": user.is_reference_manager,
         "mfa_enabled": TotpDevice.objects.filter(user=user, confirmed_at__isnull=False).exists(),
         "mfa_verified_session": bool(request.session.get("mfa_passed")),
+        "mfa_required_for_access": settings.MFA_ENFORCE,
         "memberships": [
             {
                 "organization": {
