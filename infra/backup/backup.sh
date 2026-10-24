@@ -38,7 +38,7 @@ trap cleanup EXIT HUP INT TERM
 pg_dump --format=custom --file="$staging/clairtransit.dump"
 chmod 0600 "$staging/clairtransit.dump"
 restic snapshots --json >/dev/null 2>&1 || restic init
-restic backup --tag clairtransit --one-file-system \
+restic backup --tag clairtransit --exclude "$PRIVATE_STORAGE_ROOT/quarantine" --one-file-system \
   "$staging/clairtransit.dump" "$PRIVATE_STORAGE_ROOT"
 # Deletions require an explicit retention policy and validated off-site storage.
 restic forget --tag clairtransit --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
