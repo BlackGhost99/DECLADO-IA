@@ -10,18 +10,23 @@
 #   - base PostgreSQL portable sur un port libre (55432 ou suivant), Python et Node portables ;
 #   - antivirus ClamAV portable (signature Talos vérifiée par empreinte), écoute locale seulement :
 #     sans lui, l'application refuse tout dépôt de fichier ;
-#   - données de démonstration fictives uniquement.
+#   - installation neuve : aucune société ni aucun compte. Au premier lancement, l'écran
+#     « Mise en service » crée le compte de l'exploitant ClairTransit (double authentification) ;
+#     les sociétés sont ensuite créées depuis sa console, ou après sa validation d'une demande ;
+#   - clés secrètes générées sur ce PC, gardées dans donnees\cles.json (jamais dans le code).
 # Pour tout supprimer : arreter-clairtransit.ps1, puis effacer le dossier d'installation.
 #
 # Options :
 #   -Dossier <chemin>   autre dossier d'installation
 #   -MettreAJour        retélécharge le code de la branche (les données sont conservées)
-#   -Branche <nom>      branche du dépôt (défaut : refonte-interface)
+#   -Branche <nom>      branche du dépôt (défaut : mise-en-route)
+#   -Demo               ajoute les comptes et le référentiel de démonstration (fictifs, marqués comme tels)
 
 param(
     [string]$Dossier = (Join-Path $env:LOCALAPPDATA "ClairTransit"),
-    [string]$Branche = "refonte-interface",
-    [switch]$MettreAJour
+    [string]$Branche = "mise-en-route",
+    [switch]$MettreAJour,
+    [switch]$Demo
 )
 
 $ErrorActionPreference = "Stop"
@@ -340,8 +345,25 @@ StreamMaxLength 60M
     $portInterface = Port-Libre 5173
     if ($portInterface -eq $portApi) { $portInterface = Port-Libre ($portApi + 1) }
 
+    # Clés propres à cette installation, créées une seule fois. Les perdre rend illisibles
+    # les secrets de double authentification : elles suivent les sauvegardes du dossier donnees.
+    $fichierCles = Join-Path $Donnees "cles.json"
+    if (-not (Test-Path $fichierCles)) {
+        $script = Join-Path $Outils "generer_cles.py"
+        Set-Content -Path $script -Encoding ASCII -Value @'
+import json, secrets, sys
+from cryptography.fernet import Fernet
+with open(sys.argv[1], "x", encoding="ascii") as fichier:
+    json.dump({"django": secrets.token_urlsafe(50), "mfa": Fernet.generate_key().decode("ascii")}, fichier)
+'@
+        Executer $python @("-I", $script, $fichierCles) "Création des clés de l'installation impossible"
+        Info "Clés de l'installation créées : $fichierCles"
+    }
+    $cles = Get-Content $fichierCles -Raw | ConvertFrom-Json
+
     $env:DJANGO_DEBUG = "true"
-    $env:DJANGO_SECRET_KEY = "dev-only-change-me"
+    $env:DJANGO_SECRET_KEY = $cles.django
+    $env:MFA_ENCRYPTION_KEY = $cles.mfa
     $env:DJANGO_ALLOWED_HOSTS = "localhost,127.0.0.1"
     $env:DATABASE_URL = "postgres://clairtransit@127.0.0.1:$portBase/clairtransit"
     $env:CELERY_TASK_ALWAYS_EAGER = "true"
@@ -356,7 +378,7 @@ StreamMaxLength 60M
     Push-Location $backend
     try {
         Executer $python @("manage.py", "migrate", "--noinput") "Migration de la base impossible"
-        if (-not (Etape-Faite "demo")) {
+        if ($Demo -and -not (Etape-Faite "demo")) {
             Titre "Données de démonstration (fictives)"
             Executer $python @("manage.py", "import_tariff_csv", "..\fixtures\synthetic\referentiel-f.csv", "--label", "Jeu F (CSV fictif)") "Import du référentiel fictif impossible"
             $script = Join-Path $Outils "publier_demo.py"
@@ -408,8 +430,16 @@ for edition in TariffEdition.objects.filter(label="Jeu F (CSV fictif)", publicat
     Start-Process $adresse
     Titre "C'est prêt"
     Info "Adresse      : $adresse"
-    Info "Compte       : validateur@alpha.demo   (autres comptes : declarant@alpha.demo, admin@alpha.demo)"
-    Info "Mot de passe : $MotDePasseDemo"
+    if (Etape-Faite "demo") {
+        Info "Cette installation contient les données de démonstration (fictives)."
+        Info "Compte       : validateur@alpha.demo   (autres comptes : declarant@alpha.demo, admin@alpha.demo)"
+        Info "Mot de passe : $MotDePasseDemo"
+        if (-not $Demo) { Info "Pour une installation neuve, sans démonstration : relancer avec -Dossier <un nouveau dossier>." }
+    } else {
+        Info "Installation neuve : au premier lancement, l'écran « Mise en service » crée le compte exploitant."
+        Info "Il faut une application d'authentification (téléphone) pour la double authentification."
+        Info "Le référentiel tarifaire est vide : la recherche tarifaire attend l'import de la source officielle."
+    }
     Info "Deux fenêtres restent ouvertes (API et interface) : ne pas les fermer pendant l'utilisation."
     Info "L'antivirus ClamAV tourne sans fenêtre, sur 127.0.0.1:$portClamav ; tout fichier déposé passe par lui."
     Info "Pour tout arrêter : powershell -ExecutionPolicy Bypass -File .\arreter-clairtransit.ps1"

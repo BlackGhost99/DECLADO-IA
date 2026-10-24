@@ -2,7 +2,17 @@ import { useState, type FormEvent } from "react";
 import { api, ApiError, type Me } from "./api";
 import { tr } from "./i18n";
 
-export function MFAEnrollment({ onComplete }: { onComplete: (me: Me) => void }) {
+export function MFAEnrollment({
+  onComplete,
+  onSkip,
+  step,
+}: {
+  onComplete: (me: Me) => void;
+  /** Activation d'un agent : la double authentification peut être configurée plus tard. */
+  onSkip?: () => void;
+  /** Étape affichée au-dessus du titre pendant l'activation d'un compte. */
+  step?: string;
+}) {
   const [setup, setSetup] = useState<{ secret: string; provisioning_uri: string } | null>(null);
   const [code, setCode] = useState("");
   const [recovery, setRecovery] = useState<string[] | null>(null);
@@ -37,6 +47,7 @@ export function MFAEnrollment({ onComplete }: { onComplete: (me: Me) => void }) 
   return (
     <main className="login-page">
       <section className="card login">
+        {step && <p className="onb-small">{step}</p>}
         <h1>{tr("mfa.title")}</h1>
         <p>{tr("mfa.intro")}</p>
         {!setup && !recovery && <button type="button" className="btn-primary btn-block" onClick={() => void begin()} disabled={busy}>
@@ -62,6 +73,9 @@ export function MFAEnrollment({ onComplete }: { onComplete: (me: Me) => void }) 
           <button type="button" className="btn-primary btn-block" onClick={() => void api.me().then(onComplete)}>{tr("mfa.saved")}</button>
         </>}
         {error && <p className="error" role="alert">{error}</p>}
+        {onSkip && !recovery && (
+          <button type="button" className="btn-secondary btn-block" onClick={onSkip}>{tr("onb.later")}</button>
+        )}
       </section>
     </main>
   );

@@ -1,5 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { api, type CaseDetail, type CaseSummary, type Me, type Membership, type OrgAuditEvent } from "./api";
+import {
+  api,
+  type CaseDetail,
+  type CaseSummary,
+  type Me,
+  type Membership,
+  type OrganizationOverview,
+  type OrgAuditEvent,
+} from "./api";
 import portHero from "./assets/port-hero.png";
 import { controlItems } from "./Controls";
 import { Icon, type IconName } from "./Icon";
@@ -132,6 +140,8 @@ export function Dashboard({ membership, me }: { membership: Membership; me: Pick
         </div>
       </section>
 
+      {membership.roles.includes("org_admin") && !membership.organization.is_demo && <SetupChecklist />}
+
       <div className="kpis">
         <Kpi icon="folder" tone="green" label={tr("dash.casesToday")} value={count((c) => new Date(c.created_at).toDateString() === day(0))}
           delta={trend(createdOn(0), createdOn(1))} note={tr("dash.vsYesterday")} />
@@ -156,7 +166,12 @@ export function Dashboard({ membership, me }: { membership: Membership; me: Pick
           {cases === null ? (
             <p className="muted">{tr("loading")}</p>
           ) : all.length === 0 ? (
-            <p className="empty">{tr("dash.noCaseYet")}</p>
+            <div className="empty onb-empty">
+              <p>{tr("dash.noCaseYet")}</p>
+              <button type="button" className="btn-primary" onClick={() => navigate("/nouveau")}>
+                <Icon name="plus" size={18} /> {tr("onb.firstCase")}
+              </button>
+            </div>
           ) : (
             <table className="data dash-table">
               <thead>
@@ -283,5 +298,47 @@ export function Dashboard({ membership, me }: { membership: Membership; me: Pick
       </div>
       <p className="visually-hidden">{tr("dash.signedInAs", { name: me.full_name || me.email })}</p>
     </div>
+  );
+}
+
+type TodoState = "done" | "next";
+
+function Todo({ state, title, text, action, onClick }: { state: TodoState; title: string; text: string; action?: string; onClick?: () => void }) {
+  return (
+    <li className={`onb-todo onb-todo-${state}`}>
+      <span className="onb-todo-dot">{state === "done" && <Icon name="check" size={16} />}</span>
+      <div>
+        <strong>{title}</strong>
+        <span>{text}</span>
+      </div>
+      {action && state !== "done" && (
+        <button type="button" className="btn-primary btn-small-pad" onClick={onClick}>{action}</button>
+      )}
+    </li>
+  );
+}
+
+/** Mise en route de la société, affichée à l'administrateur tant que l'équipe n'est pas en place. */
+function SetupChecklist() {
+  const [overview, setOverview] = useState<OrganizationOverview | null>(null);
+  useEffect(() => {
+    api.organizationOverview().then(setOverview, () => setOverview(null));
+  }, []);
+  if (!overview) return null;
+  const agencies = overview.agencies > 0;
+  const team = overview.members > 1 || overview.pending_invitations > 0;
+  if (agencies && team) return null;
+  return (
+    <section className="card onb-setup" aria-labelledby="setup-title">
+      <h2 id="setup-title" className="card-title">{tr("onb.setupChecklist")}</h2>
+      <ol className="onb-todos">
+        <Todo state="done" title={tr("onb.todoAccount")} text={tr("onb.todoAccountText")} />
+        <Todo state="done" title={tr("onb.todoCompany")} text={tr("onb.todoCompanyText", { name: overview.name })} />
+        <Todo state={agencies ? "done" : "next"} title={tr("adm.agencies")} text={tr("onb.todoAgencies")}
+              action={tr("onb.addAgency")} onClick={() => navigate("/administration?onglet=agencies")} />
+        <Todo state={team ? "done" : "next"} title={tr("onb.todoTeam")} text={tr("onb.todoTeamText")}
+              action={tr("onb.invite")} onClick={() => navigate("/administration?onglet=users")} />
+      </ol>
+    </section>
   );
 }

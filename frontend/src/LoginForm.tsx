@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { api, ApiError, type Me } from "./api";
 import { Logo } from "./Icon";
-import { LanguageSelector, useI18n } from "./i18n";
+import { LanguageSelector, tr, useI18n } from "./i18n";
+import { navigate } from "./router";
 
 export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
   const { t } = useI18n();
@@ -71,6 +72,12 @@ export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
         <button type="submit" className="btn-primary btn-block" disabled={busy}>
           {busy ? t("signingIn") : secondFactor ? t("mfa.validate") : t("login")}
         </button>
+        {!secondFactor && (
+          <p className="onb-small onb-sep">
+            {tr("onb.noSpace")}{" "}
+            <a href="#/demande" onClick={(e) => { e.preventDefault(); navigate("/demande"); }}>{tr("onb.requestLink")}</a>
+          </p>
+        )}
       </form>
     </main>
   );

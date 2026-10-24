@@ -275,7 +275,13 @@ def _organization_rows():
     pending = services.pending_invitations
     rows = []
     for org in organizations:
-        admin_invites = pending(org).filter(roles__contains=[Role.ORG_ADMIN])
+        # Dernière invitation d'administrateur non utilisée, même expirée : l'exploitant peut la renouveler.
+        admin_invite = (
+            Invitation.objects.for_organization(org)
+            .filter(roles__contains=[Role.ORG_ADMIN], accepted_at__isnull=True, revoked_at__isnull=True)
+            .order_by("-created_at")
+            .first()
+        )
         profile = getattr(org, "business_profile", None)
         rows.append(
             {
@@ -289,7 +295,7 @@ def _organization_rows():
                 "max_users": org.max_users,
                 "members": org.members,
                 "pending_invitations": pending(org).count(),
-                "admin_invitation": InvitationSerializer(admin_invites.first()).data if admin_invites else None,
+                "admin_invitation": InvitationSerializer(admin_invite).data if admin_invite else None,
                 "created_at": org.created_at,
             }
         )

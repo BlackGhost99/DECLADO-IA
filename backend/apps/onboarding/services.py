@@ -68,8 +68,13 @@ def create_operator(*, full_name: str, email: str, password: str) -> User:
         # Une fois le serveur mis en service, cet écran ne crée plus rien.
         raise ApiError("SETUP_DONE", "ClairTransit est déjà mis en service.", 409)
     _check_password(password, User(email=email, full_name=full_name))
+    # L'exploitant publie aussi le référentiel commun (tarif, taxes) : il en est le gestionnaire.
     user = User.objects.create_user(
-        email=email, password=password, full_name=full_name.strip(), is_platform_operator=True
+        email=email,
+        password=password,
+        full_name=full_name.strip(),
+        is_platform_operator=True,
+        is_reference_manager=True,
     )
     record_event(organization=None, actor=user, event_type="platform.setup", entity=user)
     return user

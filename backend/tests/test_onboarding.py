@@ -66,6 +66,7 @@ def test_first_launch_creates_single_operator_who_must_enable_mfa(db):
     assert created.status_code == 201, created.content
     me = created.json()
     assert me["is_platform_operator"] is True
+    assert me["is_reference_manager"] is True
     assert me["memberships"] == []
     assert me["mfa_required_for_access"] is True
     # Sans double authentification, la console reste fermée même en mode local (MFA_ENFORCE désactivé).
@@ -243,6 +244,16 @@ def test_admin_invites_agent_who_sets_own_password(world, session):
     assert membership.roles == [Role.DECLARANT] and membership.agency.code == "LBV"
     assert agent.get("/api/v1/importers").status_code == 200
     assert AuditEvent.objects.filter(event_type="invitation.accepted", organization=world["org_a"]).exists()
+    reused = Session().post("/api/v1/auth/invitations/lookup", {"token": sent.json()["token"]})
+    assert reused.status_code == 404 and reused.json()["code"] == "INVITATION_INVALID"
+
+
+def test_invitation_of_a_suspended_company_is_refused(world, session):
+    token = _invite(session("admin@a.test")).json()["token"]
+    Organization.objects.filter(pk=world["org_a"].pk).update(active=False)
+    refused = Session().post("/api/v1/auth/invitations/accept", {"token": token, "password": STRONG})
+    assert refused.status_code == 404 and refused.json()["code"] == "INVITATION_INVALID"
+    assert not User.objects.filter(email="nouveau@a.test").exists()
 
 
 def test_existing_account_joins_with_its_own_password(world, session):
