@@ -18,7 +18,6 @@ from .taxonomy import FAMILIES, TYPES
 # Seuls ces usages existants identifient un type sans ambiguïté.
 # "transport" ne prouve PAS qu'il s'agit d'un B/L ou d'une LTA.
 KNOWN_USAGE_TYPES = {
-    "invoice": "commercial_invoice",
     "packing_list": "packing_list",
     "origin": "certificate_of_origin",
 }
