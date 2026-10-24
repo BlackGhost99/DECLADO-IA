@@ -13,14 +13,16 @@ PDF = "application/pdf"
 PNG = "image/png"
 JPEG = "image/jpeg"
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+TIFF = "image/tiff"
 
 ACCEPTED = {
     PDF: (".pdf",),
     PNG: (".png",),
     JPEG: (".jpg", ".jpeg"),
     XLSX: (".xlsx",),
+    TIFF: (".tif", ".tiff"),
 }
-LABELS = {PDF: "PDF", PNG: "PNG", JPEG: "JPEG", XLSX: "Excel (.xlsx)"}
+LABELS = {PDF: "PDF", PNG: "PNG", JPEG: "JPEG", XLSX: "Excel (.xlsx)", TIFF: "TIFF"}
 # Plafond de décompression pour inspecter un .xlsx sans risque d'archive piégée.
 XLSX_MAX_UNCOMPRESSED = 300 * 1024 * 1024
 
@@ -65,14 +67,20 @@ def _detect(head: bytes) -> str | None:
     return None
 
 
-def sniff(path: Path, *, name: str, declared_mime: str = "") -> Sniffed:
+def sniff(path: Path, *, name: str, declared_mime: str = "", allow_tiff: bool = False) -> Sniffed:
     ext = Path(name).suffix.lower()
     expected = next((m for m, exts in ACCEPTED.items() if ext in exts), None)
+    if expected == TIFF and not allow_tiff:
+        raise Rejected(
+            "UNSUPPORTED_TYPE",
+            "Les fichiers TIFF se déposent dans un lot numérisé (« Lot du scanner »).",
+            {"accepted": sorted(e for m, exts in ACCEPTED.items() if m != TIFF for e in exts)},
+        )
     if expected is None:
         raise Rejected(
             "UNSUPPORTED_TYPE",
             f"Format « {ext or 'sans extension'} » non accepté. Formats acceptés : PDF, PNG, JPEG, XLSX.",
-            {"accepted": sorted(e for exts in ACCEPTED.values() for e in exts)},
+            {"accepted": sorted(e for m, exts in ACCEPTED.items() if m != TIFF or allow_tiff for e in exts)},
         )
     with path.open("rb") as fh:
         head = fh.read(16)
