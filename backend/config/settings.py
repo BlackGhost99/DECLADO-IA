@@ -153,7 +153,7 @@ DOCUMENT_LINK_TTL_SECONDS = env.int("DOCUMENT_LINK_TTL_SECONDS", default=300)
 
 # Extraction des factures (lot 3). Limite de pages proposée par le cahier des charges, révisable après mesure.
 EXTRACTION_MAX_PAGES = env.int("EXTRACTION_MAX_PAGES", default=500)
-OCR_LANGUAGES = env("OCR_LANGUAGES", default="fra+eng")
+OCR_LANGUAGES = env("OCR_LANGUAGES", default="fra+eng+spa+ara")
 OCR_PAGE_TIMEOUT_SECONDS = env.int("OCR_PAGE_TIMEOUT_SECONDS", default=120)
 # Aucun fournisseur d'IA n'est raccordé : « disabled » tant que fournisseur, contrat et corpus ne sont pas fixés.
 AI_PROVIDER = env("AI_PROVIDER", default="disabled")
