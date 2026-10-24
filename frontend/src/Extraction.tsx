@@ -15,6 +15,7 @@ import {
   type TotalsCheck,
 } from "./api";
 import { errorText } from "./ui";
+import { useI18n } from "./i18n";
 
 type Act = (a: () => Promise<unknown>) => Promise<void>;
 
@@ -104,6 +105,7 @@ export function ExtractionControls({
   editable: boolean;
   onDone: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const run = link.latest_extraction ?? null;
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -145,10 +147,10 @@ export function ExtractionControls({
       {job?.state === "failed" && <div className="error">{job.error_message}</div>}
       {canExtract && !busy && (
         <div className="row">
-          {!run && !isImage && <button type="button" onClick={() => void start({})}>Extraire</button>}
-          {!run && <button type="button" onClick={() => void start({ ocr: true })}>Extraire avec OCR</button>}
-          {run && <button type="button" onClick={() => void start({ retry: true, ocr: Boolean(run.options.ocr) })}>Relancer</button>}
-          {run && !run.options.ocr && <button type="button" onClick={() => void start({ retry: true, ocr: true })}>Relancer avec OCR</button>}
+          {!run && !isImage && <button type="button" onClick={() => void start({})}>{t("extract")}</button>}
+          {!run && <button type="button" onClick={() => void start({ ocr: true })}>{t("extractOCR")}</button>}
+          {run && <button type="button" onClick={() => void start({ retry: true, ocr: Boolean(run.options.ocr) })}>{t("retry")}</button>}
+          {run && !run.options.ocr && <button type="button" onClick={() => void start({ retry: true, ocr: true })}>{t("retryOCR")}</button>}
         </div>
       )}
       {run && (
@@ -168,13 +170,14 @@ function show(value: unknown): string {
 }
 
 export function RunDetail({ runId }: { runId: string }) {
+  const { t } = useI18n();
   const [run, setRun] = useState<ExtractionDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    api.extractionRun(runId).then(setRun, (err) => setError(errorText(err, "Lecture introuvable.")));
+    api.extractionRun(runId).then(setRun, (err) => setError(errorText(err, t("loadMissing"))));
   }, [runId]);
   if (error) return <p className="error">{error}</p>;
-  if (!run) return <p className="muted">Chargement…</p>;
+  if (!run) return <p className="muted">{t("loading")}</p>;
   const report = Object.entries(run.merge_report ?? {}).filter(([, v]) => v);
   return (
     <div className="evidence" aria-label={`Lecture ${run.attempt}`}>
@@ -207,7 +210,7 @@ export function RunDetail({ runId }: { runId: string }) {
           {run.comparison.rows.length > 0 && (
             <table>
               <thead>
-                <tr><th scope="col">Élément</th><th scope="col">Champ</th><th scope="col">Avant</th><th scope="col">Maintenant</th></tr>
+                <tr><th scope="col">{t("element")}</th><th scope="col">{t("field")}</th><th scope="col">{t("before")}</th><th scope="col">{t("now")}</th></tr>
               </thead>
               <tbody>
                 {run.comparison.rows.map((r) => (
@@ -247,10 +250,11 @@ const TOTALS_STATUS: Record<TotalsCheck["status"], string> = {
 };
 
 export function TotalsPanel({ totals, currency }: { totals?: TotalsCheck; currency: string }) {
+  const { t } = useI18n();
   if (!totals || totals.goods_lines === 0) return null;
   const c = totals.components;
   return (
-    <div className={totals.status === "match" ? "evidence small" : "warning small"} aria-label="Contrôle des totaux">
+    <div className={totals.status === "match" ? "evidence small" : "warning small"} aria-label={t("totalsCheck")}>
       <p><strong>{TOTALS_STATUS[totals.status]}</strong></p>
       <p>
         Marchandises {show(c.goods)} + frais {show(c.fees)} − remises {show(c.discounts)} + taxes {show(c.taxes)} ={" "}
@@ -272,11 +276,12 @@ export function TotalsPanel({ totals, currency }: { totals?: TotalsCheck; curren
 }
 
 export function Divergences({ invoice, editable, act }: { invoice: Invoice; editable: boolean; act: Act }) {
+  const { t } = useI18n();
   const open = (invoice.divergences ?? []).filter((d) => d.state === "open");
   const closed = (invoice.divergences ?? []).filter((d) => d.state !== "open");
   if (open.length === 0 && closed.length === 0) return null;
   return (
-    <div className="warning small" aria-label="Divergences avec la relecture">
+    <div className="warning small" aria-label={t("divergences")}>
       {open.length > 0 && (
         <>
           <p>
@@ -313,12 +318,13 @@ function where(d: Divergence) {
 }
 
 function DivergenceItem({ divergence: d, editable, act }: { divergence: Divergence; editable: boolean; act: Act }) {
+  const { t } = useI18n();
   const [reason, setReason] = useState("");
   return (
     <li>
       {where(d)} :{" "}
       {d.kind === "line_not_reread" ? (
-        "absente de la nouvelle lecture ; la ligne est conservée."
+        t("notReread")
       ) : (
         <>
           valeur actuelle <strong>{show(d.current_value)}</strong>, relecture <strong>{show(d.extracted_value)}</strong>
@@ -327,7 +333,7 @@ function DivergenceItem({ divergence: d, editable, act }: { divergence: Divergen
       )}
       {editable && (
         <span className="row">
-          <input aria-label="Motif" placeholder="Motif (facultatif)" value={reason} onChange={(e) => setReason(e.target.value)} size={24} />
+          <input aria-label={t("correctionReason")} placeholder={t("reasonOptional")} value={reason} onChange={(e) => setReason(e.target.value)} size={24} />
           <button type="button" onClick={() => void act(() => api.resolveDivergence(d.id, "keep", reason))}>
             Garder la valeur actuelle
           </button>
@@ -356,6 +362,7 @@ export function LineEditor({
   toDecimal: (v: string) => string | null;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState<Record<string, string>>(
     Object.fromEntries(EDITABLE_FIELDS.map((f) => [f, String(line[f] ?? "")])),
   );
@@ -387,8 +394,8 @@ export function LineEditor({
         Motif de la correction
         <input value={reason} onChange={(e) => setReason(e.target.value)} size={28} placeholder="ex. bon de livraison" />
       </label>
-      <button type="submit">Enregistrer la correction</button>
-      <button type="button" onClick={onClose}>Annuler</button>
+      <button type="submit">{t("saveCorrection")}</button>
+      <button type="button" onClick={onClose}>{t("cancel")}</button>
     </form>
   );
 }
