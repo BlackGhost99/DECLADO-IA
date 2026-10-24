@@ -133,6 +133,8 @@ CACHES = {
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30
+    SECURE_SSL_REDIRECT = True
+    SECURE_REFERRER_POLICY = "same-origin"
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
 REST_FRAMEWORK = {
@@ -145,6 +147,11 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
     "COERCE_DECIMAL_TO_STRING": True,
     "UNAUTHENTICATED_USER": "django.contrib.auth.models.AnonymousUser",
+    "DEFAULT_THROTTLE_CLASSES": [] if DEBUG else [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {"anon": "100/minute", "user": "600/minute"},
 }
 
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
