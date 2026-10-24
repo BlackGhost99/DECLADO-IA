@@ -1,4 +1,5 @@
 """Graph mutations: enforce tenant, revision, and immutable review history."""
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -48,17 +49,33 @@ def add_relation(*, org, actor, revision_id, source_id, target_id, kind, rationa
         raise ApiError("INVALID_RELATION", "Relation invalide.", 400)
     source = _document(org, rev, source_id)
     target = _document(org, rev, target_id)
-    if DocumentRelation.objects.for_organization(org).filter(
-        revision=rev, source=source, target=target, kind=kind
-    ).exists():
+    if (
+        DocumentRelation.objects.for_organization(org)
+        .filter(revision=rev, source=source, target=target, kind=kind)
+        .exists()
+    ):
         raise ApiError("RELATION_EXISTS", "Relation déjà enregistrée.", 409)
     relation = DocumentRelation.objects.create(
-        organization=org, revision=rev, source=source, target=target,
-        kind=kind, provenance="manual", rationale=rationale[:500], created_by=actor,
-        status=DocumentRelation.Status.CONFIRMED, reviewed_by=actor, reviewed_at=timezone.now(),
+        organization=org,
+        revision=rev,
+        source=source,
+        target=target,
+        kind=kind,
+        provenance="manual",
+        rationale=rationale[:500],
+        created_by=actor,
+        status=DocumentRelation.Status.CONFIRMED,
+        reviewed_by=actor,
+        reviewed_at=timezone.now(),
     )
-    record_event(organization=org, actor=actor, event_type="document_graph.relation_created",
-                 entity=relation, current=as_dict(relation), scope=rev.case.scope)
+    record_event(
+        organization=org,
+        actor=actor,
+        event_type="document_graph.relation_created",
+        entity=relation,
+        current=as_dict(relation),
+        scope=rev.case.scope,
+    )
     return relation
 
 
@@ -95,6 +112,7 @@ def review_relation(*, org, actor, relation_id, status):
     )
     return relation
 
+
 @transaction.atomic
 def suggest_relations(*, org, actor, revision_id):
     """Create human-reviewable suggestions from extracted field observations only."""
@@ -124,13 +142,17 @@ def suggest_relations(*, org, actor, revision_id):
     for suggestion in candidates:
         source = suggestion["source_id"]
         target = suggestion["target_id"]
-        if DocumentRelation.objects.for_organization(org).filter(
-            revision=rev, source_id=source, target_id=target
-        ).exists():
+        if (
+            DocumentRelation.objects.for_organization(org)
+            .filter(revision=rev, source_id=source, target_id=target)
+            .exists()
+        ):
             continue
         relation = DocumentRelation.objects.create(
-            organization=org, revision=rev,
-            source_id=source, target_id=target,
+            organization=org,
+            revision=rev,
+            source_id=source,
+            target_id=target,
             kind="same_shipment",
             provenance="suggested",
             status=DocumentRelation.Status.PROPOSED,
