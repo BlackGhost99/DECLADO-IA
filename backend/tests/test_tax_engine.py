@@ -1,4 +1,5 @@
 from decimal import Decimal
+
 import pytest
 
 from apps.cases.tax_engine import TaxInputError, TaxRule, calculate
