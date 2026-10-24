@@ -3,12 +3,11 @@ from django.urls import path
 from apps.accounts import api as accounts
 from apps.audit import api as audit
 from apps.cases import api as cases
+from apps.cases import workflow_api
 from apps.clients import api as clients
 from apps.extraction import api as extraction
 from apps.organizations import api as organizations
-from apps.organizations import business_api
-from apps.organizations import validation_api
-from apps.cases import workflow_api
+from apps.organizations import business_api, validation_api
 from apps.tariffs import api as tariffs
 
 from .api import HealthView
