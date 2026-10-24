@@ -1,4 +1,5 @@
 """Security and conservative classification contract for documentary V1."""
+
 from uuid import UUID
 
 import pytest
@@ -37,10 +38,7 @@ def test_unknown_is_never_accepted_as_proof():
 
 def test_api_routes():
     revision_id = UUID("00000000-0000-0000-0000-000000000001")
-    assert (
-        resolve(f"/api/v1/revisions/{revision_id}/document-checklist").func.view_class
-        is CaseDocumentChecklistView
-    )
+    assert resolve(f"/api/v1/revisions/{revision_id}/document-checklist").func.view_class is CaseDocumentChecklistView
     assert resolve("/api/v1/document-types").func.view_class is DocumentTypeListView
     assert resolve("/api/v1/organization/document-policies").func.view_class is OrganizationDocumentPolicyView
 
