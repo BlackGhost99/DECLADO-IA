@@ -22,8 +22,9 @@ class Organization(TimestampedModel):
     name = models.CharField(max_length=200)
     timezone = models.CharField(max_length=64, default="Africa/Libreville")
     default_locale = models.CharField(
-        max_length=2, default="fr",
-        choices=[("fr", "Français"), ("en", "English"), ("es", "Español"), ("ar", "العربية")]
+        max_length=2,
+        default="fr",
+        choices=[("fr", "Français"), ("en", "English"), ("es", "Español"), ("ar", "العربية")],
     )
     validation_policy = models.JSONField(default=default_validation_policy)
     active = models.BooleanField(default=True)
