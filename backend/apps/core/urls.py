@@ -27,6 +27,8 @@ urlpatterns = [
     path("importers", clients.ImporterListView.as_view()),
     path("importers/<uuid:pk>", clients.ImporterDetailView.as_view()),
     path("audit-events", audit.AuditEventListView.as_view()),
+    path("revisions/<uuid:revision_id>/document-graph", document_graph.GraphView.as_view()),
+    path("document-relations/<uuid:relation_id>/review", document_graph.ReviewView.as_view()),
     path("cases", cases.CaseListView.as_view()),
     path("cases/<uuid:case_id>", cases.CaseDetailView.as_view()),
     path("cases/<uuid:case_id>/assign", cases.CaseAssignView.as_view()),
