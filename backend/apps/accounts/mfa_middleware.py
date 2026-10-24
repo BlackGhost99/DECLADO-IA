@@ -31,4 +31,8 @@ class MFAEnforcementMiddleware:
                     },
                     status=403,
                 )
-        return self.get_response(request)
+        response = self.get_response(request)
+        if path.startswith("/api/v1/auth/") or path == "/api/v1/me":
+            response["Cache-Control"] = "no-store"
+            response["Referrer-Policy"] = "no-referrer"
+        return response
