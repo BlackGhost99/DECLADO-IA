@@ -29,3 +29,13 @@ ruff format --check .
 2. Évaluer OCR multilingue sur factures anonymisées et tests de non-régression.
 3. Publier les métadonnées via l'API documentaire et les afficher dans l'interface.
 4. Conserver toute traduction en couche distincte du référentiel officiel.
+
+## Étape 5 — granularité et interface
+
+- Les résultats `language_detection.pages` regroupent la langue par page (ou feuille Excel).
+- Les résultats `language_detection.zones` conservent les lignes ayant assez d'indices; les langues inconnues ne sont pas forcées.
+- L'API documentaire et la table des pièces du dossier exposent les informations de langue, sans montrer le texte OCR brut.
+- L'OCR accepte un paramètre interne `locale_hint` pour prioriser un pack **déjà installé**. Ce paramètre n'est pas encore calculé automatiquement avant OCR : les pages scannées requièrent une validation future sur corpus réel.
+- Les pages et zones ne constituent pas une preuve juridique; les textes tarifaires officiels restent inchangés.
+
+Avant fusion: exécuter les tests de non-régression, le contrôle des migrations, TypeScript et les scénarios PDF/Excel/OCR multilingues en environnement complet.
