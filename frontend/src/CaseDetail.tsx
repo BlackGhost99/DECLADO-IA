@@ -14,6 +14,7 @@ import {
   type Revision,
 } from "./api";
 import { Divergences, ExtractionControls, Flags, LineEditor, OriginBadge, TotalsPanel } from "./Extraction";
+import { DocumentChecklist } from "./DocumentChecklist";
 import { ProposalsPanel } from "./Proposals";
 import { errorText, type EditionOption } from "./ui";
 
@@ -118,6 +119,7 @@ export function CaseDetailView({
       </section>
 
       <Completeness revision={rev} />
+      <DocumentChecklist revisionId={rev.id} />
       <Documents caseId={detail.id} revision={rev} editable={editable} onChange={reload} />
       <Invoices revision={rev} editable={editable} act={act} />
       <GoodsLines revision={rev} editions={editions} editable={editable} act={act} />
