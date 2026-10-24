@@ -309,7 +309,7 @@ export function Divergences({ invoice, editable, act }: { invoice: Invoice; edit
           <ul>
             {closed.map((d) => (
               <li key={d.id}>
-                {where(d)} : {d.state_label} par {d.resolved_by}
+                {where(d, t)} : {d.state_label} par {d.resolved_by}
                 {d.resolution_reason && ` (motif : ${d.resolution_reason})`}
               </li>
             ))}
@@ -320,7 +320,7 @@ export function Divergences({ invoice, editable, act }: { invoice: Invoice; edit
   );
 }
 
-function where(d: Divergence) {
+function where(d: Divergence, t: ReturnType<typeof useI18n>["t"]) {
   const field = FIELD_KEYS[d.field] ? t(FIELD_KEYS[d.field]) : d.field;
   return d.line_ordinal ? `Ligne ${d.line_ordinal}${d.field ? `, ${field}` : ""}` : `Facture, ${field}`;
 }
@@ -330,7 +330,7 @@ function DivergenceItem({ divergence: d, editable, act }: { divergence: Divergen
   const [reason, setReason] = useState("");
   return (
     <li>
-      {where(d)} :{" "}
+      {where(d, t)} :{" "}
       {d.kind === "line_not_reread" ? (
         t("notReread")
       ) : (
