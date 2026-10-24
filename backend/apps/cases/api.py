@@ -15,6 +15,7 @@ from apps.documents import services as documents
 from apps.documents.models import Document
 from apps.documents.sniff import JPEG, PDF, PNG, XLSX
 from apps.documents.storage import get_storage
+from apps.regulations.taxonomy import require_type
 from apps.extraction import services as extraction
 from apps.extraction.codes import FINDING_MESSAGES
 from apps.extraction.models import FieldObservation
@@ -73,6 +74,7 @@ def case_document_payload(link: CaseDocument) -> dict:
         "id": str(link.id),
         "usage": link.usage,
         "usage_label": link.get_usage_display(),
+        "document_type_code": link.document_type_code,
         "added_by": user_brief(link.added_by),
         "created_at": link.created_at,
         "replaced_by_id": str(link.replaced_by_id) if link.replaced_by_id else None,
@@ -549,6 +551,21 @@ def _usage(request):
     return usage
 
 
+def _type_and_usage(request):
+    code = (request.data.get("document_type_code") or "").strip()
+    if not code:
+        return _usage(request), ""
+    spec = require_type(code)
+    supplied_usage = request.data.get("usage")
+    if supplied_usage and supplied_usage != spec.usage:
+        raise ApiError(
+            "DOCUMENT_TYPE_USAGE_MISMATCH",
+            "Ce type de pièce ne correspond pas à l'usage choisi.",
+            422,
+        )
+    return spec.usage, code
+
+
 class CaseDocumentsView(APIView):
     """POST multipart : file, usage, duplicate_action (keep_both). En-tête Idempotency-Key facultatif."""
 
@@ -563,12 +580,14 @@ class CaseDocumentsView(APIView):
     def post(self, request, case_id):
         case = get_case(request, case_id)
         upload = _upload_from(request)
+        usage, type_code = _type_and_usage(request)
         link, created = services.attach_upload(
             org=request.organization,
             actor=request.user,
             revision=case.current_revision,
             upload=upload,
-            usage=_usage(request),
+            usage=usage,
+            document_type_code=type_code,
             declared_mime=getattr(upload, "content_type", "") or "",
             duplicate_action=request.data.get("duplicate_action", ""),
             idempotency_key=(request.headers.get("Idempotency-Key") or "")[:100],
@@ -582,14 +601,31 @@ class CaseDocumentReuseView(APIView):
 
     def post(self, request, case_id):
         case = get_case(request, case_id)
+        usage, type_code = _type_and_usage(request)
         link = services.reuse_document(
             org=request.organization,
             actor=request.user,
             revision=case.current_revision,
             document_id=request.data.get("document_id"),
-            usage=_usage(request),
+            usage=usage,
+            document_type_code=type_code,
         )
         return Response(case_document_payload(link), status=201)
+
+
+class CaseDocumentClassifyView(APIView):
+    """Explicit human classification; never automatically validate a legal requirement."""
+
+    permission_classes = [CanEdit]
+
+    def patch(self, request, link_id):
+        code = (request.data.get("document_type_code") or "").strip()
+        if not code:
+            raise ApiError("DOCUMENT_TYPE_REQUIRED", "Précisez le type documentaire.", 422)
+        link = services.classify_case_document(
+            org=request.organization, actor=request.user, link_id=link_id, document_type_code=code
+        )
+        return Response(case_document_payload(link))
 
 
 class CaseDocumentReplaceView(APIView):
