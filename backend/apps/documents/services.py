@@ -1,6 +1,7 @@
 """Dépôt, contrôle, accès temporaire et aperçu des pièces."""
 
 import io
+import logging
 from datetime import datetime, timedelta
 from urllib.parse import quote
 
@@ -11,11 +12,13 @@ from django.utils import timezone
 from apps.audit.services import record_event
 from apps.core.exceptions import ApiError
 
+from . import antivirus, quarantine
 from .models import Document
 from .sniff import XLSX, Readability, Rejected, sniff
 from .storage import get_storage
 
 ACCESS_SALT = "clairtransit.document-access"
+logger = logging.getLogger(__name__)
 
 
 def max_bytes() -> int:
@@ -37,9 +40,10 @@ def find_duplicates(organization, sha256: str, *, exclude_id=None):
 
 
 def store_upload(
-    *, organization, actor, upload, declared_mime: str = "", supersedes: Document | None = None
+    *, organization, actor, upload, declared_mime: str = "", supersedes: Document | None = None,
+    allow_tiff: bool = False
 ) -> Document:
-    """Stocke l'original puis contrôle son contenu ; un refus n'enregistre rien (DOC-01, DOC-05)."""
+    """Stage -> ClamAV -> inspect -> promote; external bytes never bypass the scanner."""
     if upload.size is not None and upload.size > max_bytes():
         raise ApiError(
             "FILE_TOO_LARGE",
@@ -47,45 +51,64 @@ def store_upload(
             413,
             {"bytes": upload.size, "max_bytes": max_bytes()},
         )
-    storage = get_storage()
-    stored = storage.put(upload, prefix=str(organization.id))
+    staged = quarantine.stage(upload, max_bytes())
+    stored = None
     try:
-        if stored.size > max_bytes():
-            raise Rejected("FILE_TOO_LARGE", "Fichier trop volumineux.", {"max_bytes": max_bytes()})
-        result = sniff(storage.path_for_reading(stored.key), name=upload.name, declared_mime=declared_mime)
-    except Rejected as exc:
-        storage.discard(stored.key)
-        status = 413 if exc.code == "FILE_TOO_LARGE" else 422
-        raise ApiError(exc.code, exc.message, status, exc.details) from None
-    document = Document.objects.create(
-        organization=organization,
-        object_key=stored.key,
-        original_name=upload.name[:255],
-        mime=result.mime,
-        declared_mime=(declared_mime or "")[:120],
-        bytes=stored.size,
-        sha256=stored.sha256,
-        version=supersedes.version + 1 if supersedes else 1,
-        supersedes=supersedes,
-        readability=result.readability,
-        inspection_notes=result.notes,
-        uploaded_by=actor,
-    )
-    record_event(
-        organization=organization,
-        actor=actor,
-        event_type="document.stored",
-        entity=document,
-        current={
-            "sha256": document.sha256,
-            "bytes": document.bytes,
-            "mime": document.mime,
-            "version": document.version,
-            "readability": document.readability,
-            "supersedes": str(supersedes.id) if supersedes else None,
-        },
-    )
-    return document
+        try:
+            antivirus.scan_file(staged.path)
+        except antivirus.MalwareDetected:
+            logger.warning("Document malveillant refusé organisation=%s sha256=%s", organization.id, staged.sha256)
+            raise ApiError("MALWARE_DETECTED", "Fichier refusé par l'analyse antivirus.", 422) from None
+        except antivirus.ScanUnavailable:
+            logger.error("Scanner ClamAV indisponible organisation=%s sha256=%s", organization.id, staged.sha256)
+            raise ApiError("MALWARE_SCAN_UNAVAILABLE", "Contrôle antivirus indisponible. Réessayer plus tard.", 503) from None
+
+        try:
+            result = sniff(staged.path, name=upload.name, declared_mime=declared_mime, allow_tiff=allow_tiff)
+        except Rejected as exc:
+            status = 413 if exc.code == "FILE_TOO_LARGE" else 422
+            raise ApiError(exc.code, exc.message, status, exc.details) from None
+
+        storage = get_storage()
+        stored = storage.promote_quarantined(
+            staged.path, prefix=str(organization.id), sha256=staged.sha256, size=staged.size
+        )
+        try:
+            document = Document.objects.create(
+                organization=organization,
+                object_key=stored.key,
+                original_name=upload.name[:255],
+                mime=result.mime,
+                declared_mime=(declared_mime or "")[:120],
+                bytes=stored.size,
+                sha256=stored.sha256,
+                version=supersedes.version + 1 if supersedes else 1,
+                supersedes=supersedes,
+                readability=result.readability,
+                inspection_notes=result.notes,
+                uploaded_by=actor,
+            )
+            record_event(
+                organization=organization,
+                actor=actor,
+                event_type="document.stored",
+                entity=document,
+                current={
+                    "sha256": document.sha256,
+                    "bytes": document.bytes,
+                    "mime": document.mime,
+                    "version": document.version,
+                    "readability": document.readability,
+                    "supersedes": str(supersedes.id) if supersedes else None,
+                    "antivirus": "clamav_clean",
+                },
+            )
+        except Exception:
+            storage.discard(stored.key)
+            raise
+        return document
+    finally:
+        staged.path.unlink(missing_ok=True)
 
 
 def issue_access(*, document: Document, user, disposition: str) -> dict:
