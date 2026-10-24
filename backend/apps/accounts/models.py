@@ -36,8 +36,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=200, blank=True)
     interface_locale = models.CharField(
-        max_length=2, default="fr",
-        choices=[("fr", "Français"), ("en", "English"), ("es", "Español"), ("ar", "العربية")]
+        max_length=2,
+        default="fr",
+        choices=[("fr", "Français"), ("en", "English"), ("es", "Español"), ("ar", "العربية")],
     )
     is_active = models.BooleanField(default=True)
     # Administration technique de la plateforme : n'ouvre aucun accès métier aux pièces.
