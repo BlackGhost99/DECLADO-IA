@@ -72,18 +72,16 @@ class CaseDocumentChecklistView(APIView):
         rules = DocumentRequirement.objects.filter(published=True, verified=True).select_related(
             "source", "document_type"
         )
-        policies = CompanyDocumentPolicy.objects.filter(
-            organization=request.organization, active=True
-        ).select_related("document_type")
+        policies = CompanyDocumentPolicy.objects.filter(organization=request.organization, active=True).select_related(
+            "document_type"
+        )
         try:
             requirements = evaluate_requirements(context, rules, policies)
         except UnresolvedRegulatoryCondition as exc:
             raise ApiError("REGULATORY_REVIEW_REQUIRED", str(exc), 422) from exc
 
         received_links = list(
-            revision.documents.filter(replaced_by__isnull=True)
-            .select_related("document")
-            .order_by("created_at")
+            revision.documents.filter(replaced_by__isnull=True).select_related("document").order_by("created_at")
         )
         received = {}
         unclassified = []
