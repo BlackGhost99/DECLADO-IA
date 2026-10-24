@@ -124,8 +124,7 @@ def analyze(*, org, actor, revision_id):
         if value := _normalize(invoice.invoice_number):
             invoice_by_number[value].append(invoice)
 
-    counts = {"document_invoices": 0, "shipments": 0, "shipment_documents": 0, "shipment_invoices": 0,
-              "conflicts": 0}
+    counts = {"document_invoices": 0, "shipments": 0, "shipment_documents": 0, "shipment_invoices": 0, "conflicts": 0}
     # Exact invoice references may be shared by packing lists, insurance or freight.
     for (kind, value), docs in index.items():
         if kind != "invoice":
@@ -138,10 +137,18 @@ def analyze(*, org, actor, revision_id):
             if str(invoice.document_id or "") == doc_id:
                 continue
             if _suggest(
-                DocumentInvoiceLink, org, actor, rev,
-                {"revision": rev, "document_id": doc_id, "invoice": invoice,
-                 "kind": DocumentInvoiceLink.Kind.INVOICE_REFERENCE},
-                [evidence], "document_invoice",
+                DocumentInvoiceLink,
+                org,
+                actor,
+                rev,
+                {
+                    "revision": rev,
+                    "document_id": doc_id,
+                    "invoice": invoice,
+                    "kind": DocumentInvoiceLink.Kind.INVOICE_REFERENCE,
+                },
+                [evidence],
+                "document_invoice",
             ):
                 counts["document_invoices"] += 1
 
@@ -150,7 +157,8 @@ def analyze(*, org, actor, revision_id):
         if kind != "transport" or len(docs) < 2:
             continue
         shipment, created = Shipment.objects.get_or_create(
-            revision=rev, reference=value,
+            revision=rev,
+            reference=value,
             defaults={"organization": org, "created_by": actor, "method": ENGINE_VERSION},
         )
         if created:
@@ -158,15 +166,25 @@ def analyze(*, org, actor, revision_id):
             _event(org, actor, shipment, "shipment_suggested", rev, {"reference": value})
         for doc_id, evidence in docs.items():
             if _suggest(
-                ShipmentDocument, org, actor, rev, {"shipment": shipment, "document_id": doc_id},
-                [evidence], "shipment_document",
+                ShipmentDocument,
+                org,
+                actor,
+                rev,
+                {"shipment": shipment, "document_id": doc_id},
+                [evidence],
+                "shipment_document",
             ):
                 counts["shipment_documents"] += 1
         for invoice in invoices:
             if str(invoice.document_id or "") in docs:
                 if _suggest(
-                    ShipmentInvoice, org, actor, rev, {"shipment": shipment, "invoice": invoice},
-                    [{"kind": "transport", "value": value, "method": ENGINE_VERSION}], "shipment_invoice",
+                    ShipmentInvoice,
+                    org,
+                    actor,
+                    rev,
+                    {"shipment": shipment, "invoice": invoice},
+                    [{"kind": "transport", "value": value, "method": ENGINE_VERSION}],
+                    "shipment_invoice",
                 ):
                     counts["shipment_invoices"] += 1
 
@@ -181,13 +199,14 @@ def analyze(*, org, actor, revision_id):
             continue
         key = f"{invoice.id}:invoice_number"
         conflict, created = DocumentConflict.objects.get_or_create(
-            revision=rev, kind="invoice_reference_mismatch", key=key,
+            revision=rev,
+            kind="invoice_reference_mismatch",
+            key=key,
             defaults={
                 "organization": org,
                 "document_id": invoice.document_id,
                 "invoice": invoice,
-                "detail": {"current": expected, "observed": next(iter(observed)),
-                           "method": ENGINE_VERSION},
+                "detail": {"current": expected, "observed": next(iter(observed)), "method": ENGINE_VERSION},
                 "created_by": actor,
             },
         )
@@ -225,7 +244,10 @@ def summary(*, org, revision_id):
         "ai_provider": "disabled",
         "shipments": [
             {
-                "id": str(s.id), "reference": s.reference, "status": s.status, "method": s.method,
+                "id": str(s.id),
+                "reference": s.reference,
+                "status": s.status,
+                "method": s.method,
                 "documents": [_serialize_link(link) for link in sh_docs if link.shipment_id == s.id],
                 "invoices": [_serialize_link(link) for link in sh_invoices if link.shipment_id == s.id],
             }
@@ -233,9 +255,15 @@ def summary(*, org, revision_id):
         ],
         "document_invoices": [_serialize_link(link) for link in ds],
         "conflicts": [
-            {"id": str(c.id), "kind": c.kind, "document_id": str(c.document_id) if c.document_id else None,
-             "invoice_id": str(c.invoice_id) if c.invoice_id else None,
-             "status": c.status, "detail": c.detail, "resolution": c.resolution}
+            {
+                "id": str(c.id),
+                "kind": c.kind,
+                "document_id": str(c.document_id) if c.document_id else None,
+                "invoice_id": str(c.invoice_id) if c.invoice_id else None,
+                "status": c.status,
+                "detail": c.detail,
+                "resolution": c.resolution,
+            }
             for c in conflicts
         ],
         "pending_count": (
@@ -255,13 +283,22 @@ def create_invoice_link(*, org, actor, revision_id, document_id, invoice_id, kin
     invoice = _invoice(org, rev, invoice_id)
     if kind not in DocumentInvoiceLink.Kind.values:
         raise ApiError("INVALID_RELATION", "Type de lien invalide.", 400)
-    if DocumentInvoiceLink.objects.for_organization(org).filter(
-        revision=rev, document=doc, invoice=invoice, kind=kind
-    ).exists():
+    if (
+        DocumentInvoiceLink.objects.for_organization(org)
+        .filter(revision=rev, document=doc, invoice=invoice, kind=kind)
+        .exists()
+    ):
         raise ApiError("RELATION_EXISTS", "Lien déjà enregistré.", 409)
     obj = DocumentInvoiceLink.objects.create(
-        organization=org, revision=rev, document=doc, invoice=invoice, kind=kind,
-        status="confirmed", created_by=actor, reviewed_by=actor, reviewed_at=timezone.now(),
+        organization=org,
+        revision=rev,
+        document=doc,
+        invoice=invoice,
+        kind=kind,
+        status="confirmed",
+        created_by=actor,
+        reviewed_by=actor,
+        reviewed_at=timezone.now(),
         evidence=[{"method": "manual"}],
     )
     _event(org, actor, obj, "invoice_link_created", rev)
@@ -279,8 +316,13 @@ def create_shipment(*, org, actor, revision_id, reference):
     if Shipment.objects.for_organization(org).filter(revision=rev, reference=value).exists():
         raise ApiError("SHIPMENT_EXISTS", "Expédition déjà présente.", 409)
     obj = Shipment.objects.create(
-        organization=org, revision=rev, reference=value, status="confirmed", method="manual",
-        created_by=actor, confirmed_by=actor,
+        organization=org,
+        revision=rev,
+        reference=value,
+        status="confirmed",
+        method="manual",
+        created_by=actor,
+        confirmed_by=actor,
     )
     _event(org, actor, obj, "shipment_created", rev)
     return {"id": str(obj.pk), "reference": obj.reference, "status": obj.status}
@@ -305,9 +347,14 @@ def create_shipment_link(*, org, actor, revision_id, shipment_id, target_id, tar
     if model.objects.for_organization(org).filter(shipment=shipment, **{field: target}).exists():
         raise ApiError("RELATION_EXISTS", "Lien déjà enregistré.", 409)
     obj = model.objects.create(
-        organization=org, shipment=shipment, **{field: target},
-        status="confirmed", evidence=[{"method": "manual"}],
-        created_by=actor, reviewed_by=actor, reviewed_at=timezone.now(),
+        organization=org,
+        shipment=shipment,
+        **{field: target},
+        status="confirmed",
+        evidence=[{"method": "manual"}],
+        created_by=actor,
+        reviewed_by=actor,
+        reviewed_at=timezone.now(),
     )
     _event(org, actor, obj, "shipment_link_created", rev)
     return _serialize_link(obj)
