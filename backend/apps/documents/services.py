@@ -40,8 +40,13 @@ def find_duplicates(organization, sha256: str, *, exclude_id=None):
 
 
 def store_upload(
-    *, organization, actor, upload, declared_mime: str = "", supersedes: Document | None = None,
-    allow_tiff: bool = False
+    *,
+    organization,
+    actor,
+    upload,
+    declared_mime: str = "",
+    supersedes: Document | None = None,
+    allow_tiff: bool = False,
 ) -> Document:
     """Stage -> ClamAV -> inspect -> promote; external bytes never bypass the scanner."""
     if upload.size is not None and upload.size > max_bytes():
