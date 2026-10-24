@@ -67,6 +67,27 @@ jobs:
         run: python manage.py migrate --noinput
       - name: Tests (droits, isolation, journal, extraction)
         run: python -m pytest -rs
+      - name: Installer Restic et pg_restore
+        run: sudo apt-get install -y --no-install-recommends restic postgresql-client
+      - name: Sauvegarde chiffrée et restauration réelle dans une base de test
+        working-directory: .
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: clairtransit
+          PGPASSWORD: clairtransit
+          PGDATABASE: clairtransit
+          PRIVATE_STORAGE_ROOT: /tmp/clairtransit-security-ci-private
+          RESTIC_REPOSITORY: /tmp/clairtransit-security-ci-restic
+          RESTIC_PASSWORD: ci-only-encryption-password-not-for-production
+          BACKUP_ALLOW_LOCAL: "true"
+          BACKUP_DRILL_RESTORE_DATABASE: "true"
+        run: |
+          mkdir -p "$PRIVATE_STORAGE_ROOT/documents"
+          echo "synthetic test file" > "$PRIVATE_STORAGE_ROOT/documents/sample.txt"
+          sh infra/backup/backup.sh
+          sh infra/backup/restore-drill.sh
+
 
   frontend:
     runs-on: ubuntu-latest
