@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from apps.organizations.models import Role
 from apps.organizations.permissions import require_roles
 
-from . import services
+from . import intelligence, services
 from .models import DocumentRelation
 
 Access = require_roles(Role.DECLARANT, Role.VALIDATOR, safe_methods_open=True)
@@ -62,8 +62,6 @@ class SuggestView(APIView):
 
 
 # Intelligence documentaire : lecture isolée, propositions explicables et revue humaine.
-from . import intelligence
-
 
 class DocumentIntelligenceView(APIView):
     permission_classes = [Access]
