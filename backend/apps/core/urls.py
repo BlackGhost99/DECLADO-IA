@@ -7,6 +7,7 @@ from apps.clients import api as clients
 from apps.extraction import api as extraction
 from apps.organizations import api as organizations
 from apps.organizations import business_api
+from apps.organizations import validation_api
 from apps.cases import workflow_api
 from apps.tariffs import api as tariffs
 
@@ -19,6 +20,7 @@ urlpatterns = [
     path("auth/logout", accounts.LogoutView.as_view()),
     path("me", accounts.MeView.as_view()),
     path("me/active-organization", accounts.ActiveOrganizationView.as_view()),
+    path("organization/validation-policy", validation_api.ValidationPolicyView.as_view()),
     path("organization/business-profile", business_api.BusinessProfileView.as_view()),
     path("organization/members", organizations.MemberListView.as_view()),
     path("organization/members/<uuid:member_id>/roles", organizations.MemberRolesView.as_view()),
