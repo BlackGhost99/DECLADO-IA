@@ -12,6 +12,7 @@ def validation_readiness(revision, assessment):
     """
     blocking = list(assessment["blocking"])
     warnings = list(assessment["warnings"])
+
     def issue(field, message):
         blocking.append({
             "scope": "revision",
