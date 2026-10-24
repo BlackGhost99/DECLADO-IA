@@ -27,7 +27,7 @@ class OcrResult:
     warnings: list[dict] = field(default_factory=list)
 
 
-def _languages() -> str:
+def _languages(locale_hint: str = "") -> str:
     import pytesseract
 
     try:
@@ -42,13 +42,18 @@ def _languages() -> str:
             "OCR_UNAVAILABLE",
             f"Langues OCR {settings.OCR_LANGUAGES} absentes du serveur : saisir les lignes manuellement.",
         )
+    # A trusted hint only prioritizes a corresponding installed language; it never disables fallback packs.
+    hints = {"fr": "fra", "en": "eng", "es": "spa", "ar": "ara"}
+    preferred = hints.get(locale_hint)
+    if preferred in wanted:
+        wanted = [preferred] + [item for item in wanted if item != preferred]
     return "+".join(wanted)
 
 
-def ocr_image(image: Image.Image, *, page_number: int) -> OcrResult:
+def ocr_image(image: Image.Image, *, page_number: int, locale_hint: str = "") -> OcrResult:
     import pytesseract
 
-    lang = _languages()
+    lang = _languages(locale_hint=locale_hint)
     image = ImageOps.exif_transpose(image).convert("L")
     try:
         data = pytesseract.image_to_data(
