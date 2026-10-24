@@ -66,9 +66,14 @@ export function DocumentChecklist({ revisionId }: { revisionId: string }) {
               <td>{r.reasons.map((v) => v.kind === "regulation"
                 ? `${v.source || ""} art. ${v.article || ""}` : t("orgPolicy")).join(" · ")}</td>
             </tr>)}</tbody></table>}
-        {result.unclassified_documents.length > 0 && <p className="muted">
-          {result.unclassified_documents.length} {t("uncategorized")}
-        </p>}
+        {result.unclassified_documents.length > 0 && <>
+          <p className="muted">{result.unclassified_documents.length} {t("uncategorized")}</p>
+          {result.unclassified_documents.map((doc) => (
+            <ClassificationPicker
+              key={doc.case_document_id} doc={doc} onConfirmed={() => void evaluate()}
+            />
+          ))}
+        </>}
       </>}
     </section>
   );
