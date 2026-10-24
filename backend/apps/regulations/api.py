@@ -135,9 +135,7 @@ class PolicyInput(serializers.Serializer):
     document_type = serializers.SlugField(max_length=60)
     operation = serializers.ChoiceField(choices=["", "import", "export"], required=False, default="")
     regime = serializers.CharField(max_length=60, required=False, allow_blank=True, default="")
-    transport_mode = serializers.ChoiceField(
-        choices=["", *sorted(TRANSPORT_MODES)], required=False, default=""
-    )
+    transport_mode = serializers.ChoiceField(choices=["", *sorted(TRANSPORT_MODES)], required=False, default="")
     reason = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
 
 
@@ -148,8 +146,9 @@ class OrganizationDocumentPolicyView(APIView):
 
     def get(self, request):
         rows = CompanyDocumentPolicy.objects.filter(organization=request.organization).select_related("document_type")
-        return Response({
-            "results": [
+        return Response(
+            {
+                "results": [
                 {
                     "id": row.pk,
                     "document_type": row.document_type.code,
@@ -160,16 +159,15 @@ class OrganizationDocumentPolicyView(APIView):
                     "active": row.active,
                     "reason": row.reason,
                 }
-                for row in rows.order_by("pk")
-            ]
-        })
+                    for row in rows.order_by("pk")
+                ]
+            }
+        )
 
     def post(self, request):
         data = PolicyInput(data=request.data)
         data.is_valid(raise_exception=True)
-        doc = DocumentType.objects.filter(
-            code=data.validated_data["document_type"], active=True
-        ).first()
+        doc = DocumentType.objects.filter(code=data.validated_data["document_type"], active=True).first()
         if doc is None:
             raise ApiError("UNKNOWN_DOCUMENT_TYPE", "Type documentaire inconnu.", 422)
         row = CompanyDocumentPolicy.objects.create(
@@ -184,6 +182,6 @@ class DocumentTypeListView(APIView):
     permission_classes = [HasActiveOrganization]
 
     def get(self, request):
-        return Response({
-            "results": list(DocumentType.objects.filter(active=True).order_by("code").values("code", "label_fr"))
-        })
+        return Response(
+            {"results": list(DocumentType.objects.filter(active=True).order_by("code").values("code", "label_fr"))}
+        )
