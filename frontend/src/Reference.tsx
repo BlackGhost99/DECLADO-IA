@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { api, ApiError, type Evidence, type NodeDetail, type RecordDetail, type SearchResult } from "./api";
+import { useI18n } from "./i18n";
 
 const QUALITY: Record<string, string> = { known: "lu", unknown: "inconnu (vide)", unparseable: "non numérique" };
 const STATES: Record<string, string> = {
@@ -10,6 +11,7 @@ const STATES: Record<string, string> = {
 };
 
 export function Reference() {
+  const { t } = useI18n();
   const [q, setQ] = useState("");
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [detail, setDetail] = useState<NodeDetail | null>(null);
@@ -22,7 +24,7 @@ export function Reference() {
     try {
       setResults((await api.searchTariffs(q)).results);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Recherche impossible.");
+      setError(err instanceof ApiError ? err.message : t("searchUnavailable"));
     }
   }
 
@@ -38,26 +40,26 @@ export function Reference() {
   return (
     <div className="split">
       <section className="card" aria-labelledby="ref-title">
-        <h2 id="ref-title">Référentiel tarifaire</h2>
+        <h2 id="ref-title">{t("tariffTitle")}</h2>
         <form className="row" onSubmit={search} role="search">
           <label>
-            Code, préfixe ou mots
+            {t("codeSearch")}
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="0101.10, chevaux…" required />
           </label>
-          <button type="submit">Rechercher</button>
+          <button type="submit">{t("search")}</button>
         </form>
         {error && <p role="alert" className="error">⚠ {error}</p>}
-        {results && results.length === 0 && <p>Aucun résultat dans les éditions publiées.</p>}
+        {results && results.length === 0 && <p>{t("noResults")}</p>}
         {results && results.length > 0 && (
           <ul className="plain results">
             {results.map((r) => (
               <li key={r.id}>
                 <button type="button" className="link" onClick={() => void open(r.id)}>
-                  <strong className="code">{r.code_display}</strong> {r.label || <em>libellé absent de la source</em>}
+                  <strong className="code">{r.code_display}</strong> {r.label || <em>{t("sourceLabelMissing")}</em>}
                 </button>
                 <div className="muted small">
                   {r.edition.label} · {r.reason}
-                  {r.label_damaged && " · libellé abîmé"}
+                  {r.label_damaged && ` · ${t("sourceDamaged")}`}
                 </div>
               </li>
             ))}
@@ -76,7 +78,7 @@ export function Reference() {
             {detail.edition.label} — {detail.edition.source.kind_label}
             {detail.edition.source.is_derived_copy && " (copie dérivée, original non fourni)"}
           </p>
-          <nav aria-label="Chemin" className="small">
+          <nav aria-label={t("path")} className="small">
             {detail.ancestors.map((a) => (
               <span key={a.id}>
                 <button type="button" className="link" onClick={() => void open(a.id)}>
@@ -88,15 +90,15 @@ export function Reference() {
             <strong>{detail.code_display}</strong>
           </nav>
           <dl className="facts">
-            <dt>Déclarable selon la source</dt>
-            <dd>{detail.declarable ? "oui" : "non"}</dd>
-            <dt>État</dt>
+            <dt>{t("tariffDeclarable")}</dt>
+            <dd>{detail.declarable ? t("yes") : t("no")}</dd>
+            <dt>{t("status")}</dt>
             <dd>{STATES[detail.validation_state] ?? detail.validation_state}</dd>
-            <dt>Preuve</dt>
+            <dt>{t("proof")}</dt>
             <dd>
               {detail.evidence ? (
                 <button type="button" className="link" onClick={() => void openEvidence(detail.evidence)}>
-                  Ouvrir {detail.evidence.location}
+                  {t("open")} {detail.evidence.location}
                 </button>
               ) : (
                 "déduit de la hiérarchie"
@@ -105,7 +107,7 @@ export function Reference() {
           </dl>
           {detail.issues.length > 0 && (
             <>
-              <h3>Anomalies</h3>
+              <h3>{t("anomalies")}</h3>
               <ul>
                 {detail.issues.map((i) => (
                   <li key={i.id}>
@@ -118,11 +120,11 @@ export function Reference() {
           )}
           {detail.rate_observations.items.length > 0 && (
             <>
-              <h3>Valeurs observées dans la source</h3>
+              <h3>{t("observedValues")}</h3>
               <p className="muted small">{detail.rate_observations.warning}</p>
               <table>
                 <thead>
-                  <tr><th scope="col">Colonne</th><th scope="col">Valeur brute</th><th scope="col">Lecture</th></tr>
+                  <tr><th scope="col">{t("column")}</th><th scope="col">{t("rawValue")}</th><th scope="col">{t("reading")}</th></tr>
                 </thead>
                 <tbody>
                   {detail.rate_observations.items.map((r) => (
@@ -138,7 +140,7 @@ export function Reference() {
           )}
           {[...detail.notes, ...detail.related_notes].length > 0 && (
             <>
-              <h3>Notes</h3>
+              <h3>{t("notes")}</h3>
               {[...detail.notes, ...detail.related_notes].map((n) => (
                 <details key={n.id}>
                   <summary>
@@ -154,7 +156,7 @@ export function Reference() {
           )}
           {detail.same_code_in_other_editions.length > 0 && (
             <>
-              <h3>Même code dans d'autres éditions</h3>
+              <h3>{t("sameCode")}</h3>
               <ul>
                 {detail.same_code_in_other_editions.map((o) => (
                   <li key={o.id}>
@@ -168,7 +170,7 @@ export function Reference() {
           )}
           {detail.children.length > 0 && (
             <>
-              <h3>Subdivisions</h3>
+              <h3>{t("subdivisions")}</h3>
               <ul className="plain">
                 {detail.children.map((c) => (
                   <li key={c.id}>
