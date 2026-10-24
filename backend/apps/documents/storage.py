@@ -22,6 +22,8 @@ class StoredObject:
 class PrivateStorage(Protocol):
     def put(self, fileobj: BinaryIO, *, prefix: str) -> StoredObject: ...
 
+    def promote_quarantined(self, path: Path, *, prefix: str, sha256: str, size: int) -> StoredObject: ...
+
     def open(self, key: str) -> BinaryIO: ...
 
     def path_for_reading(self, key: str) -> Path: ...
@@ -55,6 +57,17 @@ class LocalPrivateStorage:
                 out.write(chunk)
         os.replace(tmp, path)
         return StoredObject(key, digest.hexdigest(), size)
+
+    def promote_quarantined(self, path: Path, *, prefix: str, sha256: str, size: int) -> StoredObject:
+        """Only clean and inspected quarantine objects are promoted into document storage."""
+        quarantine = (Path(settings.PRIVATE_STORAGE_ROOT) / "quarantine").resolve()
+        if path.resolve().parent != quarantine or not path.is_file():
+            raise ValueError("Chemin de quarantaine invalide.")
+        key = f"{prefix}/{secrets.token_hex(16)}"
+        target = self._path(key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(path, target)
+        return StoredObject(key, sha256, size)
 
     def open(self, key: str) -> BinaryIO:
         return self._path(key).open("rb")
