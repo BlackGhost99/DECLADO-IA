@@ -6,6 +6,7 @@ from apps.cases import api as cases
 from apps.clients import api as clients
 from apps.extraction import api as extraction
 from apps.organizations import api as organizations
+from apps.scans import api as scans
 from apps.tariffs import api as tariffs
 
 from .api import HealthView
@@ -46,6 +47,17 @@ urlpatterns = [
     path("extraction-runs/<uuid:run_id>", extraction.ExtractionRunView.as_view()),
     path("jobs/<uuid:job_id>", extraction.JobView.as_view()),
     path("divergences/<uuid:divergence_id>/resolve", extraction.DivergenceResolveView.as_view()),
+    path("cases/<uuid:case_id>/scan-batches", scans.CaseBatchesView.as_view()),
+    path("scan-batches/<uuid:batch_id>", scans.BatchDetailView.as_view()),
+    path("scan-batches/<uuid:batch_id>/files", scans.BatchFilesView.as_view()),
+    path("scan-batches/<uuid:batch_id>/photos", scans.BatchPhotoView.as_view()),
+    path("scan-batches/<uuid:batch_id>/<str:action>", scans.BatchActionView.as_view()),
+    path("scan-pages/<uuid:page_id>", scans.PageDetailView.as_view()),
+    path("scan-pages/<uuid:page_id>/split", scans.PageSplitView.as_view()),
+    path("scan-pages/<uuid:page_id>/replace", scans.PageReplaceView.as_view()),
+    path("scan-pages/<uuid:page_id>/image", scans.PageImageView.as_view()),
+    path("scan-pieces/<uuid:piece_id>", scans.PieceDetailView.as_view()),
+    path("scan-pieces/<uuid:piece_id>/join-previous", scans.PieceJoinView.as_view()),
     path("documents/limits", cases.DocumentLimitsView.as_view()),
     path("documents/<uuid:document_id>", cases.DocumentDetailView.as_view()),
     path("documents/<uuid:document_id>/download", cases.DocumentDownloadView.as_view()),
