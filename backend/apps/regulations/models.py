@@ -30,14 +30,14 @@ class RegulatorySource(models.Model):
     verified_on = models.DateField(null=True, blank=True)
     verification_notes = models.TextField(blank=True)
 
+    def __str__(self):
+        return self.reference
+
     def clean(self):
         if self.scope == self.Scope.NATIONAL and not self.country_code:
             raise ValidationError({"country_code": "Pays requis pour une source nationale."})
         if self.scope == self.Scope.CEMAC and self.country_code:
             raise ValidationError({"country_code": "Une source CEMAC ne cible pas un seul pays."})
-
-    def __str__(self):
-        return self.reference
 
 
 class DocumentRequirement(models.Model):
@@ -60,10 +60,28 @@ class DocumentRequirement(models.Model):
     published = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
 
+    class Meta:
+        indexes = [models.Index(fields=["published", "verified", "valid_from"], name="regulations_publish_idx")]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(valid_until__isnull=True)
+                    | Q(valid_from__isnull=True)
+                    | Q(valid_until__gt=models.F("valid_from"))
+                ),
+                name="doc_req_valid_interval",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.document_type_id} — {self.source_id}"
+
     def clean(self):
         if self.valid_from and self.valid_until and self.valid_from >= self.valid_until:
             raise ValidationError({"valid_until": "La fin doit suivre le début de validité."})
-        if self.published and (not self.verified or not self.valid_from or not self.source_id or not self.source.verified_on):
+        if self.published and (
+            not self.verified or not self.valid_from or not self.source_id or not self.source.verified_on
+        ):
             raise ValidationError("Publication interdite sans vérification, date et source.")
         if not isinstance(self.conditions, dict):
             raise ValidationError({"conditions": "Objet JSON requis."})
@@ -72,20 +90,12 @@ class DocumentRequirement(models.Model):
         if any(not isinstance(v, bool) for v in self.conditions.values()):
             raise ValidationError({"conditions": "Les conditions connues doivent être booléennes."})
 
-    class Meta:
-        indexes = [models.Index(fields=["published", "verified", "valid_from"], name="regulations_publish_idx")]
-        constraints = [
-            models.CheckConstraint(
-                condition=Q(valid_until__isnull=True) | Q(valid_from__isnull=True) | Q(valid_until__gt=models.F("valid_from")),
-                name="doc_req_valid_interval",
-            )
-        ]
-
-
 class CompanyDocumentPolicy(models.Model):
     """Exigences ajoutées par une société ; aucune fonction de désactivation de la loi."""
 
-    organization = models.ForeignKey("organizations.Organization", on_delete=models.PROTECT, related_name="document_policies")
+    organization = models.ForeignKey(
+        "organizations.Organization", on_delete=models.PROTECT, related_name="document_policies"
+    )
     document_type = models.ForeignKey(DocumentType, on_delete=models.PROTECT)
     operation = models.CharField(max_length=24, blank=True)
     regime = models.CharField(max_length=60, blank=True)
@@ -96,6 +106,9 @@ class CompanyDocumentPolicy(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=["organization", "active"], name="regulations_org_active_idx")]
+
+    def __str__(self):
+        return f"{self.organization_id}: {self.document_type_id}"
 
 
 class RequirementEvaluation(models.Model):
@@ -108,3 +121,6 @@ class RequirementEvaluation(models.Model):
 
     class Meta:
         ordering = ["-evaluated_at"]
+
+    def __str__(self):
+        return f"{self.revision_id} — {self.evaluated_at}"
