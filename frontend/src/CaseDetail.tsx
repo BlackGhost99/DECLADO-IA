@@ -397,6 +397,7 @@ function Documents({
 }
 
 function PreviewPanel({ preview, onClose }: { preview: { doc: CaseDocument; data: Preview }; onClose: () => void }) {
+  const { t } = useI18n();
   const { doc, data } = preview;
   return (
     <div className="evidence" aria-label={`Aperçu de ${doc.document.original_name}`}>
