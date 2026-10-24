@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.organizations",
     "apps.localization",
+    "apps.document_graph",
     "apps.audit",
     "apps.clients",
     "apps.tariffs",
