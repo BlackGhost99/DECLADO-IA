@@ -1,6 +1,7 @@
 """Graph mutations: enforce tenant, revision, and immutable review history."""
 from django.db import transaction
 from django.utils import timezone
+
 from apps.audit.services import record_event
 from apps.cases.models import CaseDocument, CaseRevision
 from apps.core.exceptions import ApiError
@@ -58,7 +59,13 @@ def add_relation(*, org, actor, revision_id, source_id, target_id, kind, rationa
 
 @transaction.atomic
 def review_relation(*, org, actor, relation_id, status):
-    relation = DocumentRelation.objects.for_organization(org).select_for_update().select_related("revision__case").filter(pk=relation_id).first()
+    relation = (
+        DocumentRelation.objects.for_organization(org)
+        .select_for_update()
+        .select_related("revision__case")
+        .filter(pk=relation_id)
+        .first()
+    )
     if relation is None:
         raise ApiError("NOT_FOUND", "Relation introuvable.", 404)
     if not relation.revision.is_editable:
