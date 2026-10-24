@@ -46,8 +46,8 @@ class ValidationReadinessView(APIView):
     permission_classes = [HasActiveOrganization]
 
     def get(self, request, revision_id):
-        from .models import CaseRevision
         from .completeness import evaluate
+        from .models import CaseRevision
         from .validation_readiness import validation_readiness
 
         if not has_feature(request.user, request.organization, "cases"):
