@@ -301,7 +301,7 @@ function Documents({
 
   return (
     <section className="card" aria-labelledby="docs-title">
-      <h2 id="docs-title">Pièces</h2>
+      <h2 id="docs-title">{t("pieces")}</h2>
       {limits && (
         <p className="muted small">
           Formats acceptés : {limits.accepted.join(", ")}. Taille maximale : {formatBytes(limits.max_bytes)}. Le contenu
@@ -541,7 +541,7 @@ function InvoiceBlock({
   return (
     <div className="subcard">
       <h3>
-        Facture {invoice.ordinal} · {invoice.supplier_name || <em className="muted">fournisseur ?</em>} ·{" "}
+        Facture {invoice.ordinal} · {invoice.supplier_name || <em className="muted">{t("supplierQuestion")}</em>} ·{" "}
         {invoice.invoice_number || "n° ?"} · {invoice.currency || "devise ?"}
         {invoice.declared_total && ` · total imprimé ${invoice.declared_total}`}
       </h3>
@@ -551,7 +551,7 @@ function InvoiceBlock({
             <div key={field} className="fact">
               <dt>{label}</dt>
               <dd>
-                {value || <em className="muted">inconnu</em>} <OriginBadge origin={origins[field]} source={sources[field]} />
+                {value || <em className="muted">{t("unknown")}</em>} <OriginBadge origin={origins[field]} source={sources[field]} />
                 <Flags flags={invoice.review_flags} field={field} />
               </dd>
             </div>
@@ -573,7 +573,7 @@ function InvoiceBlock({
             <tr>
               <th scope="col">{t("number")}</th><th scope="col">{t("description")}</th><th scope="col">{t("supplierRef")}</th>
               <th scope="col">{t("customsRead")}</th><th scope="col">{t("qty")}</th><th scope="col">{t("unitPrice")}</th>
-              <th scope="col">{t("amount")}</th><th scope="col">Origine</th><th scope="col">{t("goods")}</th>
+              <th scope="col">{t("amount")}</th><th scope="col">{t("origin")}</th><th scope="col">{t("goods")}</th>
             </tr>
           </thead>
           <tbody>
@@ -612,12 +612,12 @@ function InvoiceBlock({
                   {ln.code_history.length > 0 && <div className="muted">{ln.code_history.length} valeur(s) antérieure(s)</div>}
                 </td>
                 <td>
-                  {ln.quantity ?? <em className="muted">inconnue</em>} {ln.unit}{" "}
+                  {ln.quantity ?? <em className="muted">{t("unknownF")}</em>} {ln.unit}{" "}
                   <OriginBadge origin={ln.field_origins?.quantity} source={ln.field_sources?.quantity} />
                 </td>
                 <td>{ln.unit_price ?? "—"}</td>
                 <td>
-                  {ln.amount ?? <em className="muted">inconnu</em>}{" "}
+                  {ln.amount ?? <em className="muted">{t("unknown")}</em>}{" "}
                   <OriginBadge origin={ln.field_origins?.amount} source={ln.field_sources?.amount} />
                 </td>
                 <td>{ln.origin_country || "—"}</td>
@@ -658,7 +658,7 @@ function InvoiceBlock({
           <label>{t("unit")}<input size={5} value={line.unit} onChange={(e) => setLine({ ...line, unit: e.target.value })} /></label>
           <label>{t("unitPrice")}<input inputMode="decimal" size={8} value={line.unit_price} onChange={(e) => setLine({ ...line, unit_price: e.target.value })} /></label>
           <label>{t("amount")}<input inputMode="decimal" size={9} value={line.amount} onChange={(e) => setLine({ ...line, amount: e.target.value })} /></label>
-          <label>Origine<input size={3} maxLength={2} value={line.origin_country} onChange={(e) => setLine({ ...line, origin_country: e.target.value })} placeholder="FR" /></label>
+          <label>{t("origin")}<input size={3} maxLength={2} value={line.origin_country} onChange={(e) => setLine({ ...line, origin_country: e.target.value })} placeholder="FR" /></label>
           <label>
             Pièce source
             <select value={line.evidence_document_id} onChange={(e) => setLine({ ...line, evidence_document_id: e.target.value })}>
@@ -739,7 +739,7 @@ function GoodsCard({
 
   return (
     <div className="subcard" aria-label={`Marchandise ${goods.ordinal}`}>
-      <h3>Marchandise {goods.ordinal} · {goods.description || <em className="muted">désignation ?</em>}</h3>
+      <h3>Marchandise {goods.ordinal} · {goods.description || <em className="muted">{t("designationQuestion")}</em>}</h3>
       <p className="small muted">
         Issue de {goods.sources.map((s) => `facture ${s.invoice_ordinal} ligne ${s.line_ordinal}`).join(", ")} · origine{" "}
         {goods.origin_country || "?"}
