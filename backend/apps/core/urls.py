@@ -36,6 +36,7 @@ urlpatterns = [
     path("cases/<uuid:case_id>/documents/reuse", cases.CaseDocumentReuseView.as_view()),
     path("cases/<uuid:case_id>/audit", cases.CaseAuditView.as_view()),
     path("case-documents/<uuid:link_id>/replace", cases.CaseDocumentReplaceView.as_view()),
+    path("revisions/<uuid:revision_id>/validation-readiness", workflow_api.ValidationReadinessView.as_view()),
     path("revisions/<uuid:revision_id>/transition", workflow_api.WorkflowTransitionView.as_view()),
     path("revisions/<uuid:revision_id>", cases.RevisionDetailView.as_view()),
     path("revisions/<uuid:revision_id>/invoices", cases.InvoiceCreateView.as_view()),
