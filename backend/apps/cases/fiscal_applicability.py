@@ -1,6 +1,6 @@
 """Fiscal rule applicability: legal dates, territory, customs procedure and source."""
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from .tax_engine import TaxInputError, TaxRule, decimal_value
@@ -22,7 +22,7 @@ class VerifiedFiscalRule:
 
 
 def select_applicable_rules(*, rules, territory, regime, tariff_code, on_date):
-    if not isinstance(on_date, date) or isinstance(on_date, __import__("datetime").datetime):
+    if not isinstance(on_date, date) or isinstance(on_date, datetime):
         raise TaxInputError("A dated fiscal assessment is mandatory.")
     selected = []
     for rule in rules:
