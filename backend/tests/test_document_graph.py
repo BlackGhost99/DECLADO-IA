@@ -1,4 +1,5 @@
 """Graph guarantees: shared documents, human confirmation and tenant isolation."""
+
 import pytest
 
 from apps.cases.models import CaseDocument, CaseRevision, CustomsCase
@@ -10,20 +11,20 @@ from apps.documents.models import Document
 
 def make_revision(org, user, ref):
     case = CustomsCase.objects.create(organization=org, reference=ref, created_by=user)
-    return CaseRevision.objects.create(
-        organization=org, case=case, revision_no=1, mode="demo", created_by=user
-    )
+    return CaseRevision.objects.create(organization=org, case=case, revision_no=1, mode="demo", created_by=user)
 
 
 def make_link(org, user, revision, name):
     doc = Document.objects.create(
-        organization=org, object_key=f"test/{org.pk}/{name}",
-        original_name=name, mime="application/pdf", bytes=10, sha256="a" * 64,
+        organization=org,
+        object_key=f"test/{org.pk}/{name}",
+        original_name=name,
+        mime="application/pdf",
+        bytes=10,
+        sha256="a" * 64,
         uploaded_by=user,
     )
-    return CaseDocument.objects.create(
-        organization=org, revision=revision, document=doc, added_by=user
-    )
+    return CaseDocument.objects.create(organization=org, revision=revision, document=doc, added_by=user)
 
 
 @pytest.mark.django_db
