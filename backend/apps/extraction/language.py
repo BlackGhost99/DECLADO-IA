@@ -52,7 +52,7 @@ def annotate_parsed(doc, pages) -> None:
     zone_results = []
     for page in pages:
         number = page.number
-        page_text = "\\n".join(row.text for row in page.rows)
+        page_text = "\n".join(row.text for row in page.rows)
         page_results.append({"page": number, **detect_language(page_text)})
         # Each contiguous row is a preliminary spatial zone; no page-wide language is forced onto it.
         for row in page.rows:
