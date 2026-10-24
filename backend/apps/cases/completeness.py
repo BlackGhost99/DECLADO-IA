@@ -6,6 +6,7 @@ Les écarts arithmétiques sont signalés, jamais corrigés (EXT-05, EXT-06).
 
 from decimal import Decimal
 
+from apps.document_graph.models import DocumentConflict
 from apps.extraction import services as extraction
 from apps.tariffs.models import PublicationState
 
@@ -168,6 +169,20 @@ def evaluate(revision: CaseRevision) -> dict:
                 warnings.append(
                     _item("invoice_line", ln, "goods_line", "Ligne non rattachée à une marchandise.", line_label)
                 )
+
+    # Une contradiction explicite ne peut être ignorée lors de la validation interne.
+    for conflict in DocumentConflict.objects.for_organization(revision.organization).filter(
+        revision=revision, status=DocumentConflict.Status.OPEN
+    ):
+        blocking.append(
+            _item(
+                "document_conflict",
+                conflict,
+                conflict.kind,
+                "Contradiction documentaire : décision humaine requise avant validation.",
+                "Relations documentaires",
+            )
+        )
 
     goods_lines = list(revision.goods_lines.all())
     if invoices and not goods_lines:

@@ -4,7 +4,7 @@ import { batchProgress, pageRange, ScanScreens } from "../src/Scans";
 import type { ScanBatch, ScanPageInfo } from "../src/api";
 
 const membership = {
-  organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville" },
+  organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville", default_locale: "fr" as const },
   roles: ["declarant" as const],
 };
 

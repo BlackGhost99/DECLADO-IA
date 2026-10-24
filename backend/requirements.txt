@@ -10,3 +10,6 @@ openpyxl==3.1.5
 # Lot 3 : lecture des PDF à couche texte et OCR (le binaire Tesseract est installé par le système).
 pdfplumber==0.11.10
 pytesseract==0.3.13
+
+# Encrypted TOTP secrets at rest (cryptography/Fernet).
+cryptography==46.0.3

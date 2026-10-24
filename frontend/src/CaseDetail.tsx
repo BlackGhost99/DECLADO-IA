@@ -19,7 +19,10 @@ import { Controls, controlItems } from "./Controls";
 import { Divergences, ExtractionControls, Flags, LineEditor, OriginBadge, TotalsPanel } from "./Extraction";
 import { Icon, type IconName } from "./Icon";
 import { PdfViewer, type Highlight } from "./PdfViewer";
+import { DocumentChecklist } from "./DocumentChecklist";
+import { DocumentIntelligencePanel } from "./DocumentIntelligencePanel";
 import { ProposalsPanel } from "./Proposals";
+import { useI18n } from "./i18n";
 import { navigate, rememberCase } from "./router";
 import {
   caseSteps,
@@ -486,6 +489,7 @@ function DocumentsTab({
   onChange: () => Promise<void>;
   go: (tab: string) => void;
 }) {
+  const { t } = useI18n();
   const active = revision.documents.filter((d) => !d.replaced_by_id);
   const replaced = revision.documents.filter((d) => d.replaced_by_id);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -493,97 +497,89 @@ function DocumentsTab({
   );
   const [highlight, setHighlight] = useState<Highlight | null>(null);
   const selected = revision.documents.find((d) => d.id === selectedId) ?? active[0] ?? null;
-  const present = new Set(active.map((d) => d.usage));
-  const missing = EXPECTED.filter(([usage]) => !present.has(usage));
 
   useEffect(() => {
     if (!selectedId && active[0]) setSelectedId(active[0].id);
   }, [active, selectedId]);
 
   return (
-    <div className="doc-layout">
-      <section className="card doc-list" aria-labelledby="docs-title">
-        <h2 id="docs-title" className="card-title">Documents du dossier</h2>
-        {editable && <Upload caseId={caseId} onDone={async (id) => { await onChange(); if (id) setSelectedId(id); }} />}
-        {active.length === 0 ? (
-          <p className="empty">Aucune pièce.</p>
-        ) : (
-          <ul className="doc-items">
-            {active.map((link) => (
-              <li key={link.id}>
-                <button
-                  type="button"
-                  className={`doc-item${selected?.id === link.id ? " selected" : ""}`}
-                  onClick={() => { setSelectedId(link.id); setHighlight(null); }}
-                >
-                  <DocGlyph usage={link.usage} mime={link.document.mime} />
-                  <span className="doc-text">
-                    <strong>{link.usage_label}</strong>
-                    <span>{link.document.original_name}</span>
-                    <small>
-                      {fmtDate(link.created_at)} • {formatBytes(link.document.bytes)}
-                      {link.document.readability !== "ok" && ` · ${link.document.readability_label}`}
-                    </small>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {missing.length > 0 && (
-          <>
-            <h3 className="small-heading">Pièces attendues</h3>
+    <>
+      <div className="doc-layout">
+        <section className="card doc-list" aria-labelledby="docs-title">
+          <h2 id="docs-title" className="card-title">Documents du dossier</h2>
+          {editable && <Upload caseId={caseId} onDone={async (id) => { await onChange(); if (id) setSelectedId(id); }} />}
+          {active.length === 0 ? (
+            <p className="empty">Aucune pièce.</p>
+          ) : (
             <ul className="doc-items">
-              {missing.map(([usage, label, hint]) => (
-                <li key={usage} className="doc-missing">
-                  <span className="doc-type doc-none"><Icon name="file" size={16} /></span>
-                  <span className="doc-text">
-                    <strong>{label}</strong>
-                    <small>{hint}</small>
-                  </span>
-                  <Chip tone="gray">Manquant</Chip>
+              {active.map((link) => (
+                <li key={link.id}>
+                  <button
+                    type="button"
+                    className={`doc-item${selected?.id === link.id ? " selected" : ""}`}
+                    onClick={() => { setSelectedId(link.id); setHighlight(null); }}
+                  >
+                    <DocGlyph usage={link.usage} mime={link.document.mime} />
+                    <span className="doc-text">
+                      <strong>{link.usage_label}</strong>
+                      <span>{link.document.original_name}</span>
+                      <small>
+                        {fmtDate(link.created_at)} • {formatBytes(link.document.bytes)}
+                        {link.document.readability !== "ok" && ` · ${link.document.readability_label}`}
+                        {" · "}Langue : {LOCALE_NAMES[link.document.detected_locale ?? ""] ?? "Indéterminée"}
+                      </small>
+                    </span>
+                  </button>
+                  {link.document.language_detection?.pages && (
+                    <details className="small doc-languages">
+                      <summary>{t("languagesByPage")}</summary>
+                      <ul>
+                        {link.document.language_detection.pages.map((page, i) => (
+                          <li key={i}>Page {page.page ?? i + 1} : {page.locale || "Indéterminée"} ({page.status})</li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>
-          </>
-        )}
-        {replaced.length > 0 && (
-          <details className="small">
-            <summary>{replaced.length} version(s) remplacée(s), conservée(s)</summary>
-            <ul>
-              {replaced.map((d) => (
-                <li key={d.id}>{d.document.original_name} (v{d.document.version})</li>
-              ))}
-            </ul>
-          </details>
-        )}
-      </section>
+          )}
+          {replaced.length > 0 && (
+            <details className="small">
+              <summary>{replaced.length} version(s) remplacée(s), conservée(s)</summary>
+              <ul>
+                {replaced.map((d) => (
+                  <li key={d.id}>{d.document.original_name} (v{d.document.version})</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </section>
 
-      <section className="card viewer" aria-label="Aperçu de la pièce">
-        {selected ? <Viewer link={selected} highlight={highlight} /> : <p className="empty">Ajoutez une pièce pour l'afficher ici.</p>}
-      </section>
+        <section className="card viewer" aria-label="Aperçu de la pièce">
+          {selected ? <Viewer link={selected} highlight={highlight} /> : <p className="empty">Ajoutez une pièce pour l'afficher ici.</p>}
+        </section>
 
-      <div className="doc-side">
-        {selected ? (
-          <ExtractedPanel link={selected} revision={revision} importer={importer} editable={editable} onChange={onChange} onSource={setHighlight} go={go} />
-        ) : (
-          <section className="card" aria-labelledby="extracted-title">
-            <h2 id="extracted-title" className="card-title">Données extraites</h2>
-            <p className="empty">Aucune pièce sélectionnée.</p>
-          </section>
-        )}
+        <div className="doc-side">
+          {selected ? (
+            <ExtractedPanel link={selected} revision={revision} importer={importer} editable={editable} onChange={onChange} onSource={setHighlight} go={go} />
+          ) : (
+            <section className="card" aria-labelledby="extracted-title">
+              <h2 id="extracted-title" className="card-title">Données extraites</h2>
+              <p className="empty">Aucune pièce sélectionnée.</p>
+            </section>
+          )}
+        </div>
       </div>
-    </div>
+      <div className="doc-rules">
+        <DocumentChecklist revisionId={revision.id} />
+        <DocumentIntelligencePanel revision={revision} editable={editable} />
+      </div>
+    </>
   );
 }
 
-/** Pièces habituelles d'un dossier d'importation : celles qui manquent sont montrées, jamais inventées. */
-const EXPECTED: [string, string, string][] = [
-  ["invoice", "Facture commerciale", "valeur, devise, lignes"],
-  ["transport", "Connaissement (B/L) ou LTA", "transport, poids, colis"],
-  ["packing_list", "Liste de colisage", "poids et nombre de colis"],
-  ["origin", "Certificat d'origine", "pays d'origine"],
-];
+const LOCALE_NAMES: Record<string, string> = { fr: "Français", en: "English", es: "Español", ar: "العربية" };
 
 function Upload({ caseId, onDone }: { caseId: string; onDone: (selectId: string | null) => Promise<void> }) {
   const [open, setOpen] = useState(false);

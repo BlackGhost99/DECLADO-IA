@@ -1,4 +1,11 @@
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { I18nProvider } from "../src/i18n";
+
+function renderWithLanguage(element: ReactElement) {
+  localStorage.setItem("clairtransit.interface-locale", "fr");
+  return render(<I18nProvider>{element}</I18nProvider>);
+}
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CaseDocument, CodeCheck, GoodsLine, Invoice, InvoiceLine } from "../src/api";
 import { Divergences, ExtractionControls, LineEditor, OriginBadge, TotalsPanel, spanText } from "../src/Extraction";
@@ -43,10 +50,10 @@ describe("Extraction", () => {
   it("distingue une valeur lue, lue par OCR, déduite ou saisie", () => {
     const source = { observation_id: "o", run_id: "r", label: "Montant", raw: "3 000,00", status: "ok" as const,
       origin: "ocr" as const, confidence: 71, notes: [], span };
-    render(<OriginBadge origin="extracted" source={source} />);
+    renderWithLanguage(<OriginBadge origin="extracted" source={source} />);
     expect(screen.getByText("OCR · p. 2 · hauteur 14–16 %")).toHaveAttribute("title", expect.stringContaining("Confiance OCR 71"));
     cleanup();
-    render(<OriginBadge origin="manual" source={source} />);
+    renderWithLanguage(<OriginBadge origin="manual" source={source} />);
     expect(screen.getByText("saisi")).toBeInTheDocument();
   });
 
@@ -60,7 +67,7 @@ describe("Extraction", () => {
       return json(404, {});
     });
     const onDone = vi.fn(() => Promise.resolve());
-    render(<ExtractionControls link={link} editable onDone={onDone} />);
+    renderWithLanguage(<ExtractionControls link={link} editable onDone={onDone} />);
     expect(screen.queryByRole("button", { name: "Relancer" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Extraire" }));
     await waitFor(() => expect(onDone).toHaveBeenCalled(), { timeout: 4000 });
@@ -71,14 +78,14 @@ describe("Extraction", () => {
     const failed = { ...link, latest_extraction: { id: "r1", attempt: 1, status: "failed", status_label: "Échec (relance possible)",
       parser: "ocr", options: { ocr: true }, warnings: [], error_message: "L'OCR n'est pas installé.",
       hint: "Saisir les lignes manuellement, ou demander l'installation de l'OCR.", job: job("failed") } } as unknown as CaseDocument;
-    render(<ExtractionControls link={failed} editable onDone={() => Promise.resolve()} />);
+    renderWithLanguage(<ExtractionControls link={failed} editable onDone={() => Promise.resolve()} />);
     expect(screen.getByText("L'OCR n'est pas installé.")).toBeInTheDocument();
     expect(screen.getByText(/Saisir les lignes manuellement/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Relancer" })).toBeInTheDocument();
   });
 
   it("montre l'écart de total sans le corriger, et les sous-totaux non additionnés", () => {
-    render(
+    renderWithLanguage(
       <TotalsPanel
         currency="EUR"
         totals={{ status: "gap", goods_lines: 2, goods_lines_without_amount: 0,
@@ -98,7 +105,7 @@ describe("Extraction", () => {
       line_ordinal: 1, field: "quantity", current_value: "3", extracted_value: "2", run_id: "r2", state: "open",
       state_label: "À trancher", resolved_by: null, resolved_at: null, resolution_reason: "", span }] } as unknown as Invoice;
     const act = vi.fn(async (a: () => Promise<unknown>) => { await a(); });
-    render(<Divergences invoice={invoice} editable act={act} />);
+    renderWithLanguage(<Divergences invoice={invoice} editable act={act} />);
     expect(screen.getByText(/Ligne 1, quantité/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Motif"), { target: { value: "Bon de livraison" } });
     fireEvent.click(screen.getByRole("button", { name: "Garder la valeur actuelle" }));
@@ -111,7 +118,7 @@ describe("Extraction", () => {
     const line = { id: "l1", ordinal: 1, description_raw: "Chevaux", quantity: "2", unit: "U", unit_price: "1500", amount: "3000",
       origin_country: "FR", row_version: 4 } as unknown as InvoiceLine;
     const act = vi.fn(async (a: () => Promise<unknown>) => { await a(); });
-    render(<LineEditor line={line} act={act} toDecimal={decimalInput} onClose={() => undefined} />);
+    renderWithLanguage(<LineEditor line={line} act={act} toDecimal={decimalInput} onClose={() => undefined} />);
     fireEvent.change(screen.getByLabelText("quantité"), { target: { value: "3" } });
     fireEvent.change(screen.getByLabelText("Motif de la correction"), { target: { value: "3 chevaux livrés" } });
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer la correction" }));
@@ -148,7 +155,7 @@ describe("Aide au classement", () => {
     });
     const goods = { id: "g1", description: "Tapis de selle", row_version: 2, latest_check: missingCheck } as unknown as GoodsLine;
     const act = vi.fn(async (a: () => Promise<unknown>) => { await a(); });
-    render(<ProposalsPanel goods={goods} editionId="e1" editable act={act} />);
+    renderWithLanguage(<ProposalsPanel goods={goods} editionId="e1" editable act={act} />);
     expect(await screen.findByText(/Termes communs avec la désignation/)).toBeInTheDocument();
     expect(screen.getByText(/sans IA/)).toBeInTheDocument();
     expect(screen.getByText(/De quelle matière/)).toBeInTheDocument();

@@ -1,11 +1,21 @@
 from django.urls import path
 
 from apps.accounts import api as accounts
+from apps.accounts import mfa_api
 from apps.audit import api as audit
 from apps.cases import api as cases
 from apps.clients import api as clients
+from apps.document_graph import api as document_graph
 from apps.extraction import api as extraction
+from apps.localization import api as localization
 from apps.organizations import api as organizations
+from apps.regulations.api import (
+    CaseDocumentChecklistView,
+    ConfirmDocumentTypeView,
+    DocumentReadinessView,
+    DocumentTypeListView,
+    OrganizationDocumentPolicyView,
+)
 from apps.scans import api as scans
 from apps.tariffs import api as tariffs
 
@@ -16,7 +26,13 @@ urlpatterns = [
     path("auth/csrf", accounts.CsrfView.as_view()),
     path("auth/login", accounts.LoginView.as_view()),
     path("auth/logout", accounts.LogoutView.as_view()),
+    path("auth/mfa/setup", mfa_api.MFASetupView.as_view()),
+    path("auth/mfa/confirm", mfa_api.MFAConfirmView.as_view()),
+    path("auth/mfa/verify", mfa_api.MFAVerifyView.as_view()),
+    path("auth/mfa/status", mfa_api.MFAStatusView.as_view()),
     path("me", accounts.MeView.as_view()),
+    path("me/locale", localization.UserLocaleView.as_view()),
+    path("organization/locale", localization.OrganizationLocaleView.as_view()),
     path("me/active-organization", accounts.ActiveOrganizationView.as_view()),
     path("organization/members", organizations.MemberListView.as_view()),
     path("organization/members/<uuid:member_id>/roles", organizations.MemberRolesView.as_view()),
@@ -24,6 +40,25 @@ urlpatterns = [
     path("importers", clients.ImporterListView.as_view()),
     path("importers/<uuid:pk>", clients.ImporterDetailView.as_view()),
     path("audit-events", audit.AuditEventListView.as_view()),
+    path("revisions/<uuid:revision_id>/document-graph", document_graph.GraphView.as_view()),
+    path("revisions/<uuid:revision_id>/document-intelligence", document_graph.DocumentIntelligenceView.as_view()),
+    path("revisions/<uuid:revision_id>/document-invoice-links", document_graph.ManualInvoiceLinkView.as_view()),
+    path("revisions/<uuid:revision_id>/shipments", document_graph.ShipmentCreateView.as_view()),
+    path(
+        "revisions/<uuid:revision_id>/shipments/<uuid:shipment_id>/links",
+        document_graph.ShipmentLinkCreateView.as_view(),
+    ),
+    path(
+        "document-intelligence/links/<str:model>/<uuid:link_id>/review", document_graph.IntelligenceReviewView.as_view()
+    ),
+    path("document-intelligence/shipments/<uuid:shipment_id>/confirm", document_graph.ShipmentConfirmView.as_view()),
+    path(
+        "document-intelligence/conflicts/<uuid:conflict_id>/resolve",
+        document_graph.IntelligenceConflictResolveView.as_view(),
+    ),
+    path("revisions/<uuid:revision_id>/document-graph/suggest", document_graph.SuggestView.as_view()),
+    path("document-relations/<uuid:relation_id>/review", document_graph.ReviewView.as_view()),
+    path("cases/<uuid:case_id>/summary", localization.CaseSummaryView.as_view()),
     path("cases", cases.CaseListView.as_view()),
     path("cases/<uuid:case_id>", cases.CaseDetailView.as_view()),
     path("cases/<uuid:case_id>/assign", cases.CaseAssignView.as_view()),
@@ -33,6 +68,11 @@ urlpatterns = [
     path("cases/<uuid:case_id>/audit", cases.CaseAuditView.as_view()),
     path("case-documents/<uuid:link_id>/replace", cases.CaseDocumentReplaceView.as_view()),
     path("revisions/<uuid:revision_id>", cases.RevisionDetailView.as_view()),
+    path("revisions/<uuid:revision_id>/document-checklist", CaseDocumentChecklistView.as_view()),
+    path("revisions/<uuid:revision_id>/document-readiness", DocumentReadinessView.as_view()),
+    path("case-documents/<uuid:link_id>/confirm-type", ConfirmDocumentTypeView.as_view()),
+    path("document-types", DocumentTypeListView.as_view()),
+    path("organization/document-policies", OrganizationDocumentPolicyView.as_view()),
     path("revisions/<uuid:revision_id>/invoices", cases.InvoiceCreateView.as_view()),
     path("revisions/<uuid:revision_id>/goods-lines", cases.GoodsLineCreateView.as_view()),
     path("invoices/<uuid:invoice_id>", cases.InvoiceDetailView.as_view()),

@@ -2,7 +2,7 @@ name: ClairTransit CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/document-regulatory-referential]
   pull_request:
 
 jobs:
@@ -18,7 +18,12 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U clairtransit" --health-interval 5s --health-retries 10
+      clamav:
+        image: clamav/clamav:1.4
+        ports: ["3310:3310"]
     env:
+      CLAMAV_HOST: 127.0.0.1
+      CLAMAV_PORT: "3310"
       DJANGO_DEBUG: "true"
       DATABASE_URL: postgres://clairtransit:clairtransit@localhost:5432/clairtransit
     defaults:
@@ -34,6 +39,26 @@ jobs:
       - name: Tesseract (OCR des scans, lot 3)
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng
       - run: pip install -r requirements-dev.txt
+      - name: Wait for clamd signatures and daemon
+        run: |
+          python - <<'PY'
+          import socket
+          import time
+
+          for _ in range(120):
+              try:
+                  with socket.create_connection(("127.0.0.1", 3310), timeout=2) as conn:
+                      conn.settimeout(3)
+                      conn.sendall(b"zPING" + bytes([0]))
+                      if conn.recv(64).startswith(b"PONG"):
+                          print("ClamAV ready")
+                          break
+              except OSError:
+                  pass
+              time.sleep(2)
+          else:
+              raise SystemExit("ClamAV did not become ready")
+          PY
       - name: Style
         run: ruff check . && ruff format --check .
       - name: Migrations à jour
@@ -42,6 +67,27 @@ jobs:
         run: python manage.py migrate --noinput
       - name: Tests (droits, isolation, journal, extraction)
         run: python -m pytest -rs
+      - name: Installer Restic et pg_restore
+        run: sudo apt-get install -y --no-install-recommends restic postgresql-client
+      - name: Sauvegarde chiffrée et restauration réelle dans une base de test
+        working-directory: .
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: clairtransit
+          PGPASSWORD: clairtransit
+          PGDATABASE: clairtransit
+          PRIVATE_STORAGE_ROOT: /tmp/clairtransit-security-ci-private
+          RESTIC_REPOSITORY: /tmp/clairtransit-security-ci-restic
+          RESTIC_PASSWORD: ci-only-encryption-password-not-for-production
+          BACKUP_ALLOW_LOCAL: "true"
+          BACKUP_DRILL_RESTORE_DATABASE: "true"
+        run: |
+          mkdir -p "$PRIVATE_STORAGE_ROOT/documents"
+          echo "synthetic test file" > "$PRIVATE_STORAGE_ROOT/documents/sample.txt"
+          sh infra/backup/backup.sh
+          sh infra/backup/restore-drill.sh
+
 
   frontend:
     runs-on: ubuntu-latest

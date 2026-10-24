@@ -10,8 +10,18 @@ x-backend-env: &backend-env
   CELERY_BROKER_URL: redis://redis:6379/0
   CSRF_TRUSTED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
   PRIVATE_STORAGE_ROOT: /var/clairtransit/private
+  CLAMAV_HOST: clamav
+  CLAMAV_PORT: "3310"
+  MFA_ENFORCE: "false"  # environnement de developpement uniquement
+  AUTH_RATE_LIMIT_ENABLED: "false"
 
 services:
+  clamav:
+    image: clamav/clamav:1.4
+    # Ne pas exposer le TCP non authentifié de clamd vers l'hôte.
+    volumes: [clamdb:/var/lib/clamav]
+    restart: unless-stopped
+
   db:
     image: postgres:16
     environment:
@@ -32,12 +42,13 @@ services:
   backend:
     build: ../backend
     environment: *backend-env
-    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py migrate --noinput && python manage.py seed_document_types && python manage.py runserver 0.0.0.0:8000"
     volumes: [private:/var/clairtransit/private]
     ports: ["127.0.0.1:8000:8000"]
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_started }
+      clamav: { condition: service_started }
 
   worker:
     build: ../backend
@@ -47,6 +58,28 @@ services:
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_started }
+
+  # Profil de démonstration uniquement : sauvegardes locales chiffrées toutes les 24 h.
+  # En production, utiliser un dépôt Restic distant et des secrets externes.
+  backup:
+    profiles: [backup]
+    build: ./backup
+    environment:
+      PGHOST: db
+      PGUSER: clairtransit
+      PGPASSWORD: clairtransit
+      PGDATABASE: clairtransit
+      PRIVATE_STORAGE_ROOT: /var/clairtransit/private
+      RESTIC_REPOSITORY: /var/clairtransit/backup-repository
+      RESTIC_PASSWORD: dev-only-not-for-production
+      BACKUP_ALLOW_LOCAL: "true"
+    volumes:
+      - private:/var/clairtransit/private:ro
+      - backuprepo:/var/clairtransit/backup-repository
+    command: ["/bin/sh", "-c", "while true; do /usr/local/bin/backup.sh; sleep 86400; done"]
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
 
   frontend:
     build: ../frontend
@@ -59,3 +92,5 @@ volumes:
   pgdata:
   # Pièces des dossiers : hors de toute racine servie par le web.
   private:
+  clamdb:
+  backuprepo:

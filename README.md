@@ -113,3 +113,14 @@ infra/compose.yaml  environnement de développement complet
 docs/               spécifications, décisions (ADR), lots, exploitation
 fixtures/synthetic/ jeux de données fictifs
 ```
+
+## Intelligence documentaire (bloc 4)
+
+Le module documentaire reconstitue des **propositions d'expéditions** et de relations
+plusieurs-à-plusieurs entre pièces et factures, sans double comptage ni validation automatique.
+Les agents confirment ou rejettent les liens dans le détail d'un dossier.
+L'analyse se fonde sur des références explicites des dernières extractions réussies.
+
+**Attention :** l'IA externe reste désactivée, le rapprochement s'appuie sur des règles
+conservatrices et les résultats ne valent pas déclaration acceptée par la Douane.
+Voir [la recette et les limites](docs/lots/lot-ai-document-intelligence.md).

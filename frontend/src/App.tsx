@@ -8,50 +8,85 @@ import { Dashboard } from "./Dashboard";
 import { Icon, Logo, type IconName } from "./Icon";
 import cemacMap from "./assets/cemac-map.png";
 import { LoginForm } from "./LoginForm";
+import { MFAEnrollment } from "./MFAEnrollment";
 import { OrganizationPicker } from "./OrganizationPicker";
 import { ReferenceAdmin, TariffSearch } from "./Reference";
 import { ScanScreens } from "./Scans";
 import { currentCase, navigate, useRoute, type Route } from "./router";
 import { eventIcon, eventLabel, initials, relativeTime } from "./ui";
+import { LanguageSelector, useBusinessLabels, useI18n } from "./i18n";
+import { useLocaleSync } from "./i18n/sync";
 
 export default function App() {
+  const { t } = useI18n();
+  const { onAuthenticated, onSignedOut } = useLocaleSync();
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      setMe(await api.me());
+      const profile = await api.me();
+      setMe(profile);
+      onAuthenticated(profile);
     } catch (err) {
       if (!(err instanceof ApiError && err.status === 401)) throw err;
       setMe(null);
+      onSignedOut();
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [onAuthenticated, onSignedOut]);
+
+  /** Tout changement de profil (connexion, MFA, société) réapplique la langue effective. */
+  const signedIn = useCallback(
+    (profile: Me) => {
+      setMe(profile);
+      onAuthenticated(profile);
+    },
+    [onAuthenticated],
+  );
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  if (loading) return <p className="center">Chargement…</p>;
-  if (!me) return <LoginForm onLoggedIn={setMe} />;
+  if (loading) return <p className="center">{t("loading")}</p>;
+  if (!me) return <LoginForm onLoggedIn={signedIn} />;
 
-  const active = me.memberships.find((m) => m.organization.id === me.active_organization_id) ?? null;
   const logout = async () => {
     await api.logout();
     setMe(null);
+    onSignedOut();
   };
+
+  if (me.mfa_required_for_access && !me.mfa_enabled) {
+    return <MFAEnrollment onComplete={signedIn} />;
+  }
+  if (me.mfa_required_for_access && !me.mfa_verified_session) {
+    return (
+      <main className="login-page">
+        <section className="card login">
+          <p>Session à vérifier par MFA.</p>
+          <button type="button" className="btn-primary btn-block" onClick={() => void logout()}>
+            Se reconnecter
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  const active = me.memberships.find((m) => m.organization.id === me.active_organization_id) ?? null;
 
   if (!active && !(me.memberships.length === 0 && me.is_reference_manager)) {
     return (
       <main className="center">
-        <OrganizationPicker me={me} onChange={setMe} />
+        <OrganizationPicker me={me} onChange={signedIn} />
       </main>
     );
   }
 
   return (
-    <Layout me={me} active={active} onChangeOrg={setMe} onLogout={logout}>
+    <Layout me={me} active={active} onChangeOrg={signedIn} onLogout={logout}>
       {(route) => <Page route={route} me={me} active={active} />}
     </Layout>
   );
@@ -171,6 +206,7 @@ function UserMenu({
   onChangeOrg: (me: Me) => void;
   onLogout: () => void;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   return (
     <div className="menu-wrap">
@@ -187,7 +223,7 @@ function UserMenu({
           {active && <p className="menu-title">{active.organization.name}</p>}
           {active && me.memberships.length > 1 && <OrganizationPicker me={me} onChange={onChangeOrg} compact />}
           <button type="button" role="menuitem" onClick={onLogout}>
-            <Icon name="logout" size={16} /> Se déconnecter
+            <Icon name="logout" size={16} /> {t("logout")}
           </button>
         </div>
       )}
@@ -217,6 +253,8 @@ function Layout({
   onLogout: () => void;
   children: (route: Route) => ReactNode;
 }) {
+  const { t } = useI18n();
+  const labels = useBusinessLabels();
   const route = useRoute();
   const [query, setQuery] = useState("");
   const referenceOnly = !active;
@@ -236,7 +274,7 @@ function Layout({
 
   const name = me.full_name || me.email;
   const roleLabel = active
-    ? active.roles.map((r) => ROLE_LABELS[r]).join(", ") || "Aucun rôle"
+    ? active.roles.map((r) => labels.role(r, ROLE_LABELS[r])).join(", ") || "Aucun rôle"
     : "Gestionnaire du référentiel";
 
   return (
@@ -298,7 +336,10 @@ function Layout({
             <span />
           )}
           <div className="topbar-right">
-            {active?.organization.is_demo && <span className="demo-flag">Démonstration · données fictives</span>}
+            {active?.organization.is_demo && <span className="demo-flag">{t("demo")} · données fictives</span>}
+            <div className="topbar-lang">
+              <LanguageSelector />
+            </div>
             {active && <Notifications membership={active} />}
             <UserMenu name={name} roleLabel={roleLabel} me={me} active={active} onChangeOrg={onChangeOrg} onLogout={onLogout} />
           </div>

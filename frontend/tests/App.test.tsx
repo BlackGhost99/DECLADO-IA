@@ -1,6 +1,10 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render as baseRender, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../src/App";
+import type { ReactElement } from "react";
+import { I18nProvider } from "../src/i18n";
+
+const render = (ui: ReactElement) => baseRender(ui, { wrapper: I18nProvider });
 
 const me = {
   id: "u1",
@@ -8,8 +12,8 @@ const me = {
   full_name: "Multi",
   is_reference_manager: false,
   memberships: [
-    { organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville" }, roles: ["declarant"] },
-    { organization: { id: "b", name: "Transit Bêta (démo)", is_demo: true, timezone: "Africa/Libreville" }, roles: ["declarant"] },
+    { organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville", default_locale: "fr" as const }, roles: ["declarant"] },
+    { organization: { id: "b", name: "Transit Bêta (démo)", is_demo: true, timezone: "Africa/Libreville", default_locale: "fr" as const }, roles: ["declarant"] },
   ],
   active_organization_id: null,
 };

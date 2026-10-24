@@ -35,6 +35,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=200, blank=True)
+    interface_locale = models.CharField(
+        max_length=2,
+        default="fr",
+        choices=[("fr", "Français"), ("en", "English"), ("es", "Español"), ("ar", "العربية")],
+    )
     is_active = models.BooleanField(default=True)
     # Administration technique de la plateforme : n'ouvre aucun accès métier aux pièces.
     is_staff = models.BooleanField(default=False)
@@ -58,3 +63,17 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+class TotpDevice(models.Model):
+    """A single confirmed authenticator per account; raw secrets never stored."""
+
+    id = models.BigAutoField(primary_key=True)
+    user = models.OneToOneField("accounts.User", on_delete=models.CASCADE, related_name="totp_device")
+    encrypted_secret = models.TextField()
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    last_step = models.BigIntegerField(default=-1)
+    recovery_hashes = models.JSONField(default=list)
+
+    def __str__(self):
+        return f"MFA device for {self.user_id}"

@@ -1,12 +1,16 @@
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render as baseRender, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cases } from "../src/Cases";
 import { CaseDetailView, decimalInput } from "../src/CaseDetail";
 import { addDecimals, fmtAmount, fmtQty } from "../src/ui";
 import { guessUsage } from "../src/NewCase";
+import type { ReactElement } from "react";
+import { I18nProvider } from "../src/i18n";
+
+const render = (ui: ReactElement) => baseRender(ui, { wrapper: I18nProvider });
 
 const membership = {
-  organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville" },
+  organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville", default_locale: "fr" as const },
   roles: ["declarant" as const],
 };
 

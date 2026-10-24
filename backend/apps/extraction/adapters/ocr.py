@@ -10,6 +10,7 @@ from pathlib import Path
 from django.conf import settings
 from PIL import Image, ImageOps
 
+from ..language import annotate_parsed
 from ..layout import Page, structure
 from ..schema import Origin, ParsedDocument, warning
 from . import ExtractionFailure, Progress
@@ -26,7 +27,7 @@ class OcrResult:
     warnings: list[dict] = field(default_factory=list)
 
 
-def _languages() -> str:
+def _languages(locale_hint: str = "") -> str:
     import pytesseract
 
     try:
@@ -41,14 +42,43 @@ def _languages() -> str:
             "OCR_UNAVAILABLE",
             f"Langues OCR {settings.OCR_LANGUAGES} absentes du serveur : saisir les lignes manuellement.",
         )
+    # A trusted hint only prioritizes a corresponding installed language; it never disables fallback packs.
+    hints = {"fr": "fra", "en": "eng", "es": "spa", "ar": "ara"}
+    preferred = hints.get(locale_hint)
+    if preferred in wanted:
+        wanted = [preferred] + [item for item in wanted if item != preferred]
     return "+".join(wanted)
 
 
-def ocr_image(image: Image.Image, *, page_number: int) -> OcrResult:
+def _script_hint(osd: str) -> str:
+    """Tesseract OSD is a script hint only, not a guarantee of text language."""
+    import re
+
+    match = re.search(r"^Script:\\s*(\\w+)", osd, flags=re.MULTILINE)
+    if not match:
+        return ""
+    if match.group(1).lower() == "arabic":
+        return "ar"
+    return ""
+
+
+def _detect_script(image: Image.Image) -> str:
+    """Best-effort prior to OCR; failures never prevent regular recognition."""
     import pytesseract
 
-    lang = _languages()
+    try:
+        return _script_hint(pytesseract.image_to_osd(image, timeout=min(settings.OCR_PAGE_TIMEOUT_SECONDS, 10)))
+    except (RuntimeError, ValueError, pytesseract.TesseractError):
+        return ""
+
+
+def ocr_image(image: Image.Image, *, page_number: int, locale_hint: str = "") -> OcrResult:
+    import pytesseract
+
     image = ImageOps.exif_transpose(image).convert("L")
+    if not locale_hint:
+        locale_hint = _detect_script(image)
+    lang = _languages(locale_hint=locale_hint)
     try:
         data = pytesseract.image_to_data(
             image,
@@ -115,7 +145,9 @@ def extract_image(path: Path, *, progress: Progress) -> ParsedDocument:
     except (OSError, SyntaxError) as exc:
         raise ExtractionFailure("DOCUMENT_UNREADABLE", "Image illisible : déposer une version lisible.") from exc
     progress("structuration", 1, 1)
-    doc = structure([result.page] if result.page else [], origin=Origin.OCR)
+    pages = [result.page] if result.page else []
+    doc = structure(pages, origin=Origin.OCR)
+    annotate_parsed(doc, pages)
     doc.warnings.extend(result.warnings)
     doc.stats.update({"pages": 1, "text_pages": 0, "ocr_pages": [1] if result.page else [], "pages_without_text": []})
     return doc
