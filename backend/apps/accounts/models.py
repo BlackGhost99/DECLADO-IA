@@ -68,6 +68,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 class TotpDevice(models.Model):
     """A single confirmed authenticator per account; raw secrets never stored."""
 
+    id = models.BigAutoField(primary_key=True)
     user = models.OneToOneField("accounts.User", on_delete=models.CASCADE, related_name="totp_device")
     encrypted_secret = models.TextField()
     confirmed_at = models.DateTimeField(null=True, blank=True)
