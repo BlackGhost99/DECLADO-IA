@@ -110,7 +110,7 @@ CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60 * 10)
 
 # MFA is required for every production user, including technical administrators.
-# A dedicated Fernet key is required: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# A dedicated Fernet key is required. See the security deployment instructions.
 MFA_ENFORCE = env.bool("MFA_ENFORCE", default=not DEBUG)
 MFA_ENCRYPTION_KEY = env("MFA_ENCRYPTION_KEY", default="")
 AUTH_RATE_LIMIT_ENABLED = env.bool("AUTH_RATE_LIMIT_ENABLED", default=not DEBUG)
