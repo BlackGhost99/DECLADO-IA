@@ -6,6 +6,7 @@ from apps.cases import api as cases
 from apps.clients import api as clients
 from apps.extraction import api as extraction
 from apps.organizations import api as organizations
+from apps.localization import api as localization
 from apps.tariffs import api as tariffs
 
 from .api import HealthView
@@ -16,6 +17,8 @@ urlpatterns = [
     path("auth/login", accounts.LoginView.as_view()),
     path("auth/logout", accounts.LogoutView.as_view()),
     path("me", accounts.MeView.as_view()),
+    path("me/locale", localization.UserLocaleView.as_view()),
+    path("organization/locale", localization.OrganizationLocaleView.as_view()),
     path("me/active-organization", accounts.ActiveOrganizationView.as_view()),
     path("organization/members", organizations.MemberListView.as_view()),
     path("organization/members/<uuid:member_id>/roles", organizations.MemberRolesView.as_view()),
