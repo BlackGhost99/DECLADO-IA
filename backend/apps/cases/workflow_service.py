@@ -7,6 +7,7 @@ from .models import CaseRevision
 from .workflow_policy import allowed_transition
 from .validation_policy import can_validate
 from .completeness import evaluate
+from .validation_readiness import validation_readiness
 
 
 @transaction.atomic
@@ -30,7 +31,7 @@ def transition_revision(*, organization, actor, revision_id, expected_version, t
     if target == "validated" and revision.state == "to_validate":
         validation = can_validate(
             organization=organization, membership=membership, actor=actor,
-            revision=revision, assessment=evaluate(revision),
+            revision=revision, assessment=validation_readiness(revision, evaluate(revision)),
         )
     else:
         validation = None
