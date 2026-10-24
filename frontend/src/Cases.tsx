@@ -106,7 +106,7 @@ export function Cases({ membership, me }: { membership: Membership; me: Pick<Me,
                     <button type="button" className="link code" onClick={() => setOpenId(c.id)}>{c.reference}</button>
                   </td>
                   <td>{c.title}</td>
-                  <td>{c.importer?.name ?? <em className="muted">à renseigner</em>}</td>
+                  <td>{c.importer?.name ?? <em className="muted">{t("notProvided")}</em>}</td>
                   <td>{c.assigned_to?.email ?? <span className="muted">—</span>}</td>
                   <td>{c.state_label}</td>
                   <td>{new Date(c.created_at).toLocaleDateString(locale)}</td>
@@ -148,7 +148,7 @@ function NewCase({
   return (
     <section className="card" aria-labelledby="new-case-title">
       <h2 id="new-case-title">{t("newCase")}</h2>
-      <p className="muted small">Un brouillon peut rester incomplet : les manques seront listés dans le dossier.</p>
+      <p className="muted small">{t("draftInfo")}</p>
       <form className="row" onSubmit={submit}>
         <label>
           Titre
@@ -157,7 +157,7 @@ function NewCase({
         <label>
           Importateur
           <select value={form.importer_id} onChange={(e) => setForm({ ...form, importer_id: e.target.value })}>
-            <option value="">Plus tard</option>
+            <option value="">{t("later")}</option>
             {importers.map((i) => (
               <option key={i.id} value={i.id}>{i.name}</option>
             ))}
@@ -166,7 +166,7 @@ function NewCase({
         <label>
           Édition du référentiel
           <select value={form.target_edition_id} onChange={(e) => setForm({ ...form, target_edition_id: e.target.value })}>
-            <option value="">Plus tard</option>
+            <option value="">{t("later")}</option>
             {editions.map((e) => (
               <option key={e.id} value={e.id}>{e.label}</option>
             ))}
@@ -180,7 +180,7 @@ function NewCase({
           Régime
           <input value={form.regime} onChange={(e) => setForm({ ...form, regime: e.target.value })} placeholder="ex. C100 (fictif)" />
         </label>
-        <button type="submit">Créer le dossier</button>
+        <button type="submit">{t("createCase")}</button>
       </form>
       {error && <p role="alert" className="error">⚠ {error}</p>}
     </section>
