@@ -7,23 +7,23 @@ from datetime import date
 SUPPORTED = ("fr", "en", "es", "ar")
 MESSAGES = {
     "fr": {
-        "title": "Résumé du dossier", "reference": "Référence", "status": "Statut",
-        "documents": "Documents", "invoices": "Factures",
+        "title": "Résumé du dossier",\n        "reference": "Référence",\n        "status": "Statut",
+        "documents": "Documents",\n        "invoices": "Factures",
         "note": "Document préparatoire interne : ne constitue pas une validation douanière.",
     },
     "en": {
-        "title": "Case summary", "reference": "Reference", "status": "Status",
-        "documents": "Documents", "invoices": "Invoices",
+        "title": "Case summary",\n        "reference": "Reference",\n        "status": "Status",
+        "documents": "Documents",\n        "invoices": "Invoices",
         "note": "Internal preparatory document: not customs clearance approval.",
     },
     "es": {
-        "title": "Resumen del expediente", "reference": "Referencia", "status": "Estado",
-        "documents": "Documentos", "invoices": "Facturas",
+        "title": "Resumen del expediente",\n        "reference": "Referencia",\n        "status": "Estado",
+        "documents": "Documentos",\n        "invoices": "Facturas",
         "note": "Documento interno preparatorio: no constituye aprobación aduanera.",
     },
     "ar": {
-        "title": "ملخص الملف", "reference": "المرجع", "status": "الحالة",
-        "documents": "المستندات", "invoices": "الفواتير",
+        "title": "ملخص الملف",\n        "reference": "المرجع",\n        "status": "الحالة",
+        "documents": "المستندات",\n        "invoices": "الفواتير",
         "note": "وثيقة تحضيرية داخلية، وليست موافقة من الجمارك.",
     },
 }
