@@ -8,7 +8,12 @@ from apps.document_graph import api as document_graph
 from apps.extraction import api as extraction
 from apps.localization import api as localization
 from apps.organizations import api as organizations
-from apps.regulations.api import CaseDocumentChecklistView, DocumentTypeListView, OrganizationDocumentPolicyView
+from apps.regulations.api import (
+    CaseDocumentChecklistView,
+    DocumentReadinessView,
+    DocumentTypeListView,
+    OrganizationDocumentPolicyView,
+)
 from apps.tariffs import api as tariffs
 
 from .api import HealthView
@@ -42,6 +47,7 @@ urlpatterns = [
     path("case-documents/<uuid:link_id>/replace", cases.CaseDocumentReplaceView.as_view()),
     path("revisions/<uuid:revision_id>", cases.RevisionDetailView.as_view()),
     path("revisions/<uuid:revision_id>/document-checklist", CaseDocumentChecklistView.as_view()),
+    path("revisions/<uuid:revision_id>/document-readiness", DocumentReadinessView.as_view()),
     path("document-types", DocumentTypeListView.as_view()),
     path("organization/document-policies", OrganizationDocumentPolicyView.as_view()),
     path("revisions/<uuid:revision_id>/invoices", cases.InvoiceCreateView.as_view()),
