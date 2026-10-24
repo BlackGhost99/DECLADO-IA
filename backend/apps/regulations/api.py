@@ -1,12 +1,15 @@
 """Lecture documentaire contextualisée par dossier et société active."""
 
+from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.cases.models import CaseRevision
 from apps.core.exceptions import ApiError
-from apps.organizations.permissions import HasActiveOrganization
+from apps.organizations.models import Role
+from apps.organizations.permissions import HasActiveOrganization, require_roles
 
+from .classification import suggest_document_type
 from .engine import CaseContext, UnresolvedRegulatoryCondition, evaluate_requirements
 from .models import CompanyDocumentPolicy, DocumentRequirement, DocumentType
 
@@ -91,6 +94,7 @@ class CaseDocumentChecklistView(APIView):
                 "filename": link.document.original_name,
                 "usage": link.usage,
                 "readability": link.document.readability,
+                "classification": suggest_document_type(link.document.original_name),
             }
             code = KNOWN_USAGE_TYPES.get(link.usage)
             if code:
@@ -125,3 +129,61 @@ class CaseDocumentChecklistView(APIView):
                 ),
             }
         )
+
+
+class PolicyInput(serializers.Serializer):
+    document_type = serializers.SlugField(max_length=60)
+    operation = serializers.ChoiceField(choices=["", "import", "export"], required=False, default="")
+    regime = serializers.CharField(max_length=60, required=False, allow_blank=True, default="")
+    transport_mode = serializers.ChoiceField(
+        choices=["", *sorted(TRANSPORT_MODES)], required=False, default=""
+    )
+    reason = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
+
+
+class OrganizationDocumentPolicyView(APIView):
+    """Tenant-limited additive policy; only organization administrators may create."""
+
+    permission_classes = [require_roles(Role.ORG_ADMIN, safe_methods_open=True)]
+
+    def get(self, request):
+        rows = CompanyDocumentPolicy.objects.filter(organization=request.organization).select_related("document_type")
+        return Response({
+            "results": [
+                {
+                    "id": row.pk,
+                    "document_type": row.document_type.code,
+                    "label": row.document_type.label_fr,
+                    "operation": row.operation,
+                    "regime": row.regime,
+                    "transport_mode": row.transport_mode,
+                    "active": row.active,
+                    "reason": row.reason,
+                }
+                for row in rows.order_by("pk")
+            ]
+        })
+
+    def post(self, request):
+        data = PolicyInput(data=request.data)
+        data.is_valid(raise_exception=True)
+        doc = DocumentType.objects.filter(
+            code=data.validated_data["document_type"], active=True
+        ).first()
+        if doc is None:
+            raise ApiError("UNKNOWN_DOCUMENT_TYPE", "Type documentaire inconnu.", 422)
+        row = CompanyDocumentPolicy.objects.create(
+            organization=request.organization,
+            document_type=doc,
+            **{k: v for k, v in data.validated_data.items() if k != "document_type"},
+        )
+        return Response({"id": row.pk, "document_type": doc.code, "active": row.active}, status=201)
+
+
+class DocumentTypeListView(APIView):
+    permission_classes = [HasActiveOrganization]
+
+    def get(self, request):
+        return Response({
+            "results": list(DocumentType.objects.filter(active=True).order_by("code").values("code", "label_fr"))
+        })
