@@ -38,9 +38,7 @@ def link_for(org, user, revision, name):
 def refs(rows):
     index = defaultdict(dict)
     for kind, value, document in rows:
-        index[(kind, value)][str(document.id)] = {
-            "kind": kind, "value": value, "method": intelligence.ENGINE_VERSION
-        }
+        index[(kind, value)][str(document.id)] = {"kind": kind, "value": value, "method": intelligence.ENGINE_VERSION}
     return index
 
 
@@ -51,8 +49,11 @@ def test_80_document_scenario_preserves_shared_many_to_many_and_idempotence(worl
     docs = [link_for(org, user, revision, f"piece-{index:02d}.pdf") for index in range(80)]
     invoices = [
         Invoice.objects.create(
-            organization=org, revision=revision, ordinal=i + 1,
-            invoice_number=f"INV-{i + 1:04d}", document=docs[i],
+            organization=org,
+            revision=revision,
+            ordinal=i + 1,
+            invoice_number=f"INV-{i + 1:04d}",
+            document=docs[i],
         )
         for i in range(10)
     ]
@@ -74,7 +75,10 @@ def test_80_document_scenario_preserves_shared_many_to_many_and_idempotence(worl
     assert ShipmentInvoice.objects.count() == 2
     assert DocumentInvoiceLink.objects.filter(document=docs[10]).count() == 2
     assert intelligence.analyze(org=org, actor=user, revision_id=revision.id) == {
-        "document_invoices": 0, "shipments": 0, "shipment_documents": 0, "shipment_invoices": 0,
+        "document_invoices": 0,
+        "shipments": 0,
+        "shipment_documents": 0,
+        "shipment_invoices": 0,
         "conflicts": 0,
     }
     links = list(ShipmentInvoice.objects.all())
@@ -98,8 +102,12 @@ def test_wrong_tenant_invoice_link_never_crosses_revisions(world):
     ib = Invoice.objects.create(organization=b, revision=rb, ordinal=1, invoice_number="INV-1010")
     with pytest.raises(ApiError) as error:
         intelligence.create_invoice_link(
-            org=a, actor=ua, revision_id=ra.id, document_id=da.id,
-            invoice_id=ib.id, kind="insurance",
+            org=a,
+            actor=ua,
+            revision_id=ra.id,
+            document_id=da.id,
+            invoice_id=ib.id,
+            kind="insurance",
         )
     assert error.value.error_code == "NOT_FOUND"
     assert not DocumentInvoiceLink.objects.exists()
@@ -111,11 +119,15 @@ def test_conflict_resolution_is_attributed_and_does_not_change_invoice(world, mo
     rev = revision_for(org, user, "CONFLICT-INT")
     doc = link_for(org, user, rev, "invoice.pdf")
     invoice = Invoice.objects.create(
-        organization=org, revision=rev, ordinal=1,
-        invoice_number="INV-2026-01", document=doc,
+        organization=org,
+        revision=rev,
+        ordinal=1,
+        invoice_number="INV-2026-01",
+        document=doc,
     )
     monkeypatch.setattr(
-        intelligence, "_reference_index",
+        intelligence,
+        "_reference_index",
         lambda *_: (refs([]), {str(doc.id): {"INV-2026-02"}}),
     )
     result = intelligence.analyze(org=org, actor=user, revision_id=rev.id)
@@ -141,14 +153,22 @@ def test_manual_shared_insurance_and_review_are_append_only(world):
     ]
     for invoice in invoices:
         intelligence.create_invoice_link(
-            org=org, actor=user, revision_id=revision.id,
-            document_id=document.id, invoice_id=invoice.id, kind="insurance",
+            org=org,
+            actor=user,
+            revision_id=revision.id,
+            document_id=document.id,
+            invoice_id=invoice.id,
+            kind="insurance",
         )
     assert DocumentInvoiceLink.objects.filter(document=document, status="confirmed").count() == 2
     with pytest.raises(ApiError):
         intelligence.create_invoice_link(
-            org=org, actor=user, revision_id=revision.id,
-            document_id=document.id, invoice_id=invoices[0].id, kind="insurance",
+            org=org,
+            actor=user,
+            revision_id=revision.id,
+            document_id=document.id,
+            invoice_id=invoices[0].id,
+            kind="insurance",
         )
 
 
