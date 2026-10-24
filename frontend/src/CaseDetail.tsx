@@ -57,6 +57,7 @@ export function CaseDetailView({
   editions: EditionOption[];
   onBack: () => void;
 }) {
+  const { t } = useI18n();
   const canEdit = membership.roles.some((r) => r === "declarant" || r === "validator");
   const [detail, setDetail] = useState<CaseDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -235,6 +236,7 @@ function Documents({
   editable: boolean;
   onChange: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [limits, setLimits] = useState<{ max_bytes: number; accepted: string[] } | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [usage, setUsage] = useState("invoice");
@@ -305,13 +307,13 @@ function Documents({
         </p>
       )}
       {revision.documents.length === 0 ? (
-        <p className="muted">Aucune pièce.</p>
+        <p className="muted">{t("noPieces")}</p>
       ) : (
         <table>
           <thead>
             <tr>
-              <th scope="col">Pièce</th><th scope="col">Usage</th><th scope="col">État</th>
-              <th scope="col">Ajoutée par</th><th scope="col">Lecture</th><th scope="col">Actions</th>
+              <th scope="col">{t("pieces")}</th><th scope="col">{t("usage")}</th><th scope="col">{t("status")}</th>
+              <th scope="col">{t("addedBy")}</th><th scope="col">{t("readingDoc")}</th><th scope="col">{t("actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -345,8 +347,8 @@ function Documents({
                   )}
                 </td>
                 <td className="row">
-                  <button type="button" onClick={() => void open(link)} disabled={!link.document.previewable}>Aperçu</button>
-                  <button type="button" onClick={() => void download(link)}>Télécharger</button>
+                  <button type="button" onClick={() => void open(link)} disabled={!link.document.previewable}>{t("preview")}</button>
+                  <button type="button" onClick={() => void download(link)}>{t("download")}</button>
                 </td>
               </tr>
             ))}
@@ -356,7 +358,7 @@ function Documents({
       {editable && (
         <form className="row" onSubmit={(e) => { e.preventDefault(); void send(); }}>
           <label>
-            Fichier
+            {t("file")}
             <input type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} required />
           </label>
           <label>
@@ -367,7 +369,7 @@ function Documents({
               ))}
             </select>
           </label>
-          <button type="submit">Ajouter la pièce</button>
+          <button type="submit">{t("addPiece")}</button>
         </form>
       )}
       {duplicate && (
