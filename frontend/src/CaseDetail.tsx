@@ -17,6 +17,7 @@ import { Divergences, ExtractionControls, Flags, LineEditor, OriginBadge, Totals
 import { DocumentChecklist } from "./DocumentChecklist";
 import { ProposalsPanel } from "./Proposals";
 import { errorText, type EditionOption } from "./ui";
+import { useI18n } from "./i18n";
 
 const USAGES: [string, string][] = [
   ["invoice", "Facture"],
