@@ -2,6 +2,7 @@
 
 The result is intentionally conservative. Mixed/unknown documents remain reviewable.
 """
+
 import re
 from collections import Counter
 
