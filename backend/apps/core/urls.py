@@ -6,8 +6,8 @@ from apps.cases import api as cases
 from apps.clients import api as clients
 from apps.extraction import api as extraction
 from apps.organizations import api as organizations
-from apps.tariffs import api as tariffs
 from apps.regulations.api import CaseDocumentChecklistView
+from apps.tariffs import api as tariffs
 
 from .api import HealthView
 
