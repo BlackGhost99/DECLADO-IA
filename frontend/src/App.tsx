@@ -4,33 +4,41 @@ import { LoginForm } from "./LoginForm";
 import { OrganizationPicker } from "./OrganizationPicker";
 import { Reference } from "./Reference";
 import { Workspace } from "./Workspace";
+import { LanguageSelector, useI18n } from "./i18n";
+import { useLocaleSync } from "./i18n/sync";
 
 export default function App() {
+  const { t } = useI18n();
+  const {onAuthenticated,onSignedOut}=useLocaleSync();
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      setMe(await api.me());
+      const profile = await api.me();
+      setMe(profile);
+      onAuthenticated(profile);
     } catch (err) {
       if (!(err instanceof ApiError && err.status === 401)) throw err;
       setMe(null);
+      onSignedOut();
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [onAuthenticated, onSignedOut]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  if (loading) return <p className="center">Chargement…</p>;
-  if (!me) return <LoginForm onLoggedIn={setMe} />;
+  if (loading) return <p className="center">{t("loading")}</p>;
+  if (!me) return <LoginForm onLoggedIn={(profile) => { setMe(profile); onAuthenticated(profile); }} />;
 
   const active = me.memberships.find((m) => m.organization.id === me.active_organization_id);
   const logout = async () => {
     await api.logout();
     setMe(null);
+    onSignedOut();
   };
 
   return (
@@ -40,16 +48,17 @@ export default function App() {
         {active && (
           <span className="org">
             {active.organization.name}
-            {active.organization.is_demo && <span className="badge">Démonstration</span>}
+            {active.organization.is_demo && <span className="badge">{t("demo")}</span>}
           </span>
         )}
         <span className="spacer" />
         {me.memberships.length > 1 && active && (
-          <OrganizationPicker me={me} onChange={setMe} compact />
+          <OrganizationPicker me={me} onChange={(profile) => { setMe(profile); onAuthenticated(profile); }} compact />
         )}
+        <LanguageSelector />
         <span>{me.email}</span>
         <button type="button" onClick={logout}>
-          Se déconnecter
+          {t("logout")}
         </button>
       </header>
       <main>
@@ -58,7 +67,7 @@ export default function App() {
         ) : me.memberships.length === 0 && me.is_reference_manager ? (
           <Reference />
         ) : (
-          <OrganizationPicker me={me} onChange={setMe} />
+          <OrganizationPicker me={me} onChange={(profile) => { setMe(profile); onAuthenticated(profile); }} />
         )}
       </main>
     </div>
