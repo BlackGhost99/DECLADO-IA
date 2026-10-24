@@ -63,6 +63,7 @@ class SuggestView(APIView):
 
 # Intelligence documentaire : lecture isolée, propositions explicables et revue humaine.
 
+
 class DocumentIntelligenceView(APIView):
     permission_classes = [Access]
 
@@ -70,9 +71,7 @@ class DocumentIntelligenceView(APIView):
         return Response(intelligence.summary(org=request.organization, revision_id=revision_id))
 
     def post(self, request, revision_id):
-        result = intelligence.analyze(
-            org=request.organization, actor=request.user, revision_id=revision_id
-        )
+        result = intelligence.analyze(org=request.organization, actor=request.user, revision_id=revision_id)
         return Response({"created": result, **intelligence.summary(org=request.organization, revision_id=revision_id)})
 
 
@@ -89,7 +88,9 @@ class ManualInvoiceLinkView(APIView):
         serializer = ManualInvoiceLinkInput(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = intelligence.create_invoice_link(
-            org=request.organization, actor=request.user, revision_id=revision_id,
+            org=request.organization,
+            actor=request.user,
+            revision_id=revision_id,
             **serializer.validated_data,
         )
         return Response(data, status=201)
@@ -106,8 +107,10 @@ class ShipmentCreateView(APIView):
         serializer = ShipmentInput(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = intelligence.create_shipment(
-            org=request.organization, actor=request.user,
-            revision_id=revision_id, **serializer.validated_data,
+            org=request.organization,
+            actor=request.user,
+            revision_id=revision_id,
+            **serializer.validated_data,
         )
         return Response(data, status=201)
 
@@ -124,8 +127,11 @@ class ShipmentLinkCreateView(APIView):
         serializer = ShipmentLinkInput(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = intelligence.create_shipment_link(
-            org=request.organization, actor=request.user, revision_id=revision_id,
-            shipment_id=shipment_id, **serializer.validated_data,
+            org=request.organization,
+            actor=request.user,
+            revision_id=revision_id,
+            shipment_id=shipment_id,
+            **serializer.validated_data,
         )
         return Response(data, status=201)
 
@@ -140,19 +146,28 @@ class IntelligenceReviewView(APIView):
     def post(self, request, model, link_id):
         serializer = IntelligenceReviewInput(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(intelligence.review(
-            org=request.organization, actor=request.user, model=model, link_id=link_id,
-            **serializer.validated_data,
-        ))
+        return Response(
+            intelligence.review(
+                org=request.organization,
+                actor=request.user,
+                model=model,
+                link_id=link_id,
+                **serializer.validated_data,
+            )
+        )
 
 
 class ShipmentConfirmView(APIView):
     permission_classes = [require_roles(Role.DECLARANT, Role.VALIDATOR)]
 
     def post(self, request, shipment_id):
-        return Response(intelligence.confirm_shipment(
-            org=request.organization, actor=request.user, shipment_id=shipment_id,
-        ))
+        return Response(
+            intelligence.confirm_shipment(
+                org=request.organization,
+                actor=request.user,
+                shipment_id=shipment_id,
+            )
+        )
 
 
 class ConflictResolveInput(serializers.Serializer):
@@ -165,7 +180,11 @@ class IntelligenceConflictResolveView(APIView):
     def post(self, request, conflict_id):
         serializer = ConflictResolveInput(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(intelligence.resolve_conflict(
-            org=request.organization, actor=request.user, conflict_id=conflict_id,
-            **serializer.validated_data,
-        ))
+        return Response(
+            intelligence.resolve_conflict(
+                org=request.organization,
+                actor=request.user,
+                conflict_id=conflict_id,
+                **serializer.validated_data,
+            )
+        )
