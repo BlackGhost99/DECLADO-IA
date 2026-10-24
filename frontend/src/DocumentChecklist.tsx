@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, request } from "./api";
+import { useI18n } from "./i18n";
 
 interface Requirement {
   document_type: string;
@@ -17,6 +18,7 @@ interface Checklist {
 }
 
 export function DocumentChecklist({ revisionId }: { revisionId: string }) {
+  const { t } = useI18n();
   const [transport, setTransport] = useState("sea");
   const [operation, setOperation] = useState("import");
   const [result, setResult] = useState<Checklist | null>(null);
@@ -30,43 +32,42 @@ export function DocumentChecklist({ revisionId }: { revisionId: string }) {
       const data = await request<Checklist>("GET", `/revisions/${revisionId}/document-checklist?${params}`);
       setResult(data);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Évaluation documentaire indisponible.");
+      setError(err instanceof ApiError ? err.message : t("evaluationUnavailable"));
     }
   }
   return (
     <section className="card" aria-labelledby="document-checklist-title">
-      <h2 id="document-checklist-title">Contrôle documentaire réglementaire</h2>
-      <p className="muted">Évaluation indicative : la présence d'une pièce ne vaut pas conformité réglementaire.</p>
+      <h2 id="document-checklist-title">{t("checklistTitle")}</h2>
+      <p className="muted">{t("checklistNotice")}</p>
       <div className="row">
-        <label>Opération
+        <label>{t("operation")}
           <select value={operation} onChange={(e) => setOperation(e.target.value)}>
-            <option value="import">Importation</option><option value="export">Exportation</option>
+            <option value="import">{t("import")}</option><option value="export">{t("export")}</option>
           </select>
         </label>
-        <label>Transport
+        <label>{t("transport")}
           <select value={transport} onChange={(e) => setTransport(e.target.value)}>
-            <option value="sea">Maritime</option><option value="air">Aérien</option>
-            <option value="road">Routier</option><option value="rail">Ferroviaire</option>
-            <option value="multimodal">Multimodal</option>
+            <option value="sea">{t("sea")}</option><option value="air">{t("air")}</option>
+            <option value="road">{t("road")}</option><option value="rail">{t("rail")}</option>
+            <option value="multimodal">{t("multimodal")}</option>
           </select>
         </label>
-        <button type="button" onClick={() => void evaluate()}>Évaluer les pièces</button>
+        <button type="button" onClick={() => void evaluate()}>{t("evaluate")}</button>
       </div>
       {error && <p role="alert" className="error">{error}</p>}
       {result && <>
         <p role="status" className="warning">{result.warning}</p>
-        <p>Couverture : {result.coverage} — Validation réglementaire : non</p>
+        <p>{t("coverage")} {result.coverage} — {t("validationNo")}</p>
         {result.requirements.length === 0
-          ? <p className="warning">Aucune règle publiée ne permet de conclure que ce dossier est complet.</p>
-          : <table><thead><tr><th>Document</th><th>État</th><th>Fondement</th></tr></thead>
+          ? <p className="warning">{t("noRule")}</p>
+          : <table><thead><tr><th>{t("documents")}</th><th>{t("status")}</th><th>{t("basis")}</th></tr></thead>
             <tbody>{result.requirements.map((r) => <tr key={r.document_type}>
-              <td>{r.label}</td><td>{r.status === "missing" ? "Manquant" : "Reçu, à vérifier"}</td>
+              <td>{r.label}</td><td>{r.status === "missing" ? t("missing") : t("receivedReview")}</td>
               <td>{r.reasons.map((v) => v.kind === "regulation"
-                ? `${v.source || ""} art. ${v.article || ""}` : "Politique société").join(" · ")}</td>
+                ? `${v.source || ""} art. ${v.article || ""}` : t("orgPolicy")).join(" · ")}</td>
             </tr>)}</tbody></table>}
         {result.unclassified_documents.length > 0 && <p className="muted">
-          {result.unclassified_documents.length} document(s) non classés avec certitude.
-          Les suggestions tirées du nom des fichiers doivent être confirmées par un agent.
+          {result.unclassified_documents.length} {t("uncategorized")}
         </p>}
       </>}
     </section>
