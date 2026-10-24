@@ -3,6 +3,7 @@
 This module produces proposals only. It never validates associations or alters
 source files, invoices, tariff classifications, or regulatory evidence.
 """
+
 import re
 from collections import defaultdict
 
