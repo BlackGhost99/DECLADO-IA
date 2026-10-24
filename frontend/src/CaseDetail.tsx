@@ -17,7 +17,7 @@ import { Divergences, ExtractionControls, Flags, LineEditor, OriginBadge, Totals
 import { DocumentChecklist } from "./DocumentChecklist";
 import { ProposalsPanel } from "./Proposals";
 import { errorText, type EditionOption } from "./ui";
-import { useI18n } from "./i18n";
+import { useI18n, useBusinessLabels } from "./i18n";
 
 const USAGES: [string, string][] = [
   ["invoice", "Facture"],
@@ -58,6 +58,7 @@ export function CaseDetailView({
   onBack: () => void;
 }) {
   const { t } = useI18n();
+  const labels = useBusinessLabels();
   const canEdit = membership.roles.some((r) => r === "declarant" || r === "validator");
   const [detail, setDetail] = useState<CaseDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +101,7 @@ export function CaseDetailView({
           <span className="code">{detail.reference}</span> {detail.title}
         </h2>
         <p className="muted small">
-          {t("revision")} {rev.revision_no} · {rev.state_label} · {rev.mode_label}. {rev.status_note}
+          {t("revision")} {rev.revision_no} · {labels.state(rev.state, rev.state_label)} · {labels.mode(rev.mode, rev.mode_label)}. {rev.status_note}
         </p>
         <dl className="facts">
           <dt>{t("importers")}</dt>
@@ -239,6 +240,7 @@ function Documents({
   onChange: () => Promise<void>;
 }) {
   const { t } = useI18n();
+  const labels = useBusinessLabels();
   const [limits, setLimits] = useState<{ max_bytes: number; accepted: string[] } | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [usage, setUsage] = useState("invoice");
@@ -335,9 +337,9 @@ function Documents({
                     )}
                   </div>
                 </td>
-                <td>{link.usage_label}</td>
+                <td>{labels.usage(link.usage, link.usage_label)}</td>
                 <td>
-                  {link.replaced_by_id ? "Remplacée (conservée)" : link.document.readability_label}
+                  {link.replaced_by_id ? "Remplacée (conservée)" : labels.readability(link.document.readability, link.document.readability_label)}
                   {link.document.inspection_notes.map((n) => (
                     <div key={n} className="small muted">{n}</div>
                   ))}
