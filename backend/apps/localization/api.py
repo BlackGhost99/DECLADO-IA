@@ -51,3 +51,24 @@ class OrganizationLocaleView(APIView):
             record_event(organization=org, actor=request.user, event_type="organization.locale_changed",
                          entity=org, previous={"locale": current}, current={"locale": locale})
         return Response({"locale": locale})
+
+class CaseSummaryView(APIView):
+    permission_classes = [HasActiveOrganization]
+
+    def get(self, request, case_id):
+        from apps.cases.models import CustomsCase
+
+        from .reports import SUPPORTED, summary_payload
+
+        locale = request.query_params.get("locale") or request.user.interface_locale
+        if locale not in SUPPORTED:
+            raise ApiError("INVALID_LOCALE", "Langue non prise en charge.", 400)
+        case = (
+            CustomsCase.objects.for_organization(request.organization)
+            .select_related("current_revision")
+            .filter(pk=case_id)
+            .first()
+        )
+        if case is None:
+            raise ApiError("NOT_FOUND", "Dossier introuvable.", 404)
+        return Response(summary_payload(case=case, locale=locale))
