@@ -67,9 +67,7 @@ def _detect_script(image: Image.Image) -> str:
     import pytesseract
 
     try:
-        return _script_hint(
-            pytesseract.image_to_osd(image, timeout=min(settings.OCR_PAGE_TIMEOUT_SECONDS, 10))
-        )
+        return _script_hint(pytesseract.image_to_osd(image, timeout=min(settings.OCR_PAGE_TIMEOUT_SECONDS, 10)))
     except (RuntimeError, ValueError, pytesseract.TesseractError):
         return ""
 
