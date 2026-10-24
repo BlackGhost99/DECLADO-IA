@@ -11,6 +11,7 @@ from django.conf import settings
 from PIL import Image, ImageOps
 
 from ..layout import Page, structure
+from ..language import annotate_parsed
 from ..schema import Origin, ParsedDocument, warning
 from . import ExtractionFailure, Progress
 from .words import rows_from_words
@@ -115,7 +116,9 @@ def extract_image(path: Path, *, progress: Progress) -> ParsedDocument:
     except (OSError, SyntaxError) as exc:
         raise ExtractionFailure("DOCUMENT_UNREADABLE", "Image illisible : déposer une version lisible.") from exc
     progress("structuration", 1, 1)
-    doc = structure([result.page] if result.page else [], origin=Origin.OCR)
+    pages = [result.page] if result.page else []
+    doc = structure(pages, origin=Origin.OCR)
+    annotate_parsed(doc, pages)
     doc.warnings.extend(result.warnings)
     doc.stats.update({"pages": 1, "text_pages": 0, "ocr_pages": [1] if result.page else [], "pages_without_text": []})
     return doc
