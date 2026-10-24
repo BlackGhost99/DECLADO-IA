@@ -75,3 +75,58 @@ def review_relation(*, org, actor, relation_id, status):
     record_event(organization=org, actor=actor, event_type="document_graph.relation_reviewed",
                  entity=relation, previous=before, current=as_dict(relation), scope=relation.revision.case.scope)
     return relation
+
+@transaction.atomic
+def suggest_relations(*, org, actor, revision_id):
+    """Create human-reviewable suggestions from extracted field observations only."""
+    from apps.extraction.models import FieldObservation
+
+    from .matcher import propose_links
+
+    rev = _revision(org, revision_id)
+    if not rev.is_editable:
+        raise ApiError("REVISION_NOT_EDITABLE", "Révision non modifiable.", 409)
+    links = list(
+        CaseDocument.objects.for_organization(org)
+        .filter(revision=rev, replaced_by__isnull=True)
+        .values_list("id", flat=True)
+    )
+    texts = {str(pk): [] for pk in links}
+    observations = (
+        FieldObservation.objects.for_organization(org)
+        .filter(run__case_document_id__in=links, run__status="succeeded")
+        .values_list("run__case_document_id", "raw_value")
+    )
+    for pk, raw in observations.iterator():
+        if raw:
+            texts[str(pk)].append(str(raw)[:500])
+    candidates = propose_links([
+        {"id": pk, "text": "\n".join(values)}
+        for pk, values in texts.items()
+    ])
+    saved = []
+    for suggestion in candidates:
+        source = suggestion["source_id"]
+        target = suggestion["target_id"]
+        if DocumentRelation.objects.for_organization(org).filter(
+            revision=rev, source_id=source, target_id=target
+        ).exists():
+            continue
+        relation = DocumentRelation.objects.create(
+            organization=org, revision=rev,
+            source_id=source, target_id=target,
+            kind="same_shipment",
+            provenance="suggested",
+            status=DocumentRelation.Status.PROPOSED,
+            rationale="Référence commune détectée ; vérifier avant confirmation.",
+            created_by=actor,
+        )
+        record_event(
+            organization=org, actor=actor, event_type="document_graph.relation_suggested",
+            entity=relation, current={
+                "references": suggestion["evidence"],
+                "relation": as_dict(relation),
+            }, scope=rev.case.scope,
+        )
+        saved.append({"relation": as_dict(relation), "evidence": suggestion["evidence"]})
+    return saved
