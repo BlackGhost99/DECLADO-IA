@@ -2,7 +2,10 @@ import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/re
 import type { ReactElement } from "react";
 import { I18nProvider } from "../src/i18n";
 
-function renderWithLanguage(element: ReactElement) { return render(<I18nProvider>{element}</I18nProvider>); }
+function renderWithLanguage(element: ReactElement) {
+  localStorage.setItem("clairtransit.interface-locale", "fr");
+  return render(<I18nProvider>{element}</I18nProvider>);
+}
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CaseDocument, CodeCheck, GoodsLine, Invoice, InvoiceLine } from "../src/api";
 import { Divergences, ExtractionControls, LineEditor, OriginBadge, TotalsPanel, spanText } from "../src/Extraction";
