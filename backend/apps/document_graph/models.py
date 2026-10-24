@@ -14,13 +14,16 @@ class DocumentRelation(OrganizationOwnedModel):
     revision = models.ForeignKey("cases.CaseRevision", on_delete=models.PROTECT, related_name="document_relations")
     source = models.ForeignKey("cases.CaseDocument", on_delete=models.PROTECT, related_name="outgoing_relations")
     target = models.ForeignKey("cases.CaseDocument", on_delete=models.PROTECT, related_name="incoming_relations")
-    kind = models.CharField(max_length=30, choices=[
-        ("same_shipment", "Même expédition"),
-        ("supports_invoice", "Justifie une facture"),
-        ("shared_insurance", "Assurance commune"),
-        ("shared_transport", "Transport commun"),
-        ("other", "Autre lien"),
-    ])
+    kind = models.CharField(
+        max_length=30,
+        choices=[
+            ("same_shipment", "Même expédition"),
+            ("supports_invoice", "Justifie une facture"),
+            ("shared_insurance", "Assurance commune"),
+            ("shared_transport", "Transport commun"),
+            ("other", "Autre lien"),
+        ],
+    )
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.PROPOSED)
     provenance = models.CharField(
         max_length=20, choices=[("manual", "Manuel"), ("suggested", "Suggéré")], default="manual"
