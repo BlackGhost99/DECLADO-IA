@@ -14,7 +14,8 @@ class MFAEnforcementMiddleware:
         path = request.path
         user = getattr(request, "user", None)
         if (
-            settings.MFA_ENFORCE
+            # L'exploitant de la plateforme passe toujours par la double authentification.
+            (settings.MFA_ENFORCE or getattr(user, "is_platform_operator", False))
             and path.startswith("/api/v1/")
             and not (path.startswith("/api/v1/auth/") or path in ("/api/v1/me", "/api/v1/health"))
             and user is not None

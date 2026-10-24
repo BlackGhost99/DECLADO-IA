@@ -15,10 +15,21 @@ IsOrgAdmin = require_roles(Role.ORG_ADMIN)
 class MemberSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", read_only=True)
     full_name = serializers.CharField(source="user.full_name", read_only=True)
+    agency_name = serializers.CharField(source="agency.name", read_only=True, default=None)
 
     class Meta:
         model = Membership
-        fields = ["id", "email", "full_name", "roles", "active", "deactivated_at", "row_version"]
+        fields = [
+            "id",
+            "email",
+            "full_name",
+            "roles",
+            "agency",
+            "agency_name",
+            "active",
+            "deactivated_at",
+            "row_version",
+        ]
 
 
 class AddMemberSerializer(serializers.Serializer):
@@ -50,7 +61,7 @@ class MemberListView(ListAPIView):
 
     def get_queryset(self):
         return (
-            Membership.objects.select_related("user")
+            Membership.objects.select_related("user", "agency")
             .filter(organization=self.request.organization)
             .order_by("user__email")
         )

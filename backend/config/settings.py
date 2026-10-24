@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "apps.cases",
     "apps.extraction",
     "apps.scans",
+    "apps.onboarding",
 ]
 
 MIDDLEWARE = [
