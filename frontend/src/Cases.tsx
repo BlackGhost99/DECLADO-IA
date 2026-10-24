@@ -2,10 +2,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, type CaseSummary, type Importer, type Me, type Membership } from "./api";
 import { CaseDetailView } from "./CaseDetail";
 import { errorText, type EditionOption } from "./ui";
-import { useI18n } from "./i18n";
+import { useI18n, useBusinessLabels } from "./i18n";
 
 export function Cases({ membership, me }: { membership: Membership; me: Pick<Me, "id"> }) {
   const { t, locale } = useI18n();
+  const labels = useBusinessLabels();
   const canEdit = membership.roles.some((r) => r === "declarant" || r === "validator");
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [states, setStates] = useState<[string, string][]>([]);
@@ -66,7 +67,7 @@ export function Cases({ membership, me }: { membership: Membership; me: Pick<Me,
             <select value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })}>
               <option value="">{t("all")}</option>
               {states.map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+                <option key={value} value={value}>{labels.state(value, label)}</option>
               ))}
             </select>
           </label>
@@ -108,7 +109,7 @@ export function Cases({ membership, me }: { membership: Membership; me: Pick<Me,
                   <td>{c.title}</td>
                   <td>{c.importer?.name ?? <em className="muted">{t("notProvided")}</em>}</td>
                   <td>{c.assigned_to?.email ?? <span className="muted">—</span>}</td>
-                  <td>{c.state_label}</td>
+                  <td>{labels.state(c.state, c.state_label)}</td>
                   <td>{new Date(c.created_at).toLocaleDateString(locale)}</td>
                 </tr>
               ))}
