@@ -15,7 +15,7 @@ def applicable_rules(*, territory, regime, tariff_code, on_date):
         valid_from__lte=on_date,
     ).filter(
         Q(valid_to__isnull=True)
-        | __import__("django").db.models.Q(valid_to__gt=on_date)
+        | Q(valid_to__gt=on_date)
     )
     rules = [
         VerifiedFiscalRule(
