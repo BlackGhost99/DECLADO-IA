@@ -73,7 +73,14 @@ def evaluate_requirements(context: CaseContext, regulatory_rules, company_polici
         if _matches(rule, context):
             key = rule.document_type.code
             entry = by_code.setdefault(key, {"document_type": key, "reasons": [], "stages": []})
-            entry["reasons"].append({"kind": "regulation", "source": rule.source.reference, "article": rule.article, "rule_id": str(rule.pk)})
+            entry["reasons"].append(
+                {
+                    "kind": "regulation",
+                    "source": rule.source.reference,
+                    "article": rule.article,
+                    "rule_id": str(rule.pk),
+                }
+            )
             if rule.stage not in entry["stages"]:
                 entry["stages"].append(rule.stage)
     for policy in company_policies:
