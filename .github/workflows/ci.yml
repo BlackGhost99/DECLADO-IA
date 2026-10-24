@@ -35,7 +35,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng
       - run: pip install -r requirements-dev.txt
       - name: Style
-        run: ruff check . && ruff format --check .
+        run: ruff check . && ruff format --diff . && ruff format --check .
       - name: Migrations à jour
         run: python manage.py makemigrations --check --dry-run
       - name: Migrations applicables
