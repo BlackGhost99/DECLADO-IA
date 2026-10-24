@@ -15,7 +15,7 @@ import {
   type TotalsCheck,
 } from "./api";
 import { errorText } from "./ui";
-import { useI18n } from "./i18n";
+import { useI18n, type MessageKey } from "./i18n";
 
 type Act = (a: () => Promise<unknown>) => Promise<void>;
 
@@ -38,7 +38,18 @@ export const FIELD_LABELS: Record<string, string> = {
   "code:ambiguous": "code de nature incertaine",
 };
 
-const ORIGIN_LABELS: Record<string, string> = { read: "lu", ocr: "OCR", inferred: "déduit", manual: "saisi" };
+const FIELD_KEYS: Record<string, MessageKey> = {
+  supplier_name: "supplier", invoice_number: "invoiceNumber",
+  invoice_date: "date", currency: "currency", incoterm: "incotermLabel",
+  declared_total: "printedTotal", source_reference: "supplierRef",
+  description_raw: "description", quantity: "quantity", unit: "unit",
+  unit_price: "unitPrice", amount: "amount", origin_country: "origin",
+  "code:customs": "customsCode", "code:supplier": "supplierCode",
+  "code:ambiguous": "ambiguousCode",
+};
+const ORIGIN_KEYS: Record<string, MessageKey> = {
+  read: "originRead", inferred: "originInferred", manual: "originManual",
+};
 
 /** « p. 2 · zone 14–38 % » pour un PDF ou une image, « Facture!F7 » pour Excel. */
 export function spanText(span: Span | null | undefined): string {
@@ -51,13 +62,14 @@ export function spanText(span: Span | null | undefined): string {
 }
 
 export function OriginBadge({ origin, source }: { origin?: string; source?: FieldSource }) {
+  const { t } = useI18n();
   if (!origin && !source) return null;
   const kind = origin === "manual" ? "manual" : (source?.origin ?? (origin === "extracted" ? "read" : origin ?? ""));
-  const label = ORIGIN_LABELS[kind] ?? kind;
+  const label = ORIGIN_KEYS[kind] ? t(ORIGIN_KEYS[kind]) : kind;
   const where = origin === "manual" ? "" : spanText(source?.span);
   const title = [
-    source?.span?.excerpt ? `Texte lu : « ${source.span.excerpt} »` : "",
-    source?.confidence != null ? `Confiance OCR ${Math.round(source.confidence)}` : "",
+    source?.span?.excerpt ? `${t("originalText")} « ${source.span.excerpt} »` : "",
+    source?.confidence != null ? `${t("ocrConfidence")} ${Math.round(source.confidence)}` : "",
     ...(source?.notes ?? []),
   ]
     .filter(Boolean)
@@ -216,7 +228,7 @@ export function RunDetail({ runId }: { runId: string }) {
                 {run.comparison.rows.map((r) => (
                   <tr key={r.entity_key + r.field}>
                     <td>{r.entity_key}</td>
-                    <td>{FIELD_LABELS[r.field] ?? r.field}</td>
+                    <td>{FIELD_KEYS[r.field] ? t(FIELD_KEYS[r.field]) : r.field}</td>
                     <td>{show(r.previous)}</td>
                     <td>{show(r.current)}</td>
                   </tr>
@@ -242,11 +254,8 @@ const MERGE_LABELS: Record<string, string> = {
   codes_observed: "codes lus",
 };
 
-const TOTALS_STATUS: Record<TotalsCheck["status"], string> = {
-  match: "Total recalculé égal au total imprimé.",
-  gap: "Écart entre le total imprimé et le total recalculé : à expliquer, rien n'a été corrigé.",
-  incomplete: "Total non recalculable : une ou plusieurs valeurs sont inconnues.",
-  no_printed_total: "Aucun total imprimé lu.",
+const TOTALS_KEYS: Record<TotalsCheck["status"], MessageKey> = {
+  match: "totalMatch", gap: "totalGap", incomplete: "totalUnknown", no_printed_total: "noPrintedTotal",
 };
 
 export function TotalsPanel({ totals, currency }: { totals?: TotalsCheck; currency: string }) {
@@ -255,19 +264,19 @@ export function TotalsPanel({ totals, currency }: { totals?: TotalsCheck; curren
   const c = totals.components;
   return (
     <div className={totals.status === "match" ? "evidence small" : "warning small"} aria-label={t("totalsCheck")}>
-      <p><strong>{TOTALS_STATUS[totals.status]}</strong></p>
+      <p><strong>{t(TOTALS_KEYS[totals.status])}</strong></p>
       <p>
-        Marchandises {show(c.goods)} + frais {show(c.fees)} − remises {show(c.discounts)} + taxes {show(c.taxes)} ={" "}
-        <strong>{show(totals.computed_total)}</strong> {currency} · imprimé <strong>{show(totals.printed_total)}</strong>
-        {totals.gap && totals.gap !== "0" && <> · écart <strong>{totals.gap}</strong></>}
+        {t("goods")} {show(c.goods)} + {t("fees")} {show(c.fees)} − {t("discounts")} {show(c.discounts)} + {t("taxes")} {show(c.taxes)} ={" "}
+        <strong>{show(totals.computed_total)}</strong> {currency} · {t("printed")} <strong>{show(totals.printed_total)}</strong>
+        {totals.gap && totals.gap !== "0" && <> · {t("gap")} <strong>{totals.gap}</strong></>}
       </p>
-      {totals.goods_lines_without_amount > 0 && <p>{totals.goods_lines_without_amount} ligne(s) sans montant connu.</p>}
+      {totals.goods_lines_without_amount > 0 && <p>{totals.goods_lines_without_amount} {t("linesWithoutAmount")}</p>}
       {totals.explanations.map((e) => (
         <p key={e}>{e}</p>
       ))}
       {totals.subtotals_not_added.length > 0 && (
         <p className="muted">
-          Non additionnés (sous-totaux et reports) :{" "}
+          {t("excludedSubtotals")}{" "}
           {totals.subtotals_not_added.map((s) => `${s.label} ${show(s.amount)}`).join(" ; ")}
         </p>
       )}
@@ -285,8 +294,7 @@ export function Divergences({ invoice, editable, act }: { invoice: Invoice; edit
       {open.length > 0 && (
         <>
           <p>
-            <strong>{open.length} divergence(s) à trancher.</strong> La valeur actuelle est conservée tant que vous
-            ne retenez pas la relecture.
+            <strong>{open.length} {t("reviewCount")}</strong> {t("valueRetained")}
           </p>
           <ul>
             {open.map((d) => (
@@ -297,7 +305,7 @@ export function Divergences({ invoice, editable, act }: { invoice: Invoice; edit
       )}
       {closed.length > 0 && (
         <details>
-          <summary>{closed.length} divergence(s) tranchée(s)</summary>
+          <summary>{closed.length} {t("divergencesClosed")}</summary>
           <ul>
             {closed.map((d) => (
               <li key={d.id}>
@@ -313,7 +321,7 @@ export function Divergences({ invoice, editable, act }: { invoice: Invoice; edit
 }
 
 function where(d: Divergence) {
-  const field = FIELD_LABELS[d.field] ?? d.field;
+  const field = FIELD_KEYS[d.field] ? t(FIELD_KEYS[d.field]) : d.field;
   return d.line_ordinal ? `Ligne ${d.line_ordinal}${d.field ? `, ${field}` : ""}` : `Facture, ${field}`;
 }
 
@@ -386,7 +394,7 @@ export function LineEditor({
     <form className="row small" onSubmit={submit} aria-label={`Corriger la ligne ${line.ordinal}`}>
       {EDITABLE_FIELDS.map((f) => (
         <label key={f}>
-          {FIELD_LABELS[f]}
+          {FIELD_KEYS[f] ? t(FIELD_KEYS[f]) : FIELD_LABELS[f]}
           <input value={form[f]} size={f === "description_raw" ? 28 : 8} onChange={(e) => setForm({ ...form, [f]: e.target.value })} />
         </label>
       ))}
