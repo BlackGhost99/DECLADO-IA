@@ -2,10 +2,12 @@
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
 from apps.audit.services import record_event
 from apps.core.exceptions import ApiError
 from apps.organizations.models import Role
 from apps.organizations.permissions import HasActiveOrganization
+
 
 LOCALES = ("fr", "en", "es", "ar")
 
