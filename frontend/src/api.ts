@@ -174,6 +174,17 @@ async function ensureCsrf(): Promise<string> {
   return token ?? "";
 }
 
+/** Émis quand la session a pris fin pendant l'utilisation (expiration, déconnexion dans un autre onglet). */
+export const SESSION_ENDED_EVENT = "clairtransit:session-ended";
+
+function watchSession(path: string, response: Response): Response {
+  // /me et /auth/* répondent 401 normalement avant la connexion : seule une autre route signale une session perdue.
+  if (response.status === 401 && path !== "/me" && !path.startsWith("/auth/")) {
+    window.dispatchEvent(new Event(SESSION_ENDED_EVENT));
+  }
+  return response;
+}
+
 export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (method !== "GET") {
@@ -186,7 +197,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
     credentials: "same-origin",
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  return parse<T>(response);
+  return parse<T>(watchSession(path, response));
 }
 
 async function parse<T>(response: Response): Promise<T> {
@@ -205,7 +216,7 @@ export async function upload<T>(path: string, form: FormData, headers: Record<st
     credentials: "same-origin",
     body: form,
   });
-  return parse<T>(response);
+  return parse<T>(watchSession(path, response));
 }
 
 export interface EditionBrief {

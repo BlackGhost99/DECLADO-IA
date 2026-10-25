@@ -294,7 +294,8 @@ export function AccessRequestForm() {
 export function Activation({ token, onDone }: { token: string; onDone: (me: Me) => void }) {
   const labels = useBusinessLabels();
   const [preview, setPreview] = useState<InvitationPreview | null>(null);
-  const [invalid, setInvalid] = useState(false);
+  // "invalid" : lien refusé par le serveur ; "unreachable" : serveur injoignable ou autre erreur.
+  const [failure, setFailure] = useState<"invalid" | "unreachable" | null>(null);
   const [form, setForm] = useState({ full_name: "", password: "", confirm: "" });
   const [joined, setJoined] = useState<Me | null>(null);
   const [error, setError] = useState("");
@@ -312,7 +313,7 @@ export function Activation({ token, onDone }: { token: string; onDone: (me: Me) 
         setPreview(p);
         setForm((f) => ({ ...f, full_name: p.full_name }));
       },
-      () => setInvalid(true),
+      (err) => setFailure(err instanceof ApiError && err.status === 404 ? "invalid" : "unreachable"),
     );
   }, [token]);
 
@@ -347,10 +348,10 @@ export function Activation({ token, onDone }: { token: string; onDone: (me: Me) 
     return <MFAEnrollment onComplete={finish} onSkip={skippable ? () => finish(joined) : undefined} step={tr("onb.step2")} />;
   }
 
-  if (invalid) {
+  if (failure) {
     return (
       <AuthShell title={tr("onb.activateTitle")}>
-        <p role="alert" className="error">⚠ {tr("onb.invalidLink")}</p>
+        <p role="alert" className="error">⚠ {tr(failure === "invalid" ? "onb.invalidLink" : "onb.lookupFailed")}</p>
         <button type="button" className="btn-secondary btn-block" onClick={() => navigate("/")}>{tr("onb.backToLogin")}</button>
       </AuthShell>
     );

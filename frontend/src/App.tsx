@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Administration, adminTab } from "./Administration";
-import { api, ApiError, ROLE_LABELS, type Me, type Membership, type OrgAuditEvent } from "./api";
+import { api, ApiError, ROLE_LABELS, SESSION_ENDED_EVENT, type Me, type Membership, type OrgAuditEvent } from "./api";
 import { CaseDetailView, CASE_TABS } from "./CaseDetail";
 import { CasePicker, Cases } from "./Cases";
 import { Console } from "./Console";
@@ -26,6 +26,7 @@ export default function App() {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsSetup, setNeedsSetup] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -47,6 +48,7 @@ export default function App() {
   /** Tout changement de profil (connexion, MFA, société) réapplique la langue effective. */
   const signedIn = useCallback(
     (profile: Me) => {
+      setSessionEnded(false);
       setMe(profile);
       onAuthenticated(profile);
     },
@@ -67,6 +69,16 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [refresh]);
 
+  // Session expirée ou fermée ailleurs : retour à la connexion plutôt qu'un refus sur chaque action.
+  useEffect(() => {
+    const onEnded = () => {
+      setSessionEnded(true);
+      void refresh().catch(() => undefined);
+    };
+    window.addEventListener(SESSION_ENDED_EVENT, onEnded);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, onEnded);
+  }, [refresh]);
+
   if (loading) return <p className="center">{t("loading")}</p>;
   const [entry, token] = route.parts;
   if (entry === "activation" && token) return <Activation key={token} token={token} onDone={signedIn} />;
@@ -81,7 +93,7 @@ export default function App() {
         />
       );
     }
-    return entry === "demande" ? <AccessRequestForm /> : <LoginForm onLoggedIn={signedIn} />;
+    return entry === "demande" ? <AccessRequestForm /> : <LoginForm onLoggedIn={signedIn} notice={sessionEnded ? tr("onb.sessionEnded") : undefined} />;
   }
 
   const logout = async () => {

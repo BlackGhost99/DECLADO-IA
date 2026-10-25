@@ -39,6 +39,8 @@ Toutes les étapes ont été vérifiées en français et en arabe (RTL), et à 4
   - lien refusé s'il est expiré, utilisé, annulé ou si la société est suspendue ;
   - l'invité choisit lui-même son mot de passe ; un compte existant se rattache avec son propre mot de passe ;
   - le lien se copie à la main : aucun e-mail n'est nécessaire, donc l'application fonctionne sans internet.
+  - la page d'activation distingue un lien refusé d'un serveur injoignable ;
+  - une session expirée ou fermée dans un autre onglet ramène à l'écran de connexion avec un message, au lieu d'un refus sur chaque action.
 - **Administration de la société** (ACC-08) :
   - onglet Agences ;
   - onglet Utilisateurs : membres et invitations en attente, agence modifiable, désactivation et réactivation, renouvellement et annulation des invitations, formulaire d'invitation avec rôles et agence ;
@@ -76,7 +78,7 @@ cd frontend && npm run typecheck && npm test && npm run build
   - limite de sièges ;
   - isolation entre sociétés (404) ;
   - réactivation et changement d'agence.
-- **Frontend** : 37 tests réussis, dont 5 dans `tests/Onboarding.test.tsx` (mise en service, lien « Demander l'ouverture », activation, lien périmé, console avec acceptation et lien affiché). Le test i18n vérifie que les clés sont les mêmes dans les quatre langues.
+- **Frontend** : 39 tests réussis, dont 7 dans `tests/Onboarding.test.tsx` (mise en service, lien « Demander l'ouverture », activation, lien périmé, serveur injoignable, session terminée, console avec acceptation et lien affiché). Le test i18n vérifie que les clés sont les mêmes dans les quatre langues.
 - **Parcours complet dans Chromium** sur une base vide, comme décrit ci-dessus.
 
 ## Limites

@@ -4,7 +4,7 @@ import { Logo } from "./Icon";
 import { LanguageSelector, tr, useI18n } from "./i18n";
 import { navigate } from "./router";
 
-export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
+export function LoginForm({ onLoggedIn, notice }: { onLoggedIn: (me: Me) => void; notice?: string }) {
   const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,6 +46,7 @@ export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
           </span>
         </div>
         <h1 id="login-title">{t("loginTitle")}</h1>
+        {notice && !error && <p className="onb-note" role="status">{notice}</p>}
         {secondFactor && <p>{t("mfa.enterCode")}</p>}
         {!secondFactor && (
           <label>

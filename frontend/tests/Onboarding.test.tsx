@@ -1,6 +1,7 @@
 import { render as baseRender, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../src/App";
+import { api } from "../src/api";
 import type { ReactElement } from "react";
 import { I18nProvider } from "../src/i18n";
 
@@ -9,6 +10,20 @@ const render = (ui: ReactElement) => baseRender(ui, { wrapper: I18nProvider });
 function json(status: number, body: unknown) {
   return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
 }
+
+const OPERATOR = {
+  id: "op",
+  email: "ops@example.test",
+  full_name: "Exploitant",
+  is_reference_manager: true,
+  is_platform_operator: true,
+  interface_locale: "fr",
+  active_organization_id: null,
+  memberships: [],
+  mfa_enabled: true,
+  mfa_verified_session: true,
+  mfa_required_for_access: true,
+};
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -84,20 +99,38 @@ describe("Mise en route", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/n'est plus valable/i);
   });
 
+  it("ne déclare pas un lien périmé quand le serveur ne répond pas", async () => {
+    window.location.hash = "#/activation/jeton-test";
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/auth/invitations/lookup")) return json(502, {});
+      if (url.endsWith("/auth/setup")) return json(200, { needs_setup: false });
+      return json(401, {});
+    });
+    render(<App />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/impossible de vérifier ce lien/i);
+    expect(alert).not.toHaveTextContent(/n'est plus valable/i);
+  });
+
+  it("revient à la connexion quand la session a pris fin pendant l'utilisation", async () => {
+    let signedIn = true;
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/me")) return signedIn ? json(200, OPERATOR) : json(401, {});
+      if (url.endsWith("/auth/setup")) return json(200, { needs_setup: false });
+      if (url.includes("/platform/")) return signedIn ? json(200, []) : json(401, { code: "NOT_AUTHENTICATED" });
+      return json(404, {});
+    });
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: /sociétés clientes/i, level: 1 })).toBeInTheDocument();
+    signedIn = false;
+    await expect(api.platformOrganizations()).rejects.toThrow();
+    expect(await screen.findByRole("status")).toHaveTextContent(/session a pris fin/i);
+    expect(screen.getByRole("button", { name: /se connecter/i })).toBeInTheDocument();
+  });
+
   it("ouvre la console de l'exploitant et affiche le lien après acceptation d'une demande", async () => {
-    const operator = {
-      id: "op",
-      email: "ops@example.test",
-      full_name: "Exploitant",
-      is_reference_manager: true,
-      is_platform_operator: true,
-      interface_locale: "fr",
-      active_organization_id: null,
-      memberships: [],
-      mfa_enabled: true,
-      mfa_verified_session: true,
-      mfa_required_for_access: true,
-    };
     const pending = {
       id: "r1",
       company_name: "Transit Exemple",
@@ -115,7 +148,7 @@ describe("Mise en route", () => {
     };
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = String(input);
-      if (url.endsWith("/me")) return json(200, operator);
+      if (url.endsWith("/me")) return json(200, OPERATOR);
       if (url.includes("/platform/access-requests/r1/accept") && init?.method === "POST") {
         return json(201, { invitation: { id: "i1", email: pending.contact_email, full_name: "Awa", token: "jeton-admin" } });
       }
