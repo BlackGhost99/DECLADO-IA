@@ -99,3 +99,5 @@
 .onb-qr { width: 168px; height: 168px; flex: 0 0 auto; max-width: 100%; border: 1px solid var(--border); border-radius: 6px; }
 .onb-secret { font-family: ui-monospace, Consolas, monospace; font-size: 13px; background: var(--gray-bg); padding: 6px 8px; border-radius: 4px; overflow-wrap: anywhere; direction: ltr; unicode-bidi: embed; }
 @media (max-width: 560px) { .onb-mfa { flex-direction: column; align-items: flex-start; } }
+.onb-mail-ok { color: var(--green); font-weight: 600; }
+.onb-mail-off { color: var(--muted); }

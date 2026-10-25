@@ -14,6 +14,8 @@
 #     « Mise en service » crée le compte de l'exploitant ClairTransit (double authentification) ;
 #     les sociétés sont ensuite créées depuis sa console, ou après sa validation d'une demande ;
 #   - clés secrètes générées sur ce PC, gardées dans donnees\cles.json (jamais dans le code).
+#   - envoi des invitations par e-mail facultatif : créer donnees\messagerie.json (voir plus bas) ;
+#     sans ce fichier, le lien d'activation se copie à la main.
 # Pour tout supprimer : arreter-clairtransit.ps1, puis effacer le dossier d'installation.
 #
 # Options :
@@ -389,6 +391,25 @@ with open(sys.argv[1], "x", encoding="ascii") as fichier:
     $env:CLAMAV_HOST = "127.0.0.1"
     $env:CLAMAV_PORT = "$portClamav"
     $env:VITE_API_PROXY = "http://127.0.0.1:$portApi"
+
+    # Messagerie facultative, propre à ce PC (jamais dans le code). Exemple de donnees\messagerie.json :
+    #   { "serveur": "smtp.exemple.com", "port": 587, "utilisateur": "invitations@exemple.com",
+    #     "mot_de_passe": "...", "expediteur": "ClairTransit <invitations@exemple.com>",
+    #     "adresse_publique": "https://clairtransit.exemple.com" }
+    # « adresse_publique » est l'adresse que les invités ouvrent ; un lien en 127.0.0.1 n'est jamais envoyé.
+    $fichierMessagerie = Join-Path $Donnees "messagerie.json"
+    if (Test-Path $fichierMessagerie) {
+        $messagerie = Get-Content $fichierMessagerie -Raw -Encoding UTF8 | ConvertFrom-Json
+        $env:EMAIL_HOST = $messagerie.serveur
+        $env:EMAIL_PORT = if ($messagerie.port) { "$($messagerie.port)" } else { "587" }
+        $env:EMAIL_HOST_USER = $messagerie.utilisateur
+        $env:EMAIL_HOST_PASSWORD = $messagerie.mot_de_passe
+        $env:EMAIL_USE_TLS = if ($env:EMAIL_PORT -eq "465") { "false" } else { "true" }
+        $env:EMAIL_USE_SSL = if ($env:EMAIL_PORT -eq "465") { "true" } else { "false" }
+        if ($messagerie.expediteur) { $env:DEFAULT_FROM_EMAIL = $messagerie.expediteur }
+        if ($messagerie.adresse_publique) { $env:PUBLIC_APP_URL = $messagerie.adresse_publique }
+        Info "Envoi des invitations par e-mail : $($messagerie.serveur)"
+    }
 
     Push-Location $backend
     try {

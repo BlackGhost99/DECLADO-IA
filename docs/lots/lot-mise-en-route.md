@@ -38,7 +38,9 @@ Toutes les étapes ont été vérifiées en français et en arabe (RTL), et à 4
   - valable 72 heures, à usage unique, renouvelable ; un renouvellement ou une nouvelle invitation à la même adresse invalide l'ancien lien ;
   - lien refusé s'il est expiré, utilisé, annulé ou si la société est suspendue ;
   - l'invité choisit lui-même son mot de passe ; un compte existant se rattache avec son propre mot de passe ;
-  - le lien se copie à la main : aucun e-mail n'est nécessaire, donc l'application fonctionne sans internet.
+  - le lien se copie à la main : aucun e-mail n'est nécessaire, donc l'application fonctionne sans internet ;
+  - envoi du lien par e-mail facultatif, seulement si une messagerie SMTP est configurée (`donnees\messagerie.json` sur le PC, jamais dans le code) et si l'adresse de l'interface est joignable par l'invité : un lien en 127.0.0.1 n'est jamais envoyé. L'écran dit ce qui s'est passé (envoyé, échec, pas de messagerie, lien local) ; l'état d'une invitation est « En attente d'activation », jamais « envoyée » sans envoi ;
+  - si une autre session est ouverte dans le navigateur, l'activation exige d'abord de la fermer, ou propose de retourner à l'espace de son titulaire, nommé ;
   - la page d'activation distingue un lien refusé d'un serveur injoignable ;
   - une session expirée ou fermée dans un autre onglet ramène à l'écran de connexion avec un message, au lieu d'un refus sur chaque action.
 - **Administration de la société** (ACC-08) :
@@ -67,7 +69,7 @@ cd frontend && npm run typecheck && npm test && npm run build
 
 ## Tests exécutés
 
-- **Backend** : 249 tests réussis, dont 18 dans `tests/test_onboarding.py` :
+- **Backend** : 251 tests réussis, dont 20 dans `tests/test_onboarding.py` :
   - mise en service unique et double authentification exigée ;
   - console fermée aux administrateurs de société et aux anonymes ;
   - aucune donnée de société visible par l'exploitant ;
@@ -77,14 +79,16 @@ cd frontend && npm run typecheck && npm test && npm run build
   - invitation d'un agent, compte existant, règles de lien (expiré, utilisé, annulé, société suspendue) ;
   - limite de sièges ;
   - isolation entre sociétés (404) ;
-  - réactivation et changement d'agence.
-- **Frontend** : 39 tests réussis, dont 7 dans `tests/Onboarding.test.tsx` (mise en service, lien « Demander l'ouverture », activation, lien périmé, serveur injoignable, session terminée, console avec acceptation et lien affiché). Le test i18n vérifie que les clés sont les mêmes dans les quatre langues.
+  - réactivation et changement d'agence ;
+  - envoi par e-mail seulement s'il est configuré et joignable, échec d'envoi sans perte du lien, jeton absent du journal.
+- **Frontend** : 40 tests réussis, dont 8 dans `tests/Onboarding.test.tsx` (mise en service, lien « Demander l'ouverture », activation, lien périmé, serveur injoignable, session terminée, console avec acceptation et lien affiché). Le test i18n vérifie que les clés sont les mêmes dans les quatre langues.
 - **Parcours complet dans Chromium** sur une base vide, comme décrit ci-dessus.
 
 ## Limites
 
 - Une installation existante avec la démonstration garde ses comptes fictifs et n'a pas d'exploitant : il faut repartir d'un nouveau dossier (`-Dossier`). La mise en service n'est proposée que si aucun compte n'existe, pour ne pas ouvrir la création d'un exploitant sur un serveur déjà en service.
-- Pas d'envoi d'e-mail : le lien est copié et transmis par l'exploitant ou l'administrateur.
+- Sans messagerie configurée, pas d'envoi d'e-mail : le lien est copié et transmis par l'exploitant ou l'administrateur.
+- L'installation Windows n'écoute que sur 127.0.0.1 : un invité sur un autre ordinateur ne peut pas encore ouvrir le lien.
 - Les profils Importateur, Logisticien et Conseil sont visibles mais fermés.
 - Le partage importateur et transitaire n'est pas traité.
 - Les agents peuvent remettre la double authentification à plus tard si `MFA_ENFORCE` est désactivé (cas du PC local) ; elle est imposée en production.

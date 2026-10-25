@@ -6,6 +6,8 @@ import {
   ROLE_LABELS,
   type AccessRequestInput,
   type BusinessProfile,
+  type EmailStatus,
+  type Invitation,
   type InvitationPreview,
   type Me,
 } from "./api";
@@ -99,7 +101,27 @@ export function CountrySelect({ value, onChange, id }: { value: string; onChange
 }
 
 /** Lien d'activation à transmettre : copié en un clic, ou sélectionné si le presse-papiers est refusé. */
-export function ActivationLink({ token, title }: { token: string; title?: string }) {
+export interface IssuedLink {
+  title: string;
+  token: string;
+  email?: string;
+  emailStatus?: EmailStatus;
+}
+
+/** Ce que l'invitation est devenue, à afficher avec le lien. */
+export const issuedLink = (title: string, invitation: Invitation): IssuedLink | null =>
+  invitation.token ? { title, token: invitation.token, email: invitation.email, emailStatus: invitation.email_status } : null;
+
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
+
+function deliveryNote(email?: string, status?: EmailStatus): string {
+  if (status === "sent") return tr("onb.mailSent", { email: email ?? "" });
+  // Ouvert en 127.0.0.1, le lien ne mène qu'au PC de celui qui le reçoit.
+  if (LOOPBACK.has(window.location.hostname)) return tr("onb.localOnly");
+  return tr(status === "failed" ? "onb.mailFailed" : "onb.mailOff");
+}
+
+export function ActivationLink({ token, title, email, emailStatus }: IssuedLink | (Partial<IssuedLink> & { token: string })) {
   const link = activationLink(token);
   const [copied, setCopied] = useState(false);
   const [id] = useState(() => `link-${Math.random().toString(36).slice(2)}`);
@@ -119,6 +141,7 @@ export function ActivationLink({ token, title }: { token: string; title?: string
         <strong>{title ?? tr("onb.linkCreated")}</strong>
         <span>{tr("onb.linkHelp")}</span>
         <code id={id}>{link}</code>
+        <span className={emailStatus === "sent" ? "onb-mail-ok" : "onb-mail-off"}>{deliveryNote(email, emailStatus)}</span>
       </div>
       <button type="button" className="btn-secondary btn-small" onClick={() => void copy()}>
         <Icon name={copied ? "check" : "copy"} size={16} /> {copied ? tr("onb.copied") : tr("onb.copy")}
@@ -341,6 +364,19 @@ export function Activation({ token, onDone }: { token: string; onDone: (me: Me) 
     onDone(me);
   }
 
+  async function signOut() {
+    await api.logout().catch(() => undefined);
+    setCurrent(null);
+  }
+
+  // Une session ouverte dans ce navigateur n'est jamais remplacée sans le dire : on la ferme d'abord,
+  // ou on y retourne, sous le nom de son titulaire.
+  const backToSpace = current && (
+    <button type="button" className="btn-secondary btn-block" onClick={() => navigate("/")}>
+      {tr("onb.backToSpace", { email: current.email })}
+    </button>
+  );
+
   if (joined) {
     const admin = preview?.roles.includes("org_admin") ?? false;
     // Obligatoire pour un administrateur ; un agent peut la configurer plus tard (sauf si le serveur l'exige).
@@ -352,7 +388,20 @@ export function Activation({ token, onDone }: { token: string; onDone: (me: Me) 
     return (
       <AuthShell title={tr("onb.activateTitle")}>
         <p role="alert" className="error">⚠ {tr(failure === "invalid" ? "onb.invalidLink" : "onb.lookupFailed")}</p>
-        <button type="button" className="btn-secondary btn-block" onClick={() => navigate("/")}>{tr("onb.backToLogin")}</button>
+        {current ? (
+          <>
+            <p className="onb-note" role="status">
+              <Icon name="info" size={18} />
+              <span>{tr("onb.sessionOpen", { email: current.email })}</span>
+            </p>
+            {backToSpace}
+            <button type="button" className="btn-secondary btn-block" onClick={() => void signOut().then(() => navigate("/"))}>
+              {tr("onb.signOut")}
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn-secondary btn-block" onClick={() => navigate("/")}>{tr("onb.backToLogin")}</button>
+        )}
       </AuthShell>
     );
   }
@@ -362,6 +411,23 @@ export function Activation({ token, onDone }: { token: string; onDone: (me: Me) 
   }
 
   const roles = preview.roles.map((r) => labels.role(r, ROLE_LABELS[r] ?? r)).join(", ");
+  if (current && current.email.toLowerCase() !== preview.email.toLowerCase()) {
+    return (
+      <AuthShell title={tr("onb.activateTitle")}>
+        <div className="onb-form">
+          <p className="onb-lead">{tr("onb.invitedAs", { roles, organization: preview.organization_name })}</p>
+          <p className="onb-note" role="status">
+            <Icon name="info" size={18} />
+            <span>{tr("onb.otherSession", { email: current.email })}</span>
+          </p>
+          <button type="button" className="btn-primary btn-block" onClick={() => void signOut()}>
+            {tr("onb.signOutContinue")}
+          </button>
+          {backToSpace}
+        </div>
+      </AuthShell>
+    );
+  }
   return (
     <AuthShell title={tr("onb.activateTitle")}>
       <form className="onb-form" onSubmit={(e) => void submit(e)}>
@@ -370,12 +436,6 @@ export function Activation({ token, onDone }: { token: string; onDone: (me: Me) 
           <li>{tr("onb.stepMfa")}</li>
         </ol>
         <p className="onb-lead">{tr("onb.invitedAs", { roles, organization: preview.organization_name })}</p>
-        {current && current.email.toLowerCase() !== preview.email.toLowerCase() && (
-          <p className="onb-note" role="status">
-            <Icon name="info" size={18} />
-            <span>{tr("onb.otherSession", { email: current.email })}</span>
-          </p>
-        )}
         <Field label={tr("email")}>
           <input id="act-email" type="email" value={preview.email} readOnly autoComplete="username" />
         </Field>

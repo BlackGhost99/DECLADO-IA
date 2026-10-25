@@ -60,7 +60,11 @@ export interface Invitation {
   status: InvitationStatus;
   /** Rendu une seule fois, à la création ou au renouvellement : sert à composer le lien. */
   token?: string;
+  /** Envoi du lien par e-mail, à la création ou au renouvellement. */
+  email_status?: EmailStatus;
 }
+
+export type EmailStatus = "sent" | "failed" | "disabled" | "local_address" | "no_address";
 
 export interface InvitationPreview {
   organization_name: string;

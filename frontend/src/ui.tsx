@@ -270,6 +270,8 @@ export const EVENT_LABELS: Record<string, string> = {
   "organization.reactivated": "Société réactivée",
   "invitation.created": "Invitation créée",
   "invitation.renewed": "Nouveau lien d'invitation",
+  "invitation.email_sent": "Invitation envoyée par e-mail",
+  "invitation.email_failed": "Échec de l'envoi de l'invitation par e-mail",
   "invitation.revoked": "Invitation annulée",
   "invitation.accepted": "Compte activé",
   "agency.created": "Agence ajoutée",

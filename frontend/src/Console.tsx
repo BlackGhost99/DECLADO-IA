@@ -9,7 +9,7 @@ import {
 } from "./api";
 import { Icon } from "./Icon";
 import { tr } from "./i18n";
-import { ActivationLink, CountrySelect, countryLabel, Field, LOCALES, ProfileChoice, profileLabel } from "./Onboarding";
+import { ActivationLink, issuedLink, type IssuedLink, CountrySelect, countryLabel, Field, LOCALES, ProfileChoice, profileLabel } from "./Onboarding";
 import { Chip, PageHeader, relativeTime } from "./ui";
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : tr("saveError"));
@@ -18,7 +18,7 @@ const errorText = (err: unknown) => (err instanceof ApiError ? err.message : tr(
 export function Console({ view }: { view: "home" | "requests" }) {
   const [requests, setRequests] = useState<AccessRequestInfo[] | null>(null);
   const [organizations, setOrganizations] = useState<PlatformOrganization[] | null>(null);
-  const [issued, setIssued] = useState<{ title: string; token: string } | null>(null);
+  const [issued, setIssued] = useState<IssuedLink | null>(null);
   const [error, setError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -38,7 +38,7 @@ export function Console({ view }: { view: "home" | "requests" }) {
     }
   }
 
-  const issue = (title: string, invitation: Invitation) => invitation.token && setIssued({ title, token: invitation.token });
+  const issue = (title: string, invitation: Invitation) => setIssued(issuedLink(title, invitation));
 
   return (
     <>
@@ -50,7 +50,7 @@ export function Console({ view }: { view: "home" | "requests" }) {
         )}
       </PageHeader>
       {error && <p role="alert" className="error">⚠ {error}</p>}
-      {issued && <ActivationLink token={issued.token} title={issued.title} />}
+      {issued && <ActivationLink {...issued} />}
       <div className={view === "home" ? "onb-split" : undefined}>
         <Requests
           items={requests}
@@ -169,7 +169,7 @@ function orgState(o: PlatformOrganization): { tone: "green" | "amber" | "gray" |
   if (o.members === 0 && o.admin_invitation) {
     return o.admin_invitation.status === "expired"
       ? { tone: "red", label: tr("con.invitationExpired") }
-      : { tone: "amber", label: tr("con.invitationSent") };
+      : { tone: "amber", label: tr("con.invitationPending") };
   }
   return { tone: "green", label: tr("active") };
 }

@@ -14,7 +14,7 @@ import {
 import { DocumentPolicies } from "./DocumentPolicies";
 import { Icon } from "./Icon";
 import { tr, useBusinessLabels, type MessageKey } from "./i18n";
-import { ActivationLink, Field } from "./Onboarding";
+import { ActivationLink, Field, issuedLink, type IssuedLink } from "./Onboarding";
 import { Chip, initials, PageHeader } from "./ui";
 
 export type AdminTab = "importers" | "documents" | "users" | "agencies";
@@ -159,7 +159,7 @@ function Members({ selfEmail }: { selfEmail: string }) {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [overview, setOverview] = useState<OrganizationOverview | null>(null);
-  const [issued, setIssued] = useState<{ title: string; token: string } | null>(null);
+  const [issued, setIssued] = useState<IssuedLink | null>(null);
   const [error, setError] = useState("");
 
   const load = () => {
@@ -184,12 +184,12 @@ function Members({ selfEmail }: { selfEmail: string }) {
   const renew = (inv: Invitation) =>
     act(async () => {
       const fresh = await api.invitationAction(inv.id, "renew");
-      if (fresh.token) setIssued({ title: tr("con.linkFor", { name: inv.full_name || inv.email }), token: fresh.token });
+      setIssued(issuedLink(tr("con.linkFor", { name: inv.full_name || inv.email }), fresh));
     });
 
   return (
     <>
-      {issued && <ActivationLink token={issued.token} title={issued.title} />}
+      {issued && <ActivationLink {...issued} />}
       {error && <p role="alert" className="error">⚠ {error}</p>}
       <div className="onb-split onb-split-wide">
         <section className="card" aria-labelledby="members-title">
@@ -272,7 +272,7 @@ function Members({ selfEmail }: { selfEmail: string }) {
                     <td>{roleNames(inv.roles)}</td>
                     <td>{inv.agency_name ?? "—"}</td>
                     <td>
-                      <Chip tone={INVITATION_TONE[inv.status]}>{tr(inv.status === "expired" ? "con.invitationExpired" : "con.invitationSent")}</Chip>
+                      <Chip tone={INVITATION_TONE[inv.status]}>{tr(inv.status === "expired" ? "con.invitationExpired" : "con.invitationPending")}</Chip>
                     </td>
                     <td>
                       <div className="onb-acts">
@@ -291,7 +291,7 @@ function Members({ selfEmail }: { selfEmail: string }) {
         <InviteForm
           agencies={agencies}
           onInvited={(inv) => {
-            if (inv.token) setIssued({ title: tr("con.linkFor", { name: inv.full_name || inv.email }), token: inv.token });
+            setIssued(issuedLink(tr("con.linkFor", { name: inv.full_name || inv.email }), inv));
             load();
           }}
         />

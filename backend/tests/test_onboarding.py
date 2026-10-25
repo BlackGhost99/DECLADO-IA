@@ -248,6 +248,38 @@ def test_admin_invites_agent_who_sets_own_password(world, session):
     assert reused.status_code == 404 and reused.json()["code"] == "INVITATION_INVALID"
 
 
+def test_invitation_email_is_sent_only_when_configured_and_reachable(world, session, settings, mailoutbox):
+    admin = session("admin@a.test")
+    # Sans serveur SMTP : rien ne part, l'écran propose le lien à copier.
+    assert _invite(admin).json()["email_status"] == "disabled"
+    settings.INVITATION_EMAIL_ENABLED = True
+    # Une adresse 127.0.0.1 n'ouvrirait que le PC de l'invité : pas d'envoi.
+    settings.PUBLIC_APP_URL = "http://127.0.0.1:5173"
+    assert _invite(admin).json()["email_status"] == "local_address"
+    assert mailoutbox == []
+
+    settings.PUBLIC_APP_URL = "https://clairtransit.example.test"
+    sent = _invite(admin, full_name="Nouveau Agent")
+    assert sent.json()["email_status"] == "sent"
+    assert len(mailoutbox) == 1 and mailoutbox[0].to == ["nouveau@a.test"]
+    assert f"https://clairtransit.example.test/#/activation/{sent.json()['token']}" in mailoutbox[0].body
+    event = AuditEvent.objects.get(event_type="invitation.email_sent", organization=world["org_a"])
+    assert sent.json()["token"] not in str(event.current or "")
+
+
+def test_invitation_email_failure_keeps_the_link(world, session, settings, monkeypatch):
+    settings.INVITATION_EMAIL_ENABLED = True
+    settings.PUBLIC_APP_URL = "https://clairtransit.example.test"
+
+    def refuse(*args, **kwargs):
+        raise OSError("SMTP injoignable")
+
+    monkeypatch.setattr("apps.onboarding.mail.send_mail", refuse)
+    sent = _invite(session("admin@a.test"))
+    assert sent.status_code == 201 and sent.json()["email_status"] == "failed" and sent.json()["token"]
+    assert AuditEvent.objects.filter(event_type="invitation.email_failed").exists()
+
+
 def test_invitation_of_a_suspended_company_is_refused(world, session):
     token = _invite(session("admin@a.test")).json()["token"]
     Organization.objects.filter(pk=world["org_a"].pk).update(active=False)

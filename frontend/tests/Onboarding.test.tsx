@@ -87,6 +87,38 @@ describe("Mise en route", () => {
     expect(JSON.parse(String(lookup?.[1]?.body))).toEqual({ token: "jeton-test" });
   });
 
+  it("ferme d'abord la session ouverte avant d'activer un autre compte", async () => {
+    window.location.hash = "#/activation/jeton-test";
+    let signedIn = true;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith("/me")) return signedIn ? json(200, OPERATOR) : json(401, {});
+      if (url.endsWith("/auth/logout") && init?.method === "POST") {
+        signedIn = false;
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (url.endsWith("/auth/setup")) return json(200, { needs_setup: false });
+      if (url.endsWith("/auth/invitations/lookup")) {
+        return json(200, {
+          organization_name: "Transit Exemple",
+          email: "agent@example.test",
+          full_name: "",
+          roles: ["declarant"],
+          agency_name: null,
+          expires_at: "2026-10-27T10:00:00Z",
+          existing_account: false,
+        });
+      }
+      return json(404, {});
+    });
+    render(<App />);
+    expect(await screen.findByText(/connecté au compte ops@example.test/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/choisissez un mot de passe/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /fermer cette session et continuer/i }));
+    expect(await screen.findByLabelText(/choisissez un mot de passe/i)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/auth/logout") && init?.method === "POST")).toBe(true);
+  });
+
   it("explique qu'un lien d'invitation n'est plus valable", async () => {
     window.location.hash = "#/activation/perime";
     vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
@@ -150,7 +182,9 @@ describe("Mise en route", () => {
       const url = String(input);
       if (url.endsWith("/me")) return json(200, OPERATOR);
       if (url.includes("/platform/access-requests/r1/accept") && init?.method === "POST") {
-        return json(201, { invitation: { id: "i1", email: pending.contact_email, full_name: "Awa", token: "jeton-admin" } });
+        return json(201, {
+          invitation: { id: "i1", email: pending.contact_email, full_name: "Awa", token: "jeton-admin", email_status: "sent" },
+        });
       }
       if (url.includes("/platform/access-requests")) return json(200, [pending]);
       if (url.endsWith("/platform/organizations")) return json(200, []);
@@ -161,6 +195,7 @@ describe("Mise en route", () => {
     fireEvent.click(await screen.findByRole("button", { name: /accepter/i }));
     expect(await screen.findByText(/lien d'activation pour Awa/i)).toBeInTheDocument();
     expect(screen.getByText(/#\/activation\/jeton-admin$/)).toBeInTheDocument();
+    expect(screen.getByText(/e-mail contenant ce lien a été envoyé à awa@example.test/i)).toBeInTheDocument();
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/platform/access-requests/r1/accept"))).toBe(true),
     );

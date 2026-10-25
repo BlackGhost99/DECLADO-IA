@@ -23,6 +23,7 @@ from apps.organizations.models import Membership, Organization, Role
 from apps.organizations.permissions import require_roles
 
 from . import services
+from .mail import app_url, send_invitation_email
 from .models import AccessRequest, Invitation
 
 IsOrgAdmin = require_roles(Role.ORG_ADMIN)
@@ -141,9 +142,11 @@ class MemberAgencyInput(serializers.Serializer):
     agency_id = serializers.UUIDField(allow_null=True)
 
 
-def _with_token(invitation: Invitation, token: str) -> dict:
-    # Le jeton n'est rendu qu'ici, une seule fois : l'interface en fait le lien à copier.
-    return {**InvitationSerializer(invitation).data, "token": token}
+def _with_token(request, invitation: Invitation, token: str) -> dict:
+    # Le jeton n'est rendu qu'ici, une seule fois : l'interface en fait le lien à copier,
+    # et l'envoie aussi par e-mail quand un serveur SMTP est configuré.
+    email = send_invitation_email(invitation=invitation, token=token, base_url=app_url(request), actor=request.user)
+    return {**InvitationSerializer(invitation).data, "token": token, "email_status": email}
 
 
 # ---------- Public ----------
@@ -250,7 +253,7 @@ class PlatformAccessRequestAcceptView(APIView):
             access_request=_access_request(request_id), actor=request.user
         )
         return Response(
-            {"organization_id": str(organization.pk), "invitation": _with_token(invitation, token)}, status=201
+            {"organization_id": str(organization.pk), "invitation": _with_token(request, invitation, token)}, status=201
         )
 
 
@@ -313,7 +316,7 @@ class PlatformOrganizationListView(APIView):
         data.is_valid(raise_exception=True)
         organization, invitation, token = services.create_organization(actor=request.user, **data.validated_data)
         return Response(
-            {"organization_id": str(organization.pk), "invitation": _with_token(invitation, token)}, status=201
+            {"organization_id": str(organization.pk), "invitation": _with_token(request, invitation, token)}, status=201
         )
 
 
@@ -350,7 +353,7 @@ class PlatformInvitationRenewView(APIView):
         if invitation is None:
             raise ApiError("NOT_FOUND", "Élément introuvable.", 404)
         invitation, token = services.renew_invitation(invitation=invitation, actor=request.user)
-        return Response(_with_token(invitation, token))
+        return Response(_with_token(request, invitation, token))
 
 
 # ---------- Administrateur de société ----------
@@ -384,7 +387,7 @@ class InvitationListView(APIView):
             roles=data.validated_data["roles"],
             agency=_agency(request, data.validated_data["agency_id"]),
         )
-        return Response(_with_token(invitation, token), status=201)
+        return Response(_with_token(request, invitation, token), status=201)
 
 
 def _invitation(request, invitation_id) -> Invitation:
@@ -401,7 +404,7 @@ class InvitationActionView(APIView):
         invitation = _invitation(request, invitation_id)
         if action == "renew":
             invitation, token = services.renew_invitation(invitation=invitation, actor=request.user)
-            return Response(_with_token(invitation, token))
+            return Response(_with_token(request, invitation, token))
         if action == "revoke":
             return Response(
                 InvitationSerializer(services.revoke_invitation(invitation=invitation, actor=request.user)).data
