@@ -58,6 +58,9 @@ Toutes les étapes ont été vérifiées en français et en arabe (RTL), et à 4
   - `-Demo` ajoute les comptes et le référentiel fictifs ;
   - clés `DJANGO_SECRET_KEY` et `MFA_ENCRYPTION_KEY` générées une fois sur le PC, dans `donnees\cles.json`, jamais dans le dépôt ;
   - branche par défaut : `mise-en-route`.
+  - le catalogue des types de pièces (`seed_document_types`) est chargé à chaque lancement : sans lui, « Pièces du dossier » n'avait aucune pièce à proposer sur une installation neuve. Aucune obligation réglementaire n'est créée ;
+  - `-ImporterTarif <fichier .xlsx ou .csv>` (et `-LibelleTarif`) importe le tarif puis le publie en consultation : cherchable, jamais utilisé pour un calcul. Il faut d'abord la mise en service.
+- **Commande `publish_tariff_edition`** : publie une édition en brouillon au nom d'un gestionnaire du référentiel (par défaut en consultation) ; `--check-actor` vérifie seulement qu'un gestionnaire existe.
 - **Journal d'activité** : libellés en quatre langues pour les nouveaux événements.
 
 ## Commandes
@@ -92,7 +95,8 @@ cd frontend && npm run typecheck && npm test && npm run build
 - Les profils Importateur, Logisticien et Conseil sont visibles mais fermés.
 - Le partage importateur et transitaire n'est pas traité.
 - Les agents peuvent remettre la double authentification à plus tard si `MFA_ENFORCE` est désactivé (cas du PC local) ; elle est imposée en production.
-- Sur une installation neuve, le référentiel tarifaire est vide jusqu'à l'import de la source officielle.
+- Sur une installation neuve, le référentiel tarifaire est vide jusqu'à l'import de la source officielle (`-ImporterTarif`). L'import et la publication ne se font pas encore depuis l'interface.
+- « Taxes et règles » reste un tableau d'information : aucun moteur de taxes n'est livré, faute de taux sourcés et vérifiés.
 
 ## Prochaine étape
 

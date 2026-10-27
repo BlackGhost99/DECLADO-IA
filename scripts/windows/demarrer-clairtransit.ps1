@@ -23,17 +23,25 @@
 #   -MettreAJour        retélécharge le code de la branche (les données sont conservées)
 #   -Branche <nom>      branche du dépôt (défaut : mise-en-route)
 #   -Demo               ajoute les comptes et le référentiel de démonstration (fictifs, marqués comme tels)
+#   -ImporterTarif <fichier>  importe un tarif (.xlsx ou .csv) et le publie en consultation :
+#                       il devient cherchable, jamais utilisé pour un calcul. À lancer une seule
+#                       fois, après la mise en service (il faut le compte de l'exploitant)
+#   -LibelleTarif <nom> nom de l'édition importée (défaut : nom du fichier)
 
 param(
     [string]$Dossier = (Join-Path $env:LOCALAPPDATA "ClairTransit"),
     [string]$Branche = "mise-en-route",
     [switch]$MettreAJour,
-    [switch]$Demo
+    [switch]$Demo,
+    [string]$ImporterTarif,
+    [string]$LibelleTarif
 )
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+# Chemin du tarif résolu ici, avant tout changement de dossier courant.
+if ($ImporterTarif) { $ImporterTarif = (Resolve-Path -LiteralPath $ImporterTarif -ErrorAction Stop).Path }
 
 $Depot = "https://github.com/BlackGhost99/DECLADO-IA"
 $UrlUv = "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip"
@@ -414,6 +422,28 @@ with open(sys.argv[1], "x", encoding="ascii") as fichier:
     Push-Location $backend
     try {
         Executer $python @("manage.py", "migrate", "--noinput") "Migration de la base impossible"
+        # Catalogue des types de pièces (facture, B/L, LTA...) : sans lui, la politique documentaire
+        # de la société n'a rien à proposer. Aucune obligation réglementaire n'y est créée.
+        Executer $python @("manage.py", "seed_document_types") "Chargement du catalogue des pièces impossible"
+        if ($ImporterTarif) {
+            Titre "Import du tarif"
+            $fichierTarif = $ImporterTarif
+            $extension = [IO.Path]::GetExtension($fichierTarif).ToLowerInvariant()
+            $commande = switch ($extension) {
+                ".xlsx" { "import_tariff_xlsx" }
+                ".csv" { "import_tariff_csv" }
+                default { throw "Format de tarif non pris en charge : $extension (attendu .xlsx ou .csv)" }
+            }
+            $libelle = if ($LibelleTarif) { $LibelleTarif } else { [IO.Path]::GetFileNameWithoutExtension($fichierTarif) }
+            # Vérifié avant l'import pour ne pas laisser un brouillon orphelin à chaque essai.
+            & $python manage.py publish_tariff_edition --label $libelle --check-actor
+            if ($LASTEXITCODE -ne 0) {
+                throw "Terminez d'abord la mise en service dans le navigateur, puis relancez avec -ImporterTarif."
+            }
+            Executer $python @("manage.py", $commande, $fichierTarif, "--label", $libelle) "Import du tarif impossible"
+            Executer $python @("manage.py", "publish_tariff_edition", "--label", $libelle) "Publication du tarif impossible"
+            Info "Tarif « $libelle » cherchable dans Référentiel › Recherche (consultation seulement)."
+        }
         if ($Demo -and -not (Etape-Faite "demo")) {
             Titre "Données de démonstration (fictives)"
             Executer $python @("manage.py", "import_tariff_csv", "..\fixtures\synthetic\referentiel-f.csv", "--label", "Jeu F (CSV fictif)") "Import du référentiel fictif impossible"
