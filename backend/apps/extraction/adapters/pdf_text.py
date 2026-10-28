@@ -8,6 +8,7 @@ from ..language import annotate_parsed
 from ..readers import INVOICE, read
 from ..schema import ParsedDocument, warning
 from . import ExtractionFailure, Progress
+from .pdf_words import page_words
 from .words import rows_from_words
 
 MIN_TEXT_CHARS = 20
@@ -48,7 +49,7 @@ def extract(path: Path, *, ocr: bool, progress: Progress, reader: str = INVOICE)
         for number, page in enumerate(pdf.pages, start=1):
             progress("lecture du texte", number - 1, count)
             try:
-                words = page.extract_words(keep_blank_chars=False, use_text_flow=False, x_tolerance=2)
+                words = page_words(page)
             except Exception as exc:
                 raise ExtractionFailure(
                     "DOCUMENT_UNREADABLE", f"Page {number} illisible : déposer une version lisible.", page=number

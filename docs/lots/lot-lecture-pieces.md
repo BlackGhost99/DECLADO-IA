@@ -43,6 +43,7 @@ Les trois pièces fictives « BatiPro » de `fixtures/synthetic/batipro/` reprod
   - une pièce de type reconnu coche la pièce demandée « Reçu, à vérifier · type reconnu, à confirmer » ; elle n'est jamais vérifiée sans confirmation ;
   - le choix de classement est prérempli avec le type reconnu et le titre lu ;
   - le n° de B/L, la facture citée et la police lus sur le B/L et l'assurance alimentent l'analyse des références ; les liens restent proposés, jamais acceptés d'office.
+- **Filigrane** (LEC-03) : les lettres d'un filigrane en biais, ou en très grands caractères pâles, sont retirées avant la lecture. Sur les pièces fournies par l'utilisateur, elles coupaient des mots (« SubtRotal », « CTOTAL A PAYER »). Un libellé de colonne coupé sur deux lignes (« MEASUREMEN » puis « T ») reste un libellé.
 - **Nouveau dossier** : chaque pièce déposée est reconnue d'après son titre et lue si son type a une lecture, et non plus seulement la première facture.
 - **Langues** : tous les nouveaux textes en français, anglais, espagnol et arabe (`frontend/src/i18n/lecture.ts`).
 
@@ -59,13 +60,13 @@ Migrations : `cases/0006_lecture_des_pieces` (type reconnu, acheteur, usages Ass
 
 ## Tests exécutés
 
-- **Backend** : 266 tests réussis, dont 14 dans `tests/test_lecture_pieces.py` (T51 à T57).
+- **Backend** : 270 tests réussis, dont 18 dans `tests/test_lecture_pieces.py` (T51 à T57), sur les copies et sur les trois pièces fournies par l'utilisateur.
 - **Frontend** : 44 tests réussis, dont 4 dans `tests/Lecture.test.tsx` (choix de la lecture, menu du dépôt, écart de type et confirmation motivée, informations lues).
 - **Dans l'application** (Chromium, société de démonstration avec les trois pièces demandées) : nouveau dossier avec les trois pièces BatiPro, chacune reconnue (« Facture commerciale », « Connaissement maritime (B/L) », « Facture d'assurance ») et lue à sa façon ; facture : fournisseur, acheteur à rattacher, n°, date jour/mois à vérifier, devise, total 18 554,00, 3 marchandises ; contrôle documentaire : trois pièces « reçues, à vérifier ».
 
 ## Limites
 
-- Les pièces fictives imitent les captures reçues ; les vraies pièces de l'utilisateur peuvent avoir d'autres mises en page. Une pièce mal lue doit être envoyée pour ajuster les libellés connus.
+- Les pièces de test sont toutes synthétiques ; de vraies pièces de fournisseurs auront d'autres mises en page. Une pièce mal lue doit être envoyée pour ajuster les libellés connus.
 - Les PDF produits par un navigateur sont lus, mais le nombre de colis et le chiffre de contrôle du conteneur peuvent manquer.
 - Scans et photos : le type ne se reconnaît d'après le titre qu'après lecture OCR ; au dépôt, seul le nom du fichier sert d'indice.
 - Un dossier existant garde la fausse facture créée par l'ancienne lecture d'une assurance : déposer à nouveau les pièces dans un nouveau dossier.

@@ -19,4 +19,6 @@ Toutes les données ici sont fictives. Aucun taux, code ou nom ne représente un
   LADING », facture d'assurance). Chaque pièce le dit en toutes lettres : elle est synthétique et sans valeur.
   Les informations sont rangées dans des grilles « libellé | valeur ». `01_facture_commerciale_navigateur.pdf` est la
   même facture imprimée depuis un navigateur : ses libellés et ses valeurs tombent sur des lignes de texte
-  différentes. Utilisé par `backend/tests/test_lecture_pieces.py`.
+  différentes. Les fichiers `*_filigrane.pdf` sont les trois pièces fournies par l'utilisateur le 28 octobre 2026,
+  elles aussi marquées « Donnees synthetiques » : un filigrane « DOCUMENT FICTIF - TEST » en biais y traverse le
+  texte. Utilisé par `backend/tests/test_lecture_pieces.py`.

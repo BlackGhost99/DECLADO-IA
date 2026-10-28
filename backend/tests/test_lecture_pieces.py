@@ -19,6 +19,7 @@ from apps.core import outbox
 from apps.document_graph import intelligence
 from apps.document_graph.models import DocumentInvoiceLink, Shipment
 from apps.extraction import layout
+from apps.extraction.adapters.pdf_words import page_words
 from apps.extraction.adapters.words import rows_from_words
 from apps.extraction.models import ExtractionRun
 from apps.extraction.readers import detect_type, read
@@ -28,6 +29,13 @@ from tests.test_extraction import make_case, make_edition
 
 BATIPRO = Path(settings.BASE_DIR).parent / "fixtures" / "synthetic" / "batipro"
 INVOICE, BL, INSURANCE = "01_facture_commerciale.pdf", "02_connaissement.pdf", "03_facture_assurance.pdf"
+# Les mêmes pièces fournies par l'utilisateur, avec un filigrane « DOCUMENT FICTIF - TEST » en biais.
+WATERMARKED = (
+    "01_facture_commerciale_filigrane.pdf",
+    "02_connaissement_filigrane.pdf",
+    "03_facture_assurance_filigrane.pdf",
+)
+SETS = [(INVOICE, BL, INSURANCE), WATERMARKED]
 
 
 @pytest.fixture(autouse=True)
@@ -38,9 +46,7 @@ def _private_storage(settings, tmp_path):
 def pages(name):
     with pdfplumber.open(BATIPRO / name) as pdf:
         return [
-            rows_from_words(
-                page.extract_words(x_tolerance=2), page_number=n, width=float(page.width), height=float(page.height)
-            )
+            rows_from_words(page_words(page), page_number=n, width=float(page.width), height=float(page.height))
             for n, page in enumerate(pdf.pages, start=1)
         ]
 
@@ -49,7 +55,7 @@ def values(doc):
     return {name: value.parsed for name, value in doc.header.items()}
 
 
-@pytest.mark.parametrize("name", [INVOICE, "01_facture_commerciale_navigateur.pdf"])
+@pytest.mark.parametrize("name", [INVOICE, "01_facture_commerciale_navigateur.pdf", WATERMARKED[0]])
 def test_t51_invoice_grid_letterhead_freight_and_total_are_read(name):
     """LEC-01 à LEC-06 : grille de libellés, raison sociale en tête, « Ocean freight », total imprimé."""
     doc = read(pages(name))
@@ -102,18 +108,30 @@ def test_t52_fee_rows(text, is_fee):
     assert bool(layout._FEE.match(layout.norm(text))) is is_fee
 
 
-def test_t53_title_gives_the_piece_type():
+def test_t51_watermark_letters_do_not_break_the_reading():
+    """LEC-03 : les lettres d'un filigrane en biais tombent dans le texte (« SubtRotal ») ; elles sont retirées."""
+    with pdfplumber.open(BATIPRO / WATERMARKED[0]) as pdf:
+        raw = " ".join(w["text"] for w in pdf.pages[0].extract_words(x_tolerance=2))
+        clean = " ".join(w["text"] for w in page_words(pdf.pages[0]))
+    assert "SubtRotal" in raw and "OcAean" in raw
+    assert "Subtotal" in clean and "Ocean freight" in clean and "FICTIF" not in clean
+
+
+@pytest.mark.parametrize(("invoice", "bl", "insurance"), SETS)
+def test_t53_title_gives_the_piece_type(invoice, bl, insurance):
     """LEC-07 : le type vient du titre de la première page, y compris un titre sur deux lignes."""
-    assert detect_type(pages(INVOICE))["code"] == "commercial_invoice"
-    assert detect_type(pages(BL))["code"] == "bill_of_lading"
-    found = detect_type(pages(INSURANCE))
+    assert detect_type(pages(invoice))["code"] == "commercial_invoice"
+    assert detect_type(pages(bl))["code"] == "bill_of_lading"
+    found = detect_type(pages(insurance))
     assert found["code"] == "insurance_invoice" and found["excerpt"] == "FACTURE D ASSURANCE"
     assert detect_type([]) is None
 
 
-def test_t54_bill_of_lading_and_insurance_fields_are_read():
-    """LEC-08, LEC-09 : informations utiles d'un B/L et d'une facture d'assurance, sans facture créée."""
-    bl = values(read(pages(BL), "transport"))
+@pytest.mark.parametrize(("bl_name", "insurance_name"), [(s[1], s[2]) for s in SETS])
+def test_t54_bill_of_lading_and_insurance_fields_are_read(bl_name, insurance_name):
+    """LEC-08, LEC-09 : informations utiles d'un B/L et d'une facture d'assurance, sans facture créée.
+    Le libellé « MEASUREMEN » coupé sur deux lignes (« T » dessous) reste un libellé."""
+    bl = values(read(pages(bl_name), "transport"))
     assert bl["transport_number"] == "MEDAF-BCN-OWD-2610052"
     assert bl["issue_date"] == date(2026, 10, 5)
     assert bl["shipper"] == "Iberica Industrial Components S.L."
@@ -123,7 +141,8 @@ def test_t54_bill_of_lading_and_insurance_fields_are_read():
     assert bl["related_invoice"] == "IIC-2026-7784"
     assert bl["container"] == "MSCU 771205-4"
     assert bl["packages"] == "9 caisses bois" and bl["gross_weight"] == "3 940 kg"
-    insurance = values(read(pages(INSURANCE), "insurance"))
+    assert bl["measurement"] == "13.10 m3"
+    insurance = values(read(pages(insurance_name), "insurance"))
     assert insurance["issuer"] == "Assurances du Littoral Gabon SA"
     assert insurance["document_number"] == "ALG-2026-FA-8841"
     assert insurance["issue_date"] == date(2026, 10, 7)

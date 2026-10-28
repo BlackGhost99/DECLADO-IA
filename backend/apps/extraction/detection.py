@@ -21,12 +21,13 @@ def detect_document_type(document) -> dict | None:
         try:
             import pdfplumber
 
+            from .adapters.pdf_words import page_words
             from .adapters.words import rows_from_words
 
             with pdfplumber.open(get_storage().path_for_reading(document.object_key)) as pdf:
                 if pdf.pages:
                     page = pdf.pages[0]
-                    words = page.extract_words(keep_blank_chars=False, use_text_flow=False, x_tolerance=2)
+                    words = page_words(page)
                     if words:
                         rows = rows_from_words(
                             words, page_number=1, width=float(page.width), height=float(page.height),

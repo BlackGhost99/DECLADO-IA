@@ -68,6 +68,32 @@ def _close_below(upper: Row, lower: Row) -> bool:
     return min(box[1] for box in b) - max(box[3] for box in a) <= 2.5 * height
 
 
+def _wrapped_labels(page: Page, index: dict[str, str]) -> tuple[dict[tuple[int, float], str], dict[int, Row]]:
+    """Libellé de colonne coupé sur deux lignes (« MEASUREMEN » puis « T ») : texte complet par
+    (rangée, début de cellule), et rangée de ces fins de libellé sous chaque rangée de libellés."""
+    whole, tails = {}, {}
+    for upper, lower in zip(page.rows, page.rows[1:], strict=False):
+        if not _close_below(upper, lower):
+            continue
+        starts = {round(p[0].x0, 0): p for p in _phrases(upper.items, page.merge_gap)}
+        merged = {}
+        for tail in _phrases(lower.items, page.merge_gap):
+            head = starts.get(round(tail[0].x0, 0))
+            if head is None or any(ch.isdigit() for ch in _text(tail)):
+                break
+            text = next(
+                (t for t in (_text(head) + _text(tail), f"{_text(head)} {_text(tail)}") if _key(t) in index), None
+            )
+            if text is None:
+                break
+            merged[(id(upper), head[0].x0)] = text
+        else:
+            if merged:
+                whole.update(merged)
+                tails[id(upper)] = lower
+    return whole, tails
+
+
 def labelled_values(
     pages: list[Page],
     labels: dict[str, tuple[str, ...]],
@@ -87,21 +113,29 @@ def labelled_values(
     all_labels = {k: v for k, v in _label_index(KNOWN_LABELS).items() if " " in k or "/" in k} | index
     found: dict[str, Found] = {}
     for page in pages:
-        rows = page.rows
+        whole, tails = _wrapped_labels(page, all_labels)
+        tail_ids = {id(t) for t in tails.values()}
+        rows = [row for row in page.rows if id(row) not in tail_ids]
         for r, row in enumerate(rows):
             if skip and id(row) in skip:
                 continue
             phrases = _phrases(row.items, page.merge_gap)
             for p, phrase in enumerate(phrases):
-                if _key(_text(phrase)) in known and _key(_text(phrase)) not in index:
-                    continue  # « Container type » est un autre libellé, pas « Container » suivi de « type »
-                split = _split_label(phrase, index)
-                if split is None:
-                    continue
-                field, size = split
-                if field in found:
-                    continue
-                label = _text(phrase[:size])
+                wrapped = whole.get((id(row), phrase[0].x0))
+                if wrapped is not None:
+                    if _key(wrapped) not in index or index[_key(wrapped)] in found:
+                        continue
+                    field, size, label = index[_key(wrapped)], len(phrase), wrapped
+                else:
+                    if _key(_text(phrase)) in known and _key(_text(phrase)) not in index:
+                        continue  # « Container type » est un autre libellé, pas « Container » suivi de « type »
+                    split = _split_label(phrase, index)
+                    if split is None:
+                        continue
+                    field, size = split
+                    if field in found:
+                        continue
+                    label = _text(phrase[:size])
                 ok = accept.get(field, bool)
                 inline = phrase[size:]
                 if inline and ok(_text(inline)):
@@ -115,7 +149,7 @@ def labelled_values(
                 # Sinon, sous le libellé : dans la rangée suivante, entre les cellules voisines du libellé.
                 left = phrases[p - 1][-1].x1 if p > 0 else float("-inf")
                 right = phrases[p + 1][0].x0 if p + 1 < len(phrases) else float("inf")
-                if r + 1 >= len(rows) or not _close_below(row, rows[r + 1]):
+                if r + 1 >= len(rows) or not _close_below(tails.get(id(row), row), rows[r + 1]):
                     continue
                 below = _phrases(rows[r + 1].items, page.merge_gap)
                 if any(_is_label(o, all_labels) and o[0].x0 <= phrase[-1].x1 for o in below):

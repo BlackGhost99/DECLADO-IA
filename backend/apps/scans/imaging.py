@@ -14,6 +14,7 @@ from PIL import Image, ImageFilter, ImageOps, ImageSequence
 from apps.documents.sniff import JPEG, PDF, PNG, TIFF
 from apps.extraction.adapters import ExtractionFailure
 from apps.extraction.adapters.ocr import _languages
+from apps.extraction.adapters.pdf_words import page_words
 
 from .titles import Word
 
@@ -66,10 +67,7 @@ def _pdf_words(path: Path, number: int) -> list[Word]:
     with pdfplumber.open(path) as pdf:
         page = pdf.pages[number - 1]
         height, width = float(page.height) or 1.0, float(page.width) or 1.0
-        return [
-            Word(w["text"], float(w["top"]) / height, float(w["x0"]) / width)
-            for w in page.extract_words(keep_blank_chars=False)
-        ]
+        return [Word(w["text"], float(w["top"]) / height, float(w["x0"]) / width) for w in page_words(page)]
 
 
 def load_page(path: Path, mime: str, number: int) -> LoadedPage:
