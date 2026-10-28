@@ -109,6 +109,7 @@ class ParsedDocument:
     charges: list[Charge] = field(default_factory=list)
     warnings: list[dict] = field(default_factory=list)
     stats: dict = field(default_factory=dict)
+    text: str = ""  # texte lu, page par page (« [page 1] … ») : seule matière transmise à l'IA en ligne
 
 
 HEADER_FIELDS = (

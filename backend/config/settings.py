@@ -215,7 +215,14 @@ OCR_PAGE_TIMEOUT_SECONDS = env.int("OCR_PAGE_TIMEOUT_SECONDS", default=120)
 SCAN_BATCH_MAX_PAGES = env.int("SCAN_BATCH_MAX_PAGES", default=300)
 # Un lot du scanner peut arriver en dizaines d'images : le plafond de Django (100) suit celui du lot.
 DATA_UPLOAD_MAX_NUMBER_FILES = SCAN_BATCH_MAX_PAGES + 10
-# Aucun fournisseur d'IA n'est raccordé : « disabled » tant que fournisseur, contrat et corpus ne sont pas fixés.
+# IA en ligne facultative (apps/extraction/ai.py) : « disabled » par défaut, « anthropic » ou « gemini ».
+# La clé reste sur le serveur ; chaque société l'active ensuite pour elle-même (Administration > IA en ligne).
 AI_PROVIDER = env("AI_PROVIDER", default="disabled")
+AI_API_KEY = env("AI_API_KEY", default="")
+AI_MODEL = env("AI_MODEL", default="")  # vide : modèle par défaut du fournisseur
+# Offre gratuite : le fournisseur peut réutiliser ce qui lui est envoyé. Essais sur pièces fictives seulement.
+AI_FREE_TIER = env.bool("AI_FREE_TIER", default=False)
+AI_TIMEOUT_SECONDS = env.int("AI_TIMEOUT_SECONDS", default=60)
+AI_MAX_TEXT_CHARS = env.int("AI_MAX_TEXT_CHARS", default=30000)
 # Au-delà, Django écrit le fichier reçu sur disque plutôt qu'en mémoire.
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024

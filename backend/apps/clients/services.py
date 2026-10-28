@@ -1,14 +1,41 @@
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 
 from apps.audit.services import record_event
 from apps.core.exceptions import ApiError, RevisionConflict
 
 from .models import Importer, normalize_name
 
-__all__ = ["create_importer", "find_possible_duplicates", "normalize_name", "update_importer"]
+__all__ = ["create_importer", "find_possible_duplicates", "normalize_name", "set_ai_refusal", "update_importer"]
 
 EDITABLE_FIELDS = ("name", "identifiers", "contacts", "address", "notes")
+
+
+@transaction.atomic
+def set_ai_refusal(*, organization, actor, importer_id, refused: bool, can_lift: bool) -> Importer:
+    """Le refus du client protège ses pièces : tout membre peut le noter, seul un administrateur le lève."""
+    importer = Importer.objects.for_organization(organization).select_for_update().filter(pk=importer_id).first()
+    if importer is None:
+        raise ApiError("NOT_FOUND", "Importateur introuvable.", 404)
+    if refused == importer.ai_refused:
+        return importer
+    if not refused and not can_lift:
+        raise ApiError("FORBIDDEN", "Seul un administrateur de la société peut lever le refus du client.", 403)
+    importer.ai_refused = refused
+    importer.ai_refused_at = timezone.now() if refused else None
+    importer.ai_refused_by = actor if refused else None
+    importer.row_version += 1
+    importer.save()
+    record_event(
+        organization=organization,
+        actor=actor,
+        event_type="importer.ai_refusal_set" if refused else "importer.ai_refusal_lifted",
+        entity=importer,
+        previous={"ai_refused": not refused},
+        current={"ai_refused": refused},
+    )
+    return importer
 
 
 def find_possible_duplicates(organization, *, name: str, identifiers: dict, exclude_id=None):

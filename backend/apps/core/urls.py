@@ -6,6 +6,7 @@ from apps.audit import api as audit
 from apps.cases import api as cases
 from apps.clients import api as clients
 from apps.document_graph import api as document_graph
+from apps.extraction import ai_settings_api as ai_settings
 from apps.extraction import api as extraction
 from apps.localization import api as localization
 from apps.onboarding import api as onboarding
@@ -59,6 +60,7 @@ urlpatterns = [
     path("organization/agencies", onboarding.AgencyListView.as_view()),
     path("importers", clients.ImporterListView.as_view()),
     path("importers/<uuid:pk>", clients.ImporterDetailView.as_view()),
+    path("importers/<uuid:pk>/ai-refusal", clients.ImporterAIRefusalView.as_view()),
     path("audit-events", audit.AuditEventListView.as_view()),
     path("revisions/<uuid:revision_id>/document-graph", document_graph.GraphView.as_view()),
     path("revisions/<uuid:revision_id>/document-intelligence", document_graph.DocumentIntelligenceView.as_view()),
@@ -105,6 +107,12 @@ urlpatterns = [
     path("goods-lines/<uuid:goods_id>/proposals", cases.ProposalView.as_view()),
     path("case-documents/<uuid:link_id>/extractions", extraction.CaseDocumentExtractionsView.as_view()),
     path("extraction-runs/<uuid:run_id>", extraction.ExtractionRunView.as_view()),
+    path("case-documents/<uuid:link_id>/ai-completion", extraction.CaseDocumentAICompletionView.as_view()),
+    path(
+        "extraction-runs/<uuid:run_id>/fields/<str:field_name>/decision",
+        extraction.ExtractionFieldDecisionView.as_view(),
+    ),
+    path("organization/ai-settings", ai_settings.OrganizationAISettingsView.as_view()),
     path("jobs/<uuid:job_id>", extraction.JobView.as_view()),
     path("divergences/<uuid:divergence_id>/resolve", extraction.DivergenceResolveView.as_view()),
     path("cases/<uuid:case_id>/scan-batches", scans.CaseBatchesView.as_view()),
