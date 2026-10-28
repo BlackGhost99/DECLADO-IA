@@ -7,6 +7,7 @@ du lot 0. Le module complet (recherche des anciens dossiers, CLI-02) arrive au l
 import re
 import unicodedata
 
+from django.conf import settings
 from django.db import models
 
 from apps.core.models import OrganizationOwnedModel
@@ -26,6 +27,12 @@ class Importer(OrganizationOwnedModel):
     contacts = models.JSONField(default=list, blank=True)
     address = models.TextField(blank=True)
     notes = models.TextField(blank=True)
+    # Le client refuse que ses pièces soient lues par une IA en ligne : prioritaire sur le réglage de la société.
+    ai_refused = models.BooleanField(default=False)
+    ai_refused_at = models.DateTimeField(null=True, blank=True)
+    ai_refused_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
 
     class Meta:
         verbose_name = "importateur"

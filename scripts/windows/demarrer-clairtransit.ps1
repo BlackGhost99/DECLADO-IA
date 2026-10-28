@@ -16,6 +16,8 @@
 #   - clés secrètes générées sur ce PC, gardées dans donnees\cles.json (jamais dans le code).
 #   - envoi des invitations par e-mail facultatif : créer donnees\messagerie.json (voir plus bas) ;
 #     sans ce fichier, le lien d'activation se copie à la main.
+#   - IA en ligne facultative : créer donnees\ia.json (voir plus bas) ; sans ce fichier, aucune
+#     pièce ne part vers une IA et la lecture fonctionne sans internet.
 # Pour tout supprimer : arreter-clairtransit.ps1, puis effacer le dossier d'installation.
 #
 # Options :
@@ -396,6 +398,9 @@ with open(sys.argv[1], "x", encoding="ascii") as fichier:
     $env:CSRF_TRUSTED_ORIGINS = "http://127.0.0.1:$portInterface,http://localhost:$portInterface"
     $env:PRIVATE_STORAGE_ROOT = Join-Path $Donnees "fichiers"
     $env:AI_PROVIDER = "disabled"
+    $env:AI_API_KEY = ""
+    $env:AI_MODEL = ""
+    $env:AI_FREE_TIER = "false"
     $env:CLAMAV_HOST = "127.0.0.1"
     $env:CLAMAV_PORT = "$portClamav"
     $env:VITE_API_PROXY = "http://127.0.0.1:$portApi"
@@ -417,6 +422,31 @@ with open(sys.argv[1], "x", encoding="ascii") as fichier:
         if ($messagerie.expediteur) { $env:DEFAULT_FROM_EMAIL = $messagerie.expediteur }
         if ($messagerie.adresse_publique) { $env:PUBLIC_APP_URL = $messagerie.adresse_publique }
         Info "Envoi des invitations par e-mail : $($messagerie.serveur)"
+    }
+
+    # IA en ligne facultative, propre à ce PC (la clé n'est jamais dans le code ni affichée).
+    # Exemple de donnees\ia.json, pour l'usage réel avec Claude :
+    #   { "fournisseur": "anthropic", "cle": "sk-ant-..." }
+    # Pour des essais sur des pièces fictives seulement, avec l'offre gratuite de Gemini :
+    #   { "fournisseur": "gemini", "cle": "AIza...", "gratuit": true }
+    # « modele » est facultatif (défaut : claude-haiku-5-5 ou gemini-2.5-flash-lite). Même avec une clé,
+    # rien ne part tant que l'administrateur de la société ne l'active pas (Administration > IA en ligne).
+    $fichierIA = Join-Path $Donnees "ia.json"
+    if (Test-Path $fichierIA) {
+        $ia = Get-Content $fichierIA -Raw -Encoding UTF8 | ConvertFrom-Json
+        $fournisseur = "$($ia.fournisseur)".Trim().ToLowerInvariant()
+        if (@("anthropic", "gemini") -notcontains $fournisseur) {
+            Write-Host "   IA en ligne ignorée : fournisseur « $($ia.fournisseur) » inconnu (anthropic ou gemini)." -ForegroundColor Yellow
+        } elseif (-not "$($ia.cle)".Trim()) {
+            Write-Host "   IA en ligne ignorée : la clé est vide dans $fichierIA." -ForegroundColor Yellow
+        } else {
+            $env:AI_PROVIDER = $fournisseur
+            $env:AI_API_KEY = "$($ia.cle)".Trim()
+            if ($ia.modele) { $env:AI_MODEL = "$($ia.modele)".Trim() }
+            $env:AI_FREE_TIER = if ($ia.gratuit -eq $true) { "true" } else { "false" }
+            $offre = if ($ia.gratuit -eq $true) { " (offre gratuite : pièces fictives uniquement)" } else { "" }
+            Info "IA en ligne disponible : $fournisseur$offre. À activer par l'administrateur de la société."
+        }
     }
 
     Push-Location $backend

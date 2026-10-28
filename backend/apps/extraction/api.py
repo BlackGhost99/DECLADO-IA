@@ -10,8 +10,8 @@ from apps.core.models import BackgroundJob
 from apps.organizations.models import Role
 from apps.organizations.permissions import HasActiveOrganization, require_roles
 
-from . import readers, services
-from .models import Divergence, ExtractionRun
+from . import ai, ai_completion, readers, services
+from .models import Divergence, ExtractionRun, FieldCorrection, FieldObservation
 
 CanEdit = require_roles(Role.DECLARANT, Role.VALIDATOR, safe_methods_open=True)
 ERROR_HINTS = {
@@ -67,6 +67,7 @@ def run_summary(run: ExtractionRun) -> dict:
         "reader": run.options.get("reader", readers.INVOICE),
         "type_detection": run.stats.get("type_detection"),
         "fields": document_fields(run),
+        "ai": ai_state(run),
         "previous_run_id": str(run.previous_run_id) if run.previous_run_id else None,
         "merge_report": run.merge_report,
         "created_by": run.created_by.email,
@@ -76,13 +77,43 @@ def run_summary(run: ExtractionRun) -> dict:
     }
 
 
+def _proposal(obs) -> dict:
+    return {
+        "raw": obs.raw_value,
+        "parsed": obs.parsed_value,
+        "status": obs.status,
+        "notes": obs.notes,
+        "excerpt": obs.source_span.excerpt if obs.source_span_id else "",
+        "span": obs.source_span.as_dict() if obs.source_span_id else None,
+        "created_at": obs.created_at,
+    }
+
+
+def _entered(correction) -> dict:
+    return {
+        "raw": (correction.current or {}).get("raw"),
+        "from_ai": bool((correction.current or {}).get("from_ai")),
+        "by": correction.actor.full_name or correction.actor.email,
+        "at": correction.created_at,
+    }
+
+
 def document_fields(run: ExtractionRun) -> list[dict]:
-    """Informations lues sur une pièce autre qu'une facture, dans l'ordre de leur type."""
+    """Informations lues sur une pièce autre qu'une facture, dans l'ordre de leur type, avec la
+    proposition de l'IA en ligne et la valeur retenue par l'agent quand elles existent."""
     reader = run.options.get("reader", readers.INVOICE)
     if reader == readers.INVOICE or run.status != ExtractionRun.Status.SUCCEEDED:
         return []
     order = {spec.name: n for n, spec in enumerate(readers.SPECS.get(reader, ()))}
-    observations = run.observations.filter(entity_key="document").select_related("source_span")
+    observations = list(run.observations.filter(entity_key="document").select_related("source_span"))
+    proposals = {o.field_name: o for o in observations if o.origin_type == FieldObservation.Origin.AI}
+    entered = {
+        c.field_name: c
+        for c in FieldCorrection.objects.filter(observation__run=run, observation__entity_key="document")
+        .select_related("actor")
+        .order_by("created_at")
+    }
+    read = [o for o in observations if o.origin_type != FieldObservation.Origin.AI]
     return [
         {
             "field": obs.field_name,
@@ -93,9 +124,40 @@ def document_fields(run: ExtractionRun) -> list[dict]:
             "origin": obs.origin_type,
             "notes": obs.notes,
             "span": obs.source_span.as_dict() if obs.source_span_id else None,
+            "proposal": _proposal(proposals[obs.field_name]) if obs.field_name in proposals else None,
+            "entered": _entered(entered[obs.field_name]) if obs.field_name in entered else None,
         }
-        for obs in sorted(observations, key=lambda o: order.get(o.field_name, 99))
+        for obs in sorted(read, key=lambda o: order.get(o.field_name, 99))
     ]
+
+
+def invoice_proposals(run: ExtractionRun) -> list[dict]:
+    """Propositions de l'IA pour l'en-tête d'une facture, tant que le champ de la facture reste vide."""
+    if run.options.get("reader", readers.INVOICE) != readers.INVOICE or run.invoice_id is None:
+        return []
+    invoice = run.invoice
+    out = []
+    for obs in run.observations.filter(entity_key="invoice", origin_type=FieldObservation.Origin.AI).select_related(
+        "source_span"
+    ):
+        if getattr(invoice, obs.field_name, None) in (None, ""):
+            out.append({"field": obs.field_name, "label": obs.label} | _proposal(obs))
+    return out
+
+
+def ai_state(run: ExtractionRun) -> dict:
+    """Ce que l'écran de la pièce montre de l'IA en ligne : dernier complément et bouton « Compléter »."""
+    config = ai_completion.settings_for(run.organization)
+    usable = ai.is_enabled() and config.enabled and run.status == ExtractionRun.Status.SUCCEEDED
+    refused = ai_completion.client_refuses(run.case_document)
+    missing = ai_completion.missing_fields(run) if usable and not refused else []
+    return {
+        "last": ai_completion.summary(run),
+        "client_refused": refused,
+        "can_complete": bool(missing),
+        "missing": [f.name for f in missing],
+        "proposals": invoice_proposals(run),
+    }
 
 
 def run_detail(run: ExtractionRun) -> dict:
@@ -194,3 +256,40 @@ class DivergenceResolveView(APIView):
         from apps.cases.api import divergence_payload
 
         return Response(divergence_payload(divergence))
+
+
+class CaseDocumentAICompletionView(APIView):
+    """Complément par l'IA en ligne demandé par l'agent (mode « sur demande », ou relance)."""
+
+    permission_classes = [CanEdit]
+
+    def post(self, request, link_id):
+        record = ai_completion.complete_on_demand(org=request.organization, actor=request.user, link_id=link_id)
+        run = ExtractionRun.objects.select_related("job", "created_by").get(pk=record.run_id)
+        return Response(run_summary(run))
+
+
+class FieldDecisionInput(serializers.Serializer):
+    action = serializers.ChoiceField(choices=["accept", "set"])
+    value = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+
+class ExtractionFieldDecisionView(APIView):
+    """L'agent retient la proposition de l'IA, ou saisit la valeur d'une information non trouvée."""
+
+    permission_classes = [CanEdit]
+
+    def post(self, request, run_id, field_name):
+        serializer = FieldDecisionInput(data=request.data)
+        if not serializer.is_valid():
+            raise ApiError("INVALID_REQUEST", "Requête invalide.", 400, serializer.errors)
+        ai_completion.decide(
+            org=request.organization,
+            actor=request.user,
+            run_id=run_id,
+            field_name=field_name,
+            **serializer.validated_data,
+        )
+        run = ExtractionRun.objects.select_related("job", "created_by").get(pk=run_id)
+        return Response(run_summary(run))

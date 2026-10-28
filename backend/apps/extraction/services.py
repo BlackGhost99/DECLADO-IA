@@ -219,12 +219,19 @@ def execute(run_id) -> None:
         logger.exception("Extraction %s : erreur inattendue", run.id)
         _fail(run, "INTERNAL_ERROR", "Erreur inattendue pendant l'extraction : relancer, ou saisir les lignes.")
         return
+    from . import ai_completion
+
+    # IA en ligne, mode automatique : hors transaction, seulement pour ce que la lecture n'a pas trouvé.
+    outcome = ai_completion.auto_outcome(run, parsed, progress=progress)
     try:
         with transaction.atomic():
             if parsed.stats.get("reader", readers.INVOICE) == readers.INVOICE:
                 merge(run, parsed)
             else:
                 merge_fields(run, parsed)
+            if outcome is not None:
+                trigger = ai_completion.AICompletion.Trigger.AUTO
+                ai_completion.save(run, run.case_document, outcome, actor=run.created_by, trigger=trigger)
             detection = parsed.stats.get("language_detection", {})
             if detection:
                 # Store hints separately from immutable uploads and original extracted values.
@@ -454,6 +461,7 @@ def merge_fields(run: ExtractionRun, parsed: ParsedDocument) -> None:
         read += value.status == Status.OK
     now = timezone.now()
     run.stats = parsed.stats
+    run.read_text = parsed.text
     run.warnings = parsed.warnings
     run.merge_report = {"fields_read": read, "fields_total": len(parsed.header)}
     run.status, run.finished_at = ExtractionRun.Status.SUCCEEDED, now
@@ -601,6 +609,7 @@ def merge(run: ExtractionRun, parsed: ParsedDocument) -> None:
     now = timezone.now()
     run.charges = charges
     run.stats = parsed.stats | {"totals": _totals_json(goods_amounts, charges, invoice.declared_total)}
+    run.read_text = parsed.text
     run.warnings = parsed.warnings
     run.invoice = invoice
     run.merge_report = report

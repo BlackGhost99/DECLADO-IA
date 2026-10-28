@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateAPIView
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.organizations.models import Role
 from apps.organizations.permissions import require_roles
@@ -22,11 +23,13 @@ class ImporterSerializer(serializers.ModelSerializer):
             "contacts",
             "address",
             "notes",
+            "ai_refused",
+            "ai_refused_at",
             "created_at",
             "updated_at",
             "row_version",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "row_version"]
+        read_only_fields = ["id", "ai_refused", "ai_refused_at", "created_at", "updated_at", "row_version"]
 
     def validate_identifiers(self, value):
         if not isinstance(value, dict) or not all(isinstance(v, str) for v in value.values()):
@@ -91,5 +94,28 @@ class ImporterDetailView(RetrieveUpdateAPIView):
             importer_id=instance.pk,
             expected_version=expected,
             data=serializer.validated_data,
+        )
+        return Response(ImporterSerializer(importer).data)
+
+
+class AIRefusalInput(serializers.Serializer):
+    refused = serializers.BooleanField()
+
+
+class ImporterAIRefusalView(APIView):
+    """Refus du client que ses pièces soient lues par une IA en ligne : tout membre le note, seul un
+    administrateur de la société le lève."""
+
+    permission_classes = [require_roles(Role.DECLARANT, Role.VALIDATOR, Role.ORG_ADMIN)]
+
+    def put(self, request, pk):
+        serializer = AIRefusalInput(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        importer = services.set_ai_refusal(
+            organization=request.organization,
+            actor=request.user,
+            importer_id=pk,
+            refused=serializer.validated_data["refused"],
+            can_lift=request.membership.has_role(Role.ORG_ADMIN),
         )
         return Response(ImporterSerializer(importer).data)

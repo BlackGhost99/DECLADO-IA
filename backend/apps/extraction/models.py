@@ -39,6 +39,9 @@ class ExtractionRun(OrganizationOwnedModel):
     charges = models.JSONField(default=list, blank=True)  # frais, remises, taxes, sous-totaux, totaux lus
     invoice = models.ForeignKey("cases.Invoice", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     merge_report = models.JSONField(default=dict, blank=True)
+    # Texte lu sur la pièce, page par page : ce que l'IA en ligne reçoit, et ce contre quoi ses
+    # extraits cités sont vérifiés. Jamais le fichier ni l'image.
+    read_text = models.TextField(blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     finished_at = models.DateTimeField(null=True, blank=True)
 
@@ -87,6 +90,7 @@ class FieldObservation(OrganizationOwnedModel):
         READ = "read", "Lu"
         OCR = "ocr", "Lu par OCR"
         INFERRED = "inferred", "Déduit"
+        AI = "ai", "Proposé par l'IA"
 
     run = models.ForeignKey(ExtractionRun, on_delete=models.PROTECT, related_name="observations")
     entity_key = models.CharField(max_length=40)  # « invoice », « item-3 », « charge-2 »
@@ -165,3 +169,65 @@ class Divergence(OrganizationOwnedModel):
 
     class Meta:
         ordering = ["created_at"]
+
+
+class OrganizationAISettings(OrganizationOwnedModel):
+    """Réglage de l'IA en ligne propre à une société : désactivée tant qu'un administrateur ne l'active pas."""
+
+    class Mode(models.TextChoices):
+        AUTO = "auto", "Automatiquement quand une information manque"
+        ON_DEMAND = "on_demand", "Seulement sur demande de l'agent"
+
+    enabled = models.BooleanField(default=False)
+    mode = models.CharField(max_length=20, choices=Mode.choices, default=Mode.AUTO)
+    monthly_cap = models.PositiveIntegerField(default=200)  # pièces envoyées par mois civil
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = "réglage de l'IA en ligne"
+        constraints = [models.UniqueConstraint(fields=["organization"], name="uniq_ai_settings_organization")]
+
+
+class AICompletion(OrganizationOwnedModel):
+    """Journal de chaque demande de complément par l'IA, envoyée ou non : append-only."""
+
+    class Status(models.TextChoices):
+        SENT = "sent", "Envoyée"
+        CLIENT_REFUSED = "client_refused", "Non envoyée : le client refuse"
+        CAP_REACHED = "cap_reached", "Non envoyée : plafond du mois atteint"
+        FAILED = "failed", "Échec du fournisseur"
+
+    class Trigger(models.TextChoices):
+        AUTO = "auto", "Automatique"
+        ON_DEMAND = "on_demand", "Demandée par l'agent"
+
+    run = models.ForeignKey(ExtractionRun, on_delete=models.PROTECT, related_name="ai_completions")
+    case_document = models.ForeignKey("cases.CaseDocument", on_delete=models.PROTECT, related_name="+")
+    status = models.CharField(max_length=20, choices=Status.choices)
+    trigger = models.CharField(max_length=20, choices=Trigger.choices)
+    provider = models.CharField(max_length=40, blank=True)
+    model = models.CharField(max_length=80, blank=True)
+    free_tier = models.BooleanField(default=False)
+    requested = models.JSONField(default=list)  # noms des informations demandées
+    found = models.JSONField(default=list)  # noms des informations proposées et retenues
+    rejected = models.JSONField(default=list)  # [{"field", "reason"}] propositions écartées par le contrôle
+    sent_chars = models.PositiveIntegerField(default=0)  # taille du texte envoyé
+    input_tokens = models.PositiveIntegerField(null=True, blank=True)
+    output_tokens = models.PositiveIntegerField(null=True, blank=True)
+    cost_estimate = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)  # $, inconnu ≠ 0
+    latency_ms = models.PositiveIntegerField(null=True, blank=True)
+    error_code = models.CharField(max_length=40, blank=True)
+    error_message = models.CharField(max_length=300, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        verbose_name = "complément par l'IA"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["organization", "created_at"])]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("Le journal de l'IA n'est jamais modifié.")
+        super().save(*args, **kwargs)

@@ -226,8 +226,18 @@ def read_fields(pages: list[Page], reader_name: str, *, origin: str = Origin.REA
     return doc
 
 
+def page_text(pages: list[Page]) -> str:
+    """Texte lu, ligne par ligne, chaque page ou feuille annoncée : « [page 2] », « [feuille Factures] »."""
+    parts = []
+    for page in pages:
+        parts.append(f"[page {page.number}]" if page.number is not None else f"[feuille {page.sheet}]")
+        parts.extend(row.text for row in page.rows if row.text.strip())
+    return "\n".join(parts)
+
+
 def read(pages: list[Page], reader_name: str = INVOICE, *, origin: str = Origin.READ) -> ParsedDocument:
     doc = structure(pages, origin=origin) if reader_name == INVOICE else read_fields(pages, reader_name, origin=origin)
+    doc.text = page_text(pages)
     doc.stats["reader"] = reader_name
     if detection := detect_type(pages):
         doc.stats["type_detection"] = detection

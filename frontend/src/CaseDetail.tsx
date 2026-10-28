@@ -4,6 +4,8 @@ import {
   ApiError,
   type AuditEntry,
   type CaseDetail,
+  type AIProposal,
+  type AIState,
   type CaseDocument,
   type CodeCheck,
   type DocumentField,
@@ -809,29 +811,180 @@ function shownValue(field: DocumentField): string {
   return field.raw ?? "";
 }
 
+/** Proposition de l'IA en ligne : valeur, extrait cité et lien vers la page, toujours à vérifier. */
+function AIProposalLine({ proposal, onSource }: { proposal: AIProposal; onSource: (h: Highlight) => void }) {
+  return (
+    <>
+      <span className="field-value">{proposal.raw}</span>
+      <span className="block small muted">
+        {tr("ai.excerpt", { text: proposal.excerpt })} <SourceLink source={{ span: proposal.span } as FieldSource} onSource={onSource} />
+      </span>
+    </>
+  );
+}
+
+function AIChips() {
+  return (
+    <span className="ia-chips">
+      <span className="ia-tag">{tr("ai.proposed")}</span>
+      <Chip tone="amber" icon="alert">{tr("field.toVerify")}</Chip>
+    </span>
+  );
+}
+
 /** Informations lues sur un titre de transport, une assurance ou une facture de fret. */
-export function DocumentFields({ fields, onSource }: { fields: DocumentField[]; onSource: (h: Highlight) => void }) {
+export function DocumentFields({
+  fields,
+  onSource,
+  runId,
+  editable = false,
+  onChange,
+}: {
+  fields: DocumentField[];
+  onSource: (h: Highlight) => void;
+  runId?: string;
+  editable?: boolean;
+  onChange?: () => Promise<void>;
+}) {
+  const [entering, setEntering] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canDecide = editable && Boolean(runId) && !busy;
+
+  async function decide(field: string, action: "accept" | "set", value = "") {
+    if (!runId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.decideField(runId, field, action, value);
+      setEntering(null);
+      await onChange?.();
+    } catch (err) {
+      setError(errorText(err, tr("ai.decisionFailed")));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startEntry(field: string, value: string) {
+    setEntering(field);
+    setDraft(value);
+    setError(null);
+  }
+
   return (
     <>
       <h3 className="extracted-sub">{tr("extract.docRead")}</h3>
       <dl className="field-list">
         {fields.map((f) => {
-          const value = f.status === "missing" ? "" : shownValue(f);
+          const label = fieldLabel(f.field, f.label);
+          const read = f.status === "missing" ? "" : shownValue(f);
           const flagged = f.status !== "ok" || f.origin === "inferred";
-          const status = fieldStatus(value, f.origin, flagged);
+          const proposal = !read && !f.entered ? f.proposal : null;
+          const status = f.entered ? { tone: "blue" as Tone, label: tr("field.typed") } : fieldStatus(read, f.origin, flagged);
+          const entry = entering === f.field && (
+            <form className="ia-entry" onSubmit={(e) => { e.preventDefault(); void decide(f.field, "set", draft); }}>
+              <input aria-label={`${tr("ai.value")} : ${label}`} value={draft} maxLength={500} required onChange={(e) => setDraft(e.target.value)} />
+              <button type="submit" className="btn-small" disabled={busy || !draft.trim()}>{tr("save")}</button>
+              <button type="button" className="btn-small" onClick={() => setEntering(null)}>{tr("cancel")}</button>
+            </form>
+          );
           return (
             <div key={f.field} className="field-row">
-              <dt>{fieldLabel(f.field, f.label)}</dt>
+              <dt>{label}</dt>
               <dd>
-                <span className="field-value" title={f.notes.join(" ") || undefined}>{value || "—"}</span>
-                <SourceLink source={{ span: f.span } as FieldSource} onSource={onSource} />
-                {value && flagged && f.notes.map((n) => <span key={n} className="block small muted">⚠ {n}</span>)}
+                {f.entered ? (
+                  <>
+                    <span className="field-value">{f.entered.raw || "—"}</span>
+                    <span className="block small muted">{tr(f.entered.from_ai ? "ai.retainedAI" : "ai.typedBy", { name: f.entered.by })}</span>
+                  </>
+                ) : proposal ? (
+                  <>
+                    <AIProposalLine proposal={proposal} onSource={onSource} />
+                    {canDecide && !entry && (
+                      <span className="ia-note-row">
+                        <button type="button" className="btn-small" onClick={() => void decide(f.field, "accept")}>{tr("ai.accept")}</button>
+                        <button type="button" className="source-link" onClick={() => startEntry(f.field, proposal.raw ?? "")}><Icon name="edit" size={13} /> {tr("ai.correct")}</button>
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="field-value" title={f.notes.join(" ") || undefined}>{read || "—"}</span>
+                    <SourceLink source={{ span: f.span } as FieldSource} onSource={onSource} />
+                    {read && flagged && f.notes.map((n) => <span key={n} className="block small muted">⚠ {n}</span>)}
+                    {!read && canDecide && !entry && (
+                      <span className="ia-note-row">
+                        <button type="button" className="source-link" onClick={() => startEntry(f.field, "")}><Icon name="edit" size={13} /> {tr("ai.enter")}</button>
+                      </span>
+                    )}
+                  </>
+                )}
+                {entry}
               </dd>
-              <Chip tone={status.tone} icon={status.tone === "amber" ? "alert" : status.tone === "green" ? "checkCircle" : undefined}>{status.label}</Chip>
+              {proposal ? <AIChips /> : (
+                <Chip tone={status.tone} icon={status.tone === "amber" ? "alert" : status.tone === "green" ? "checkCircle" : undefined}>{status.label}</Chip>
+              )}
             </div>
           );
         })}
       </dl>
+      {error && <p role="alert" className="error small">⚠ {error}</p>}
+    </>
+  );
+}
+
+/** État de l'IA en ligne sur la pièce : complément fait, refusé, plafond, échec, et bouton « Compléter ». */
+export function AINote({ linkId, ai, editable, onChange }: { linkId: string; ai?: AIState; editable: boolean; onChange: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!ai) return null;
+  const last = ai.last;
+
+  async function complete() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.completeWithAI(linkId);
+      await onChange();
+    } catch (err) {
+      setError(errorText(err, tr("ai.decisionFailed")));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  let note: ReactNode = null;
+  if (last?.status === "sent") {
+    note = (
+      <div className="note-blue small ia-panel-note" role="note">
+        <p><strong>{tr("ai.completedOn", { date: fmtDateTime(last.created_at) })}</strong></p>
+        <p>{tr("ai.completedDetail", { asked: last.requested, found: last.found })}</p>
+        {last.free_tier && <p>{tr("ai.freeNote")}</p>}
+      </div>
+    );
+  } else if (last?.status === "client_refused") {
+    note = <p className="note-blue small ia-panel-note" role="note">{tr("ai.refusedNote")}</p>;
+  } else if (last?.status === "cap_reached") {
+    note = <p className="note-amber small ia-panel-note" role="note">{tr("ai.capNote")}</p>;
+  } else if (last?.status === "failed") {
+    note = <p className="note-amber small ia-panel-note" role="note">{tr("ai.failedNote", { error: last.error_message ?? "" })}</p>;
+  }
+  const canComplete = editable && ai.can_complete;
+  if (!note && !canComplete && !error) return null;
+  return (
+    <>
+      {note}
+      {canComplete && (
+        <div className="ia-note-row ia-panel-note">
+          <button type="button" className="btn-small" disabled={busy} onClick={() => void complete()}>
+            <Icon name="shield" size={14} /> {busy ? tr("ai.completing") : tr("ai.complete")}
+          </button>
+          <span className="muted small">{tr("ai.completeHint", { n: ai.missing.length })}</span>
+        </div>
+      )}
+      {error && <p role="alert" className="error small">⚠ {error}</p>}
     </>
   );
 }
@@ -914,6 +1067,19 @@ function ExtractedPanel({
   const currency = invoice?.currency ? ` (${invoice.currency})` : "";
   const pieceName = link.document_type ? typeLabel(link.document_type) : usageLabel(link.usage, link.usage_label);
   const buyer = invoice?.buyer_name ?? "";
+  const proposals = new Map((run?.ai?.proposals ?? []).map((p) => [p.field === "buyer_name" ? "importer" : p.field, p]));
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  async function acceptProposal(field: string) {
+    if (!run) return;
+    setAiError(null);
+    try {
+      await api.decideField(run.id, field, "accept");
+      await onChange();
+    } catch (err) {
+      setAiError(errorText(err, tr("ai.decisionFailed")));
+    }
+  }
 
   return (
     <>
@@ -947,6 +1113,7 @@ function ExtractedPanel({
           )}
           <TypeNote link={link} editable={editable} onChange={onChange} />
         </div>
+        {done && <AINote linkId={link.id} ai={run.ai} editable={editable} onChange={onChange} />}
         {invoice ? (
           <>
             <h3 className="extracted-sub">{tr("extract.general")}</h3>
@@ -969,6 +1136,24 @@ function ExtractedPanel({
                     : buyer ? { tone: "amber" as Tone, label: tr("field.toLink") }
                     : { tone: "gray" as Tone, label: tr("field.unknown") }
                   : fieldStatus(value, invoice.field_origins?.[field], flagged);
+                const proposal = !value ? proposals.get(field) : undefined;
+                if (proposal) {
+                  return (
+                    <div key={field} className="field-row">
+                      <dt>{label}</dt>
+                      <dd>
+                        <AIProposalLine proposal={proposal} onSource={onSource} />
+                        {editable && (
+                          <span className="ia-note-row">
+                            <button type="button" className="btn-small" onClick={() => void acceptProposal(proposal.field)}>{tr("ai.accept")}</button>
+                            <span className="muted small">{tr("ai.invoiceHint")}</span>
+                          </span>
+                        )}
+                      </dd>
+                      <AIChips />
+                    </div>
+                  );
+                }
                 return (
                   <div key={field} className="field-row">
                     <dt>{label}</dt>
@@ -996,9 +1181,16 @@ function ExtractedPanel({
                 );
               })}
             </dl>
+            {aiError && <p role="alert" className="error small">⚠ {aiError}</p>}
           </>
         ) : done && run.fields && run.fields.length > 0 ? (
-          <DocumentFields fields={run.fields} onSource={onSource} />
+          <DocumentFields
+            fields={run.fields}
+            onSource={onSource}
+            runId={run.id}
+            editable={editable}
+            onChange={onChange}
+          />
         ) : (
           done && reader === "invoice" && <p className="muted small">{tr("extract.noInvoice")}</p>
         )}
