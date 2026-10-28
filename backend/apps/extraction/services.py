@@ -27,8 +27,9 @@ from apps.documents.sniff import JPEG, PNG, READABILITY_LABELS, Readability
 from apps.documents.storage import get_storage
 from apps.tariffs.codes import normalize_code
 
-from . import adapters
+from . import adapters, readers
 from . import codes as codemod
+from .detection import detect_document_type
 from .layout import totals_check
 from .models import Divergence, ExtractionRun, FieldCorrection, FieldObservation, SourceSpan
 from .schema import HEADER_FIELDS, LINE_FIELDS, Origin, ParsedDocument, RowKind, Span, Status, Value, jsonable, plain
@@ -39,6 +40,7 @@ TOPIC = "extraction.run"
 NOT_FOUND = ("NOT_FOUND", "Élément introuvable.", 404)
 MAX_LENGTH = {
     "supplier_name": 200,
+    "buyer_name": 200,
     "invoice_number": 100,
     "currency": 3,
     "incoterm": 20,
@@ -116,9 +118,21 @@ def request_extraction(*, org, actor, link_id, ocr: bool = False, retry: bool = 
         parser = adapters.parser_for(document.mime, ocr=ocr)
     except adapters.ExtractionFailure as exc:
         raise ApiError(exc.code, exc.message, 422) from exc
+    if not link.detected_type and not link.type_detection:
+        # Pièce déposée avant la détection du type : son titre est lu maintenant (LEC-07).
+        if detection := detect_document_type(document):
+            link.detected_type, link.type_detection = detection["code"], detection
+            link.save(update_fields=["detected_type", "type_detection", "updated_at"])
+    reader = reader_for(link)
+    if reader is None:
+        raise ApiError(
+            "NO_READER_FOR_TYPE",
+            "Pas de lecture automatique pour ce type de pièce : elle est conservée telle quelle.",
+            422,
+        )
     if document.mime in (PNG, JPEG) and not ocr:
         raise ApiError("OCR_REQUIRED", "Image : la lecture demande l'OCR (ocr=true), ou saisir les lignes.", 422)
-    options = {"ocr": bool(ocr)}
+    options = {"ocr": bool(ocr), "reader": reader}
     digest = options_hash(document, parser, options)
     runs = ExtractionRun.objects.for_organization(org).filter(case_document=link)
     active = runs.filter(options_hash=digest, status__in=[ExtractionRun.Status.QUEUED, ExtractionRun.Status.RUNNING])
@@ -191,7 +205,13 @@ def execute(run_id) -> None:
 
     try:
         path = get_storage().path_for_reading(run.document.object_key)
-        parsed = adapters.run(run.document.mime, path, ocr=run.options.get("ocr", False), progress=progress)
+        parsed = adapters.run(
+            run.document.mime,
+            path,
+            ocr=run.options.get("ocr", False),
+            progress=progress,
+            reader=run.options.get("reader", readers.INVOICE),
+        )
     except adapters.ExtractionFailure as exc:
         _fail(run, exc.code, exc.message, exc.details)
         return
@@ -201,7 +221,10 @@ def execute(run_id) -> None:
         return
     try:
         with transaction.atomic():
-            merge(run, parsed)
+            if parsed.stats.get("reader", readers.INVOICE) == readers.INVOICE:
+                merge(run, parsed)
+            else:
+                merge_fields(run, parsed)
             detection = parsed.stats.get("language_detection", {})
             if detection:
                 # Store hints separately from immutable uploads and original extracted values.
@@ -404,6 +427,50 @@ def _merge_code(run, actor, line, cand, link, page, span, report) -> None:
         report["codes_observed"] += 1
 
 
+def reader_for(link: CaseDocument) -> str | None:
+    """Lecture d'après le type confirmé, sinon détecté, sinon l'usage choisi au dépôt."""
+    from apps.regulations.doc_types import type_of
+
+    found = type_of(link)
+    if found and (reader := readers.READER_FOR_TYPE.get(found["code"])):
+        return reader
+    if found and found["source"] == "confirmed":
+        return None  # type confirmé sans lecture (certificat, liste de colisage…) : rien n'est deviné
+    return readers.READER_FOR_USAGE.get(link.usage)
+
+
+def merge_fields(run: ExtractionRun, parsed: ParsedDocument) -> None:
+    """Pièce autre qu'une facture commerciale : ses informations sont enregistrées comme observations
+    sourcées, sans créer de facture ni de ligne de marchandise (LEC-08, LEC-09)."""
+    revision = (
+        CaseRevision.objects.select_for_update(of=("self",))
+        .select_related("case")
+        .get(pk=run.case_document.revision_id)
+    )
+    _require_editable(revision)
+    read = 0
+    for name, value in parsed.header.items():
+        _observation(run, "document", name, value)
+        read += value.status == Status.OK
+    now = timezone.now()
+    run.stats = parsed.stats
+    run.warnings = parsed.warnings
+    run.merge_report = {"fields_read": read, "fields_total": len(parsed.header)}
+    run.status, run.finished_at = ExtractionRun.Status.SUCCEEDED, now
+    run.save()
+    BackgroundJob.objects.filter(pk=run.job_id).update(
+        state=BackgroundJob.State.SUCCEEDED, phase="terminé", finished_at=now, updated_at=now
+    )
+    _event(
+        run.organization,
+        run.created_by,
+        "document.read",
+        run,
+        revision,
+        current={"run": str(run.id), "reader": parsed.stats.get("reader"), "fields_read": read},
+    )
+
+
 def merge(run: ExtractionRun, parsed: ParsedDocument) -> None:
     org, actor, link = run.organization, run.created_by, run.case_document
     revision = CaseRevision.objects.select_for_update(of=("self",)).select_related("case").get(pk=link.revision_id)
@@ -442,7 +509,11 @@ def merge(run: ExtractionRun, parsed: ParsedDocument) -> None:
         if _merge_field(run, invoice, name, value, obs, report, invoice=invoice, line=None, created=created):
             changed = True
             report["values_set"] += 1
-    invoice.review_flags = _flags(parsed.header, invoice, [])
+    for name, value in parsed.header.items():
+        if name not in HEADER_FIELDS:
+            # Référence d'une autre pièce (B/L, bon de commande) : observation pour le rapprochement.
+            _observation(run, "document", name, value, invoice=invoice)
+    invoice.review_flags = _flags({k: v for k, v in parsed.header.items() if k in HEADER_FIELDS}, invoice, [])
     if changed and not created:
         invoice.row_version += 1
     invoice.save()

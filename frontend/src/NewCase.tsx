@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, ApiError, type Importer, type Me, type Membership } from "./api";
 import { canEditCases } from "./Cases";
+import { readerOf } from "./pieceTypes";
 import { Icon, type IconName } from "./Icon";
 import { navigate } from "./router";
 import { tr, type MessageKey } from "./i18n";
@@ -27,9 +28,13 @@ const ENTRY_OFFICES = ["Port d'Owendo (Gabon)", "Port-Gentil (Gabon)", "Aéropor
 /** Pays fréquents dans les dossiers CEMAC, codes ISO 3166 alpha-2 ; leur nom vient du navigateur, dans la langue affichée. */
 const COUNTRIES = ["CN", "FR", "CM", "CG", "GA", "GQ", "CF", "TD", "DE", "BE", "ES", "IT", "NL", "GB", "US", "IN", "JP", "KR", "TR", "AE", "ZA", "NG", "MA", "BR"];
 
+/** « auto » : le type est reconnu d'après le titre de la pièce au dépôt. */
 const USAGES: [string, MessageKey][] = [
+  ["auto", "usage.autoShort"],
   ["invoice", "invoice"],
   ["transport", "transportDoc"],
+  ["insurance", "usage.insurance"],
+  ["freight", "usage.freight"],
   ["packing_list", "packing"],
   ["origin", "originCert"],
   ["other", "otherDoc"],
@@ -49,7 +54,7 @@ function label(list: [string, MessageKey][], value: string) {
   return key ? tr(key) : "";
 }
 
-/** Rôle probable d'une pièce d'après son nom ; l'utilisateur le corrige avant création. */
+/** Rôle probable d'une pièce d'après son nom, pour son icône ; le type retenu vient du titre lu au dépôt. */
 export function guessUsage(name: string): string {
   const n = name.toLowerCase();
   if (/pack|colis/.test(n)) return "packing_list";
@@ -147,7 +152,7 @@ export function NewCasePage({ membership, me }: { membership: Membership; me: Pi
   function addFiles(list: FileList | null) {
     if (!list) return;
     // La liste est copiée tout de suite : le champ fichier est vidé juste après.
-    const added = [...list].map((file) => ({ key: crypto.randomUUID(), file, usage: guessUsage(file.name) }));
+    const added = [...list].map((file) => ({ key: crypto.randomUUID(), file, usage: "auto" }));
     setFiles((prev) => [...prev, ...added]);
   }
 
@@ -165,7 +170,6 @@ export function NewCasePage({ membership, me }: { membership: Membership; me: Pi
       setBusy(tr("nc.creating"));
       const data = Object.fromEntries(Object.entries(form).filter(([, v]) => v));
       const created = await api.createCase(data);
-      let readLink: string | null = null;
       for (const [i, p] of files.entries()) {
         setBusy(tr("nc.uploading", { i: i + 1, n: files.length }));
         let link;
@@ -178,8 +182,8 @@ export function NewCasePage({ membership, me }: { membership: Membership; me: Pi
           if (!existing) throw err;
           link = await api.reuseDocument(created.id, existing.id, p.usage);
         }
-        if (read && !readLink && p.usage === "invoice" && link.document.readability === "ok") {
-          readLink = link.id;
+        // Chaque pièce qui a une lecture automatique (facture, transport, assurance, fret) est lue.
+        if (read && readerOf(link) && link.document.readability === "ok" && !link.latest_extraction) {
           setBusy(tr("nc.startReading"));
           await api.extract(link.id, { ocr: link.document.mime.startsWith("image/") }).catch(() => undefined);
         }
@@ -317,7 +321,7 @@ export function NewCasePage({ membership, me }: { membership: Membership; me: Pi
                   <ul>
                     {files.map((p) => (
                       <li key={p.key}>
-                        <FileGlyph usage={p.usage} />
+                        <FileGlyph usage={p.usage === "auto" ? guessUsage(p.file.name) : p.usage} />
                         <span className="nc-file">
                           <strong title={p.file.name}>{p.file.name}</strong>
                           <small>{label(USAGES, p.usage)} • {formatBytes(p.file.size)}</small>
@@ -398,7 +402,7 @@ export function NewCasePage({ membership, me }: { membership: Membership; me: Pi
               <ul>
                 {files.map((p) => (
                   <li key={p.key}>
-                    <FileGlyph usage={p.usage} />
+                    <FileGlyph usage={p.usage === "auto" ? guessUsage(p.file.name) : p.usage} />
                     <span title={p.file.name}>{p.file.name}</span>
                     <em>{label(USAGES, p.usage)}</em>
                   </li>

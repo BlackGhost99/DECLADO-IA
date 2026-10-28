@@ -244,7 +244,7 @@ def test_attach_creates_one_pdf_per_piece_and_starts_reading_the_invoices(case):
     assert len(pdf) == 2
     pdf.close()
     [run] = ExtractionRun.objects.all()
-    assert str(run.case_document_id) == docs[0]["id"] and run.options == {"ocr": True}
+    assert str(run.case_document_id) == docs[0]["id"] and run.options == {"ocr": True, "reader": "invoice"}
     # Un lot rattaché n'est plus modifiable.
     page = batch["pages"][0]["id"]
     assert s.patch(f"/api/v1/scan-pages/{page}", {"rotation": 90}).json()["code"] == "BATCH_CLOSED"

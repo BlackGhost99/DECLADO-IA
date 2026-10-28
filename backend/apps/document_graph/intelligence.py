@@ -20,6 +20,13 @@ from .models import DocumentConflict, DocumentInvoiceLink, Shipment, ShipmentDoc
 from .services import _document, _revision
 
 ENGINE_VERSION = "document-graph-exact-v1"
+# Champs des lectures de pièces (extraction/readers.py) qui portent une référence d'une autre pièce.
+FIELD_REFERENCE_KIND = {
+    "transport_number": "transport",
+    "related_bl": "transport",
+    "related_invoice": "invoice",
+    "policy_number": "insurance",
+}
 REF_CHARS = re.compile(r"^[A-Z0-9][A-Z0-9/-]{2,99}$")
 NOT_FOUND = ("NOT_FOUND", "Élément introuvable.", 404)
 
@@ -77,6 +84,10 @@ def _reference_index(org, links):
             continue
         label = str(row["label"] or "")[:100]
         detected = references(label + ": " + raw)
+        if (kind := FIELD_REFERENCE_KIND.get(row["field_name"])) and row["status"] == "ok":
+            # Référence lue à côté de son libellé sur un B/L ou une assurance (LEC-10).
+            if value := _normalize(raw):
+                detected.append({"kind": kind, "value": value, "excerpt": label[:100]})
         if row["field_name"] == "invoice_number" and row["status"] == "ok":
             value = _normalize(raw)
             if value:

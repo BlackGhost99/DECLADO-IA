@@ -1,20 +1,29 @@
 import { useEffect, useState } from "react";
-import { ApiError, request } from "./api";
+import { ApiError, request, type PieceType } from "./api";
 import { tr, useI18n } from "./i18n";
+import { confirmReason, typeLabel } from "./pieceTypes";
 
 interface Requirement {
   document_type: string;
   label: string;
   status: string;
   reasons: { kind: string; article?: string; source?: string }[];
-  documents: { filename: string }[];
+  documents: { filename: string; type_source?: PieceType["source"] }[];
+}
+/** Pièce sans type confirmé ; detected_type : type reconnu d'après son titre, à confirmer. */
+interface Unclassified {
+  case_document_id: string;
+  filename: string;
+  classification?: { suggested_type: string | null };
+  detected_type?: string | null;
+  type_evidence?: PieceType["evidence"] | null;
 }
 interface Checklist {
   coverage: string;
   regulatory_validation: boolean;
   requirements: Requirement[];
   warning: string;
-  unclassified_documents: { case_document_id: string; filename: string; classification?: { suggested_type: string | null } }[];
+  unclassified_documents: Unclassified[];
 }
 
 export function DocumentChecklist({ revisionId }: { revisionId: string }) {
@@ -62,7 +71,10 @@ export function DocumentChecklist({ revisionId }: { revisionId: string }) {
           ? <p className="warning">{t("noRule")}</p>
           : <table className="data"><thead><tr><th>{t("documents")}</th><th>{t("status")}</th><th>{t("basis")}</th></tr></thead>
             <tbody>{result.requirements.map((r) => <tr key={r.document_type}>
-              <td>{r.label}</td><td>{r.status === "missing" ? t("missing") : t("receivedReview")}</td>
+              <td>{r.label}</td><td>
+                {r.status === "missing" ? t("missing") : t("receivedReview")}
+                {r.documents.some((d) => d.type_source === "detected") && <span className="muted small"> · {tr("chk.detected")}</span>}
+              </td>
               <td>{r.reasons.map((v) => v.kind === "regulation"
                 ? `${v.source || ""} art. ${v.article || ""}` : t("orgPolicy")).join(" · ")}</td>
             </tr>)}</tbody></table>}
@@ -83,16 +95,17 @@ export function DocumentChecklist({ revisionId }: { revisionId: string }) {
 function ClassificationPicker({
   doc, onConfirmed,
 }: {
-  doc: { case_document_id: string; filename: string; classification?: { suggested_type: string | null } };
+  doc: Unclassified;
   onConfirmed: () => void;
 }) {
-  const [types, setTypes] = useState<{ code: string; label_fr: string }[]>([]);
-  const [choice, setChoice] = useState(doc.classification?.suggested_type ?? "");
-  const [reason, setReason] = useState("");
+  const [types, setTypes] = useState<{ code: string; label_fr: string; label_en: string }[]>([]);
+  const [choice, setChoice] = useState(doc.detected_type ?? doc.classification?.suggested_type ?? "");
+  // Le type reconnu d'après le titre est proposé avec le texte qui le justifie ; l'agent confirme ou corrige.
+  const [reason, setReason] = useState(doc.detected_type && doc.type_evidence ? confirmReason({ evidence: doc.type_evidence }, doc.filename) : "");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void request<{ results: { code: string; label_fr: string }[] }>("GET", "/document-types")
+    void request<{ results: { code: string; label_fr: string; label_en: string }[] }>("GET", "/document-types")
       .then((page) => setTypes(page.results), () => setError(tr("chk.catalogUnavailable")));
   }, []);
 
@@ -113,7 +126,7 @@ function ClassificationPicker({
     <label>{tr("chk.verifiedType")}
       <select value={choice} onChange={(e) => setChoice(e.target.value)}>
         <option value="">{tr("choose")}</option>
-        {types.map((item) => <option key={item.code} value={item.code}>{item.label_fr}</option>)}
+        {types.map((item) => <option key={item.code} value={item.code}>{typeLabel(item)}</option>)}
       </select>
     </label>
     <label>{tr("chk.justification")}

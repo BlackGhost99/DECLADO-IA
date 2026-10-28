@@ -123,12 +123,18 @@ class CaseDocument(OrganizationOwnedModel):
         INVOICE = "invoice", "Facture"
         PACKING_LIST = "packing_list", "Liste de colisage"
         TRANSPORT = "transport", "Document de transport"
+        INSURANCE = "insurance", "Assurance"
+        FREIGHT = "freight", "Facture de fret"
         ORIGIN = "origin", "Certificat d'origine"
         OTHER = "other", "Autre pièce"
 
     revision = models.ForeignKey(CaseRevision, on_delete=models.PROTECT, related_name="documents")
     document = models.ForeignKey("documents.Document", on_delete=models.PROTECT, related_name="case_links")
     usage = models.CharField(max_length=20, choices=Usage.choices, default=Usage.OTHER)
+    # Type proposé d'après le titre lu (code de la taxonomie) et ce qui le justifie ; jamais une
+    # confirmation : celle-ci est une DocumentClassification signée par un agent (LEC-07).
+    detected_type = models.CharField(max_length=60, blank=True)
+    type_detection = models.JSONField(default=dict, blank=True)
     added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     # Remplacement : l'ancien rattachement reste visible et pointe vers son successeur.
     replaced_by = models.OneToOneField("self", null=True, blank=True, on_delete=models.PROTECT, related_name="replaces")
@@ -150,6 +156,8 @@ class Invoice(OrganizationOwnedModel):
     revision = models.ForeignKey(CaseRevision, on_delete=models.PROTECT, related_name="invoices")
     ordinal = models.PositiveIntegerField()
     supplier_name = models.CharField(max_length=200, blank=True)
+    # Acheteur ou destinataire tel qu'imprimé (« Bill to ») ; la fiche importateur du dossier reste la référence.
+    buyer_name = models.CharField(max_length=200, blank=True)
     invoice_number = models.CharField(max_length=100, blank=True)
     invoice_date = models.DateField(null=True, blank=True)
     currency = models.CharField(max_length=3, blank=True)  # ISO 4217, tel que lu sur la facture

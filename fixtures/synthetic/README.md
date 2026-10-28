@@ -14,3 +14,11 @@ Toutes les données ici sont fictives. Aucun taux, code ou nom ne représente un
   la volée par les tests et par `python manage.py build_synthetic_corpus <dossier>` (corpus d'évaluation avec les
   valeurs attendues). `referentiel-lot3.csv` : petit référentiel fictif dont les libellés correspondent à ces factures,
   pour les contrôles de code et les propositions de classement.
+- **Jeu BatiPro** (lecture des pièces) : `batipro/` contient un dossier fictif de trois pièces liées, refaites
+  d'après le jeu de test de l'utilisateur (facture commerciale « COMMERCIAL INVOICE », connaissement « BILL OF
+  LADING », facture d'assurance). Chaque pièce le dit en toutes lettres : elle est synthétique et sans valeur.
+  Les informations sont rangées dans des grilles « libellé | valeur ». `01_facture_commerciale_navigateur.pdf` est la
+  même facture imprimée depuis un navigateur : ses libellés et ses valeurs tombent sur des lignes de texte
+  différentes. Les fichiers `*_filigrane.pdf` sont les trois pièces fournies par l'utilisateur le 28 octobre 2026,
+  elles aussi marquées « Donnees synthetiques » : un filigrane « DOCUMENT FICTIF - TEST » en biais y traverse le
+  texte. Utilisé par `backend/tests/test_lecture_pieces.py`.

@@ -6,7 +6,8 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..language import annotate_parsed
-from ..layout import Item, Page, Row, structure
+from ..layout import Item, Page, Row
+from ..readers import INVOICE, read
 from ..schema import ParsedDocument, Span, warning
 from . import ExtractionFailure, Progress
 
@@ -39,7 +40,7 @@ def _text(value) -> str:
     return str(value).strip()
 
 
-def extract(path: Path, *, progress: Progress) -> ParsedDocument:
+def extract(path: Path, *, progress: Progress, reader: str = INVOICE) -> ParsedDocument:
     from openpyxl import load_workbook
 
     data = path.read_bytes()
@@ -95,7 +96,7 @@ def extract(path: Path, *, progress: Progress) -> ParsedDocument:
                 rows.append(Row(items=items, page=None, index=index))
         pages.append(Page(number=None, rows=rows, merge_gap=0, sheet=name, exact_columns=True))
     progress("structuration", len(names), len(names))
-    doc = structure(pages)
+    doc = read(pages, reader)
     annotate_parsed(doc, pages)
     if external:
         warnings.append(warning("EXTERNAL_LINK", "Le classeur contient des liens externes : ils n'ont pas été suivis."))
