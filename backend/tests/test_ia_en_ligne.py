@@ -265,10 +265,11 @@ def test_t62_on_demand_then_agent_accepts_or_enters(world, case, configured):
     assert got["freight_terms"]["entered"] == got["freight_terms"]["entered"] | {
         "raw": "Selon charte-partie", "from_ai": False
     }  # fmt: skip
-    # Relance : seules les informations ni proposées ni saisies sont redemandées.
-    s.post(f"/api/v1/case-documents/{link['id']}/ai-completion")
-    second = configured["provider"].calls[1]["fields"]
-    assert "packages" not in second and "measurement" not in second and "freight_terms" not in second
+    # Relance : une information déjà demandée sur cette lecture n'est pas redemandée, l'agent la saisit.
+    assert summary(case, link)["ai"]["can_complete"] is False
+    again = s.post(f"/api/v1/case-documents/{link['id']}/ai-completion")
+    assert again.status_code == 409 and again.json()["code"] == "NOTHING_MISSING"
+    assert len(configured["provider"].calls) == 1
     assert s.post(f"{url}/packages/decision", {"action": "remove"}).status_code == 400
     assert s.post(f"{url}/inconnu/decision", {"action": "set", "value": "x"}).status_code == 400
     assert AuditEvent.objects.filter(event_type="document.field_entered").count() == 2
@@ -306,7 +307,8 @@ def test_t63_settings_are_admin_only_and_never_show_the_key(world, session, sett
     admin = session("admin@a.test")
     body = admin.get(url).json()
     assert body["enabled"] is False and body["mode"] == "auto" and body["provider"]["configured"] is False
-    on = {"enabled": True, "mode": "auto", "monthly_cap": 50, "row_version": 0}
+    on = {"enabled": True, "mode": "auto", "monthly_cap": 50, "row_version": body["row_version"]}
+    assert on["row_version"] == 0  # réglage pas encore enregistré : la première écriture part de 0
     assert admin.put(url, on).json()["code"] == "AI_NOT_CONFIGURED"
     settings.AI_PROVIDER, settings.AI_API_KEY, settings.AI_FREE_TIER = "gemini", "cle-secrete-de-test", True
     resp = admin.put(url, on)

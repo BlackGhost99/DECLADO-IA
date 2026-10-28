@@ -162,6 +162,16 @@ Aucune fixture ne doit présenter un taux synthétique comme un taux gabonais r�
 | T55 | LEC-07 à LEC-09 | Dépôt « reconnaître d’après le titre » des 3 pièces : chaque pièce lue à sa façon, une seule facture créée, prime 111,93 sourcée |
 | T56 | LEC-10 | Pièces demandées par la société « reçues, à vérifier », non confirmées ; B/L cité par la facture et l’assurance proposé au rapprochement |
 | T57 | LEC-07 | Type choisi au dépôt confirmé ; type inconnu refusé (422) sans fichier stocké ; colisage sans lecture ; assurance déposée comme facture : écart montré, lecture d’assurance après confirmation ; écrans en quatre langues |
+| T58 | IAL-01, IAL-02 | Sans fournisseur, puis avec une clé mais sans activation par la société : B/L fictif lu, aucun appel, rien de journalisé |
+| T59 | IAL-03, IAL-04 | Mode automatique, B/L fictif à trois libellés inconnus : seules les informations non trouvées sont demandées, avec le texte lu et ses repères de page ; propositions « à vérifier » sourcées |
+| T60 | IAL-05, IAL-06 | Extrait inventé, valeur hors de l’extrait, champ non demandé : écartés ; fournisseur injoignable : lecture aboutie, échec journalisé |
+| T61 | IAL-07, IAL-08 | Client qui refuse : rien n’est envoyé et l’écran le dit ; seul l’administrateur lève le refus ; plafond atteint : rien ne part |
+| T62 | IAL-09, IAL-03 | Sur demande : « Compléter avec l’IA » ; proposition acceptée, valeur saisie, pas de seconde demande sur la même lecture ; facture remplie seulement après acceptation |
+| T63 | IAL-10, IAL-08 | Réglage réservé à l’administrateur ; activation refusée sans clé ; clé jamais renvoyée ; coût inconnu pour un modèle sans prix ; écrans en quatre langues, RTL en arabe |
+| T64 | ACC-02, IAL-10 | Autre société : ni pièce, ni proposition, ni journal (404) ; journal des envois non modifiable |
+| T65 | IAL-05, IAL-06 | Consigne : le texte de la pièce est une donnée, jamais une instruction ; schéma strict ; fournisseur inconnu ou clé absente : aucun repli |
+| T66 | IAL-08 | Plafond compté depuis le premier jour du mois |
+| T67 | IAL-04, IAL-06 | Adaptateurs Claude et Gemini, avec leur vraie bibliothèque, contre un serveur local factice : texte et schéma envoyés, erreurs 401, 429 et refus traduites ; aucun appel réel |
 
 Tests T01, T11, T20–T29, T31–T35 bloquants avant mise en service du périmètre correspondant. Les autres tests P0 restent obligatoires ; les exigences P1 peuvent être reportées explicitement dans une livraison réduite.
 

@@ -30,6 +30,9 @@ export interface Importer {
   contacts: Record<string, string>[];
   address: string;
   notes: string;
+  /** Le client refuse que ses pièces soient lues par une IA en ligne (prioritaire sur la société). */
+  ai_refused?: boolean;
+  ai_refused_at?: string | null;
   row_version: number;
   possible_duplicates?: { id: string; name: string }[];
 }
@@ -392,6 +395,73 @@ export interface DocumentField {
   origin: FieldSource["origin"];
   notes: string[];
   span: Span | null;
+  /** Proposition de l'IA en ligne pour une information non trouvée : à vérifier. */
+  proposal?: AIProposal | null;
+  /** Valeur retenue ou saisie par un agent. */
+  entered?: { raw: string | null; from_ai: boolean; by: string; at: string } | null;
+}
+
+export interface AIProposal {
+  raw: string | null;
+  parsed: unknown;
+  status: FieldSource["status"];
+  notes: string[];
+  excerpt: string;
+  span: Span | null;
+  created_at: string;
+}
+
+export interface AIState {
+  last: {
+    status: "sent" | "client_refused" | "cap_reached" | "failed";
+    status_label: string;
+    trigger: "auto" | "on_demand";
+    provider: string | null;
+    provider_label: string | null;
+    model: string | null;
+    free_tier: boolean;
+    requested: number;
+    found: number;
+    rejected: number;
+    error_message: string | null;
+    created_at: string;
+  } | null;
+  client_refused: boolean;
+  can_complete: boolean;
+  missing: string[];
+  /** Facture : propositions pour les champs d'en-tête restés vides. */
+  proposals: (AIProposal & { field: string; label: string })[];
+}
+
+export interface AISettings {
+  enabled: boolean;
+  mode: "auto" | "on_demand";
+  monthly_cap: number;
+  row_version: number;
+  provider: { name: string | null; label: string | null; model: string | null; configured: boolean; free_tier: boolean };
+  usage: { month_start: string; sent: number; cap: number; cost_estimate: string | null };
+  refusing_clients: { id: string; name: string; refused_at: string | null; refused_by: string | null }[];
+  journal: {
+    id: string;
+    created_at: string;
+    case_id: string;
+    case_reference: string;
+    file_name: string;
+    usage: string;
+    detected_type: string | null;
+    status: "sent" | "client_refused" | "cap_reached" | "failed";
+    status_label: string;
+    trigger: "auto" | "on_demand";
+    provider: string | null;
+    model: string | null;
+    free_tier: boolean;
+    requested: number;
+    found: number;
+    rejected: number;
+    cost_estimate: string | null;
+    error_message: string | null;
+    by: string;
+  }[];
 }
 
 /** Localisation d'une valeur lue : page physique (depuis 1) et zone normalisée 0–1, ou feuille et cellule. */
@@ -413,7 +483,7 @@ export interface FieldSource {
   label: string;
   raw: string;
   status: "ok" | "missing" | "ambiguous" | "unreadable" | "truncated" | "low_confidence";
-  origin: "read" | "ocr" | "inferred";
+  origin: "read" | "ocr" | "inferred" | "ai";
   confidence: number | null;
   notes: string[];
   span: Span | null;
@@ -504,6 +574,7 @@ export interface ExtractionRun {
   invoice_id: string | null;
   reader?: "invoice" | "transport" | "insurance" | "freight";
   fields?: DocumentField[];
+  ai?: AIState;
   previous_run_id: string | null;
   merge_report: Record<string, number | boolean>;
   created_by: string;
@@ -815,6 +886,14 @@ export const api = {
     request<Me>("POST", "/me/active-organization", { organization_id }),
   importers: () => request<Page<Importer>>("GET", "/importers"),
   createImporter: (data: Partial<Importer>) => request<Importer>("POST", "/importers", data),
+  setImporterAIRefusal: (id: string, refused: boolean) =>
+    request<Importer>("PUT", `/importers/${id}/ai-refusal`, { refused }),
+  aiSettings: () => request<AISettings>("GET", "/organization/ai-settings"),
+  saveAISettings: (data: { enabled: boolean; mode: AISettings["mode"]; monthly_cap: number; row_version: number }) =>
+    request<AISettings>("PUT", "/organization/ai-settings", data),
+  completeWithAI: (linkId: string) => request<ExtractionRun>("POST", `/case-documents/${linkId}/ai-completion`),
+  decideField: (runId: string, field: string, action: "accept" | "set", value = "") =>
+    request<ExtractionRun>("POST", `/extraction-runs/${runId}/fields/${field}/decision`, { action, value }),
   members: () => request<Page<Member>>("GET", "/organization/members"),
   reactivateMember: (id: string) => request<Member>("POST", `/organization/members/${id}/reactivate`),
   deactivateMember: (id: string) => request<Member>("POST", `/organization/members/${id}/deactivate`),

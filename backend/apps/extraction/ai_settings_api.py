@@ -73,7 +73,7 @@ def payload(org) -> dict:
         "enabled": config.enabled,
         "mode": config.mode,
         "monthly_cap": config.monthly_cap,
-        "row_version": config.row_version if config.pk else 0,
+        "row_version": 0 if config._state.adding else config.row_version,  # pas encore enregistré : 0
         "provider": ai.provider_info(),
         "usage": _usage(org, config.monthly_cap),
         "refusing_clients": [

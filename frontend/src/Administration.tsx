@@ -15,10 +15,11 @@ import { DocumentPolicies } from "./DocumentPolicies";
 import { Icon } from "./Icon";
 import { tr, useBusinessLabels, type MessageKey } from "./i18n";
 import { ActivationLink, Field, issuedLink, type IssuedLink } from "./Onboarding";
+import { AISettingsPanel, ImporterAIChoice } from "./OnlineAI";
 import { Chip, initials, PageHeader } from "./ui";
 
-export type AdminTab = "importers" | "documents" | "users" | "agencies";
-const ADMIN_TABS: AdminTab[] = ["importers", "documents", "users", "agencies"];
+export type AdminTab = "importers" | "documents" | "users" | "agencies" | "ia";
+const ADMIN_TABS: AdminTab[] = ["importers", "documents", "users", "agencies", "ia"];
 export const adminTab = (value: string | null): AdminTab =>
   ADMIN_TABS.includes(value as AdminTab) ? (value as AdminTab) : "importers";
 
@@ -56,13 +57,20 @@ export function Administration({
             <Icon name="mapPin" size={18} /> {tr("adm.agencies")}
           </button>
         )}
+        {isAdmin && (
+          <button type="button" role="tab" aria-selected={tab === "ia"} onClick={() => setTab("ia")}>
+            <Icon name="shield" size={18} /> {tr("adm.ai")}
+          </button>
+        )}
       </div>
       {tab === "importers" ? (
-        <Importers canEdit={canEdit} />
+        <Importers canEdit={canEdit} isAdmin={isAdmin} />
       ) : tab === "documents" ? (
         <DocumentPolicies isAdmin={isAdmin} />
       ) : tab === "agencies" ? (
         <Agencies />
+      ) : tab === "ia" ? (
+        <AISettingsPanel organizationName={membership.organization.name} onManageClients={() => setTab("importers")} />
       ) : (
         <Members selfEmail={selfEmail} />
       )}
@@ -70,8 +78,10 @@ export function Administration({
   );
 }
 
-function Importers({ canEdit }: { canEdit: boolean }) {
+function Importers({ canEdit, isAdmin }: { canEdit: boolean; isAdmin: boolean }) {
   const [items, setItems] = useState<Importer[]>([]);
+  const [editing, setEditing] = useState<Importer | null>(null);
+  const canChooseAI = canEdit || isAdmin;
   const [name, setName] = useState("");
   const [nif, setNif] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -111,18 +121,43 @@ function Importers({ canEdit }: { canEdit: boolean }) {
         <div className="table-wrap">
           <table className="data">
             <thead>
-              <tr><th scope="col">{tr("name")}</th><th scope="col">{tr("identifiers")}</th></tr>
+              <tr>
+                <th scope="col">{tr("name")}</th><th scope="col">{tr("identifiers")}</th><th scope="col">{tr("imp.aiCol")}</th>
+                {canChooseAI && <th scope="col"><span className="visually-hidden">{tr("actions")}</span></th>}
+              </tr>
             </thead>
             <tbody>
               {items.map((i) => (
                 <tr key={i.id}>
                   <td>{i.name}</td>
                   <td>{Object.entries(i.identifiers).map(([k, v]) => `${k.toUpperCase()} ${v}`).join(" · ")}</td>
+                  <td>{i.ai_refused ? <Chip tone="gray">{tr("imp.aiRefused")}</Chip> : <Chip tone="green">{tr("imp.aiAllowed")}</Chip>}</td>
+                  {canChooseAI && (
+                    <td>
+                      <button type="button" className="btn-outline-small" aria-label={`${tr("imp.edit")} : ${i.name}`} onClick={() => setEditing(i)}>
+                        <Icon name="edit" size={14} /> {tr("imp.edit")}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+      {editing && (
+        <ImporterAIChoice
+          key={editing.id}
+          importer={editing}
+          isAdmin={isAdmin}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setItems((all) => all.map((x) => (x.id === updated.id ? updated : x)));
+            setEditing(null);
+            setError(null);
+            setMessage(tr("imp.aiSaved"));
+          }}
+        />
       )}
       {canEdit && (
         <form className="form-grid" onSubmit={create}>

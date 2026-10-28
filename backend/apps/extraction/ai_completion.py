@@ -118,6 +118,10 @@ def missing_fields(run: ExtractionRun) -> list[ai.FieldRequest]:
             "field_name", flat=True
         )
     )
+    # Déjà demandées à l'IA sur cette lecture : elle a répondu « non trouvé » ou sa proposition a été
+    # écartée. On ne redemande pas : l'agent saisit la valeur.
+    for asked in run.ai_completions.filter(status=AICompletion.Status.SENT).values_list("requested", flat=True):
+        already |= set(asked or [])
     return _missing(run, statuses, already)
 
 
