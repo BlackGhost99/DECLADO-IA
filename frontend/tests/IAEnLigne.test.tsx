@@ -97,8 +97,9 @@ describe("IA en ligne : écrans (T61 à T63)", () => {
     renderFr(<AISettingsPanel organizationName="Transit Alpha" onManageClients={() => {}} />);
     const toggle = await screen.findByRole("checkbox", { name: "Désactivée" });
     expect(toggle).toBeDisabled();
-    expect(screen.getByText(/Aucune clé d'IA n'est posée sur le serveur/)).toBeInTheDocument();
-    expect(screen.getByText("Absente")).toBeInTheDocument();
+    expect(screen.getByText(/Votre rôle autorise l'activation/)).toBeInTheDocument();
+    expect(screen.queryByText("Clé du serveur")).toBeNull();
+    expect(screen.queryByRole("spinbutton")).toBeNull();
   });
 
   it("active l'IA, signale l'offre gratuite et un coût inconnu, sans jamais afficher la clé (T63)", async () => {
@@ -119,12 +120,13 @@ describe("IA en ligne : écrans (T61 à T63)", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Désactivée" }));
     expect(await screen.findByText("Activée pour Transit Alpha")).toBeInTheDocument();
     const put = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")!;
-    expect(JSON.parse(String((put[1] as RequestInit).body))).toEqual({ enabled: true, mode: "auto", monthly_cap: 200, row_version: 0 });
+    expect(JSON.parse(String((put[1] as RequestInit).body))).toEqual({ enabled: true, mode: "auto", row_version: 0 });
     cleanup();
     vi.spyOn(globalThis, "fetch").mockImplementation(() => json(200, { ...configured, provider: { ...configured.provider, free_tier: false },
       usage: { ...configured.usage, cost_estimate: null } }));
     renderFr(<AISettingsPanel organizationName="Transit Alpha" onManageClients={() => {}} />);
-    expect(await screen.findByText(/Coût estimé inconnu pour ce modèle/)).toBeInTheDocument();
+    expect(await screen.findByText(/Plafond attribué par l'exploitant ClairTransit/)).toBeInTheDocument();
+    expect(screen.queryByText(/Coût estimé/)).toBeNull();
   });
 
   const beta: Importer = { id: "i2", name: "Société Fictive Import Beta", identifiers: {}, contacts: [], address: "", notes: "",

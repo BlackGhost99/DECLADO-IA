@@ -7,6 +7,7 @@ import {
   type NewOrganizationInput,
   type PlatformOrganization,
 } from "./api";
+import { PlatformAIPanel } from "./PlatformAI";
 import { Icon } from "./Icon";
 import { tr } from "./i18n";
 import { ActivationLink, issuedLink, type IssuedLink, CountrySelect, countryLabel, Field, LOCALES, ProfileChoice, profileLabel } from "./Onboarding";
@@ -51,6 +52,7 @@ export function Console({ view }: { view: "home" | "requests" }) {
       </PageHeader>
       {error && <p role="alert" className="error">⚠ {error}</p>}
       {issued && <ActivationLink {...issued} />}
+      {view === "home" && <PlatformAIPanel />}
       <div className={view === "home" ? "onb-split" : undefined}>
         <Requests
           items={requests}

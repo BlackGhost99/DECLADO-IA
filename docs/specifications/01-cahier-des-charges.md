@@ -165,9 +165,9 @@ Limites initiales proposées : 50 Mo par fichier, 500 pages par facture PDF et 1
 | IAL-05 | P1 | Réponse au schéma strict ; proposition écartée, jamais réparée, si son extrait n’est pas dans la pièce, si sa valeur n’est pas dans l’extrait, si elle est en double ou non demandée ; « non trouvé » toujours accepté ; jamais de code SH, de taux, de droit ou de taxe |
 | IAL-06 | P1 | Fournisseur en échec (clé refusée, saturation, réseau, refus, réponse illisible) : la lecture aboutit sans proposition, l’échec est journalisé, aucun repli vers un autre fournisseur |
 | IAL-07 | P1 | Refus du client sur sa fiche importateur, prioritaire sur le réglage de la société ; posé par un agent ou l’administrateur, levé seulement par l’administrateur ; journalisé |
-| IAL-08 | P1 | Plafond mensuel de pièces envoyées par société : atteint, rien ne part et la lecture continue ; coût estimé affiché, inconnu (jamais zéro) pour un modèle sans prix connu |
+| IAL-08 | P1 | Plafond mensuel de pièces envoyées par société attribué seulement par l’exploitant : atteint, rien ne part et la lecture continue ; coût estimé affiché dans sa console, inconnu (jamais zéro) pour un modèle sans prix connu |
 | IAL-09 | P1 | Proposition = observation d’origine IA « à vérifier », avec l’extrait cité et sa page ; elle ne remplit la pièce ou la facture qu’une fois acceptée par un agent, qui peut aussi corriger ou saisir ; mode automatique ou sur demande |
-| IAL-10 | P1 | Réglage réservé à l’administrateur de la société ; journal des envois non modifiable, audit sans les valeurs ; offre gratuite signalée, réservée aux pièces fictives |
+| IAL-10 | P1 | Activation et mode réservés à l’administrateur de la société ; fournisseur, clé et plafonds réservés à l’exploitant, sans accès aux dossiers ni aux refus nominatifs des clients ; journal des envois non modifiable, audit sans les valeurs ; offre gratuite signalée, réservée aux pièces fictives |
 
 Une ligne au même libellé/prix qu’une autre peut être légitime. Le logiciel signale une duplication présumée ; il ne supprime aucune marchandise automatiquement. Les avoirs ou retours sont signalés et traités explicitement, sans les assimiler à des lignes positives ordinaires.
 

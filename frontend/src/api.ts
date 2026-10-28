@@ -433,6 +433,18 @@ export interface AIState {
   proposals: (AIProposal & { field: string; label: string })[];
 }
 
+export interface PlatformAIOrganization {
+  id: string;
+  name: string;
+  monthly_cap: number;
+  row_version: number;
+  usage: AISettings["usage"];
+}
+export interface PlatformAISettings {
+  provider: AISettings["provider"];
+  organizations: PlatformAIOrganization[];
+}
+
 export interface AISettings {
   enabled: boolean;
   mode: "auto" | "on_demand";
@@ -888,8 +900,11 @@ export const api = {
   createImporter: (data: Partial<Importer>) => request<Importer>("POST", "/importers", data),
   setImporterAIRefusal: (id: string, refused: boolean) =>
     request<Importer>("PUT", `/importers/${id}/ai-refusal`, { refused }),
+  platformAISettings: () => request<PlatformAISettings>("GET", "/platform/ai-settings"),
+  savePlatformAIQuota: (id: string, data: { monthly_cap: number; row_version: number }) =>
+    request<PlatformAIOrganization>("PUT", `/platform/organizations/${id}/ai-quota`, data),
   aiSettings: () => request<AISettings>("GET", "/organization/ai-settings"),
-  saveAISettings: (data: { enabled: boolean; mode: AISettings["mode"]; monthly_cap: number; row_version: number }) =>
+  saveAISettings: (data: { enabled: boolean; mode: AISettings["mode"]; row_version: number }) =>
     request<AISettings>("PUT", "/organization/ai-settings", data),
   completeWithAI: (linkId: string) => request<ExtractionRun>("POST", `/case-documents/${linkId}/ai-completion`),
   decideField: (runId: string, field: string, action: "accept" | "set", value = "") =>

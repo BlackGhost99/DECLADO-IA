@@ -307,14 +307,14 @@ def test_t63_settings_are_admin_only_and_never_show_the_key(world, session, sett
     admin = session("admin@a.test")
     body = admin.get(url).json()
     assert body["enabled"] is False and body["mode"] == "auto" and body["provider"]["configured"] is False
-    on = {"enabled": True, "mode": "auto", "monthly_cap": 50, "row_version": body["row_version"]}
+    on = {"enabled": True, "mode": "auto", "row_version": body["row_version"]}
     assert on["row_version"] == 0  # réglage pas encore enregistré : la première écriture part de 0
     assert admin.put(url, on).json()["code"] == "AI_NOT_CONFIGURED"
     settings.AI_PROVIDER, settings.AI_API_KEY, settings.AI_FREE_TIER = "gemini", "cle-secrete-de-test", True
     resp = admin.put(url, on)
     assert resp.status_code == 200, resp.content
     body = resp.json()
-    assert body["enabled"] is True and body["monthly_cap"] == 50 and body["row_version"] == 1
+    assert body["enabled"] is True and body["monthly_cap"] == 200 and body["row_version"] == 1
     assert body["provider"] == {"name": "gemini", "label": "Google Gemini", "model": "gemini-3.5-flash-lite",
                                 "configured": True, "free_tier": True}  # fmt: skip
     assert "cle-secrete-de-test" not in resp.content.decode()

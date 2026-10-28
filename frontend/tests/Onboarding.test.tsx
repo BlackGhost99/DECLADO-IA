@@ -151,6 +151,9 @@ describe("Mise en route", () => {
       const url = String(input);
       if (url.endsWith("/me")) return signedIn ? json(200, OPERATOR) : json(401, {});
       if (url.endsWith("/auth/setup")) return json(200, { needs_setup: false });
+      if (url.endsWith("/platform/ai-settings") && signedIn) return json(200, {
+        provider: { name: null, label: null, model: null, configured: false, free_tier: false }, organizations: [],
+      });
       if (url.includes("/platform/")) return signedIn ? json(200, []) : json(401, { code: "NOT_AUTHENTICATED" });
       return json(404, {});
     });
