@@ -11,6 +11,7 @@ import { LoginForm } from "./LoginForm";
 import { MFAEnrollment } from "./MFAEnrollment";
 import { OrganizationPicker } from "./OrganizationPicker";
 import { ReferenceAdmin, TariffSearch } from "./Reference";
+import { ScanScreens } from "./Scans";
 import { currentCase, navigate, useRoute, type Route } from "./router";
 import { eventIcon, eventLabel, initials, relativeTime } from "./ui";
 import { LanguageSelector, tr, useBusinessLabels, useI18n, type MessageKey } from "./i18n";
@@ -232,8 +233,10 @@ function UserMenu({
 
 function isActive(item: NavItem, route: Route): boolean {
   const [first, , tab] = route.parts;
-  if (item.caseTab) return first === "dossiers" && tab === item.caseTab;
-  if (item.path === "dossiers") return first === "dossiers" && (!tab || !NAV_CASE.some((n) => n.caseTab === tab));
+  // La numérisation fait partie des documents du dossier.
+  const caseTab = tab === "numerisation" ? "documents" : tab;
+  if (item.caseTab) return first === "dossiers" && caseTab === item.caseTab;
+  if (item.path === "dossiers") return first === "dossiers" && (!caseTab || !NAV_CASE.some((n) => n.caseTab === caseTab));
   return (first ?? "") === item.path;
 }
 
@@ -361,6 +364,9 @@ function Page({ route, me, active }: { route: Route; me: Me; active: Membership 
     case "":
       return <Dashboard membership={active} me={me} />;
     case "dossiers":
+      if (id && tab === "numerisation") {
+        return <ScanScreens key={id} caseId={id} rest={route.parts.slice(3)} membership={active} />;
+      }
       if (id) {
         return (
           <CaseDetailView

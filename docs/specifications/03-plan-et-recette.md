@@ -143,6 +143,13 @@ Aucune fixture ne doit présenter un taux synthétique comme un taux gabonais r�
 | T36 | DOC-02, WF-04 | Restauration : retrouver dossier, pièces, décision, calcul et export avec leurs empreintes |
 | T37 | REC-01, DOS-01 | Mesurer p95 recherche et ouverture dans l’environnement/corpus définis ; rapport avec charge et résultats |
 | T38 | DOC-04, EXT-03 | Parcours clavier, erreurs lisibles et navigation vers preuve ; audit d’accessibilité des écrans principaux |
+| T39 | NUM-01, NUM-02, NUM-04 | Lot de 6 pages (facture de 2 pages, page blanche, connaissement, colisage, annexe) : 3 pièces proposées avec leur raison, page blanche retirée, originaux conservés, rien rattaché ; plusieurs fichiers et TIFF dans l’ordre ; TIFF refusé hors lot ; limite de pages explicite |
+| T40 | NUM-05 | Couper, joindre, déplacer vers une nouvelle pièce, déclasser, pivoter, retirer, changer le type, reprendre une page : chaque geste journalisé et jamais refait par le découpage |
+| T41 | NUM-06, NUM-08 | Rattachement : une pièce PDF par pièce, nommée et typée, factures mises en lecture ; pages non classées laissées dans le lot ; lot vide refusé ; lot rattaché figé ; révision validée refusée |
+| T42 | NUM-03 | Photos prises pièce par pièce : pièces et types choisis à la prise de vue, photo recadrée sur la feuille |
+| T43 | NUM-04, NUM-07 | Scan sans couche texte lu par OCR, page à l’envers remise à l’endroit ; sans OCR, pages signalées sans titre ni type inventé |
+| T44 | NUM-08 | Société B sans accès aux lots, pages, images et pièces de A (404) ; administrateur sans rôle de préparation en lecture seule (403 en écriture) |
+| T45 | NUM-01 à NUM-06 | Écrans : trois façons d’ajouter les pièces, lots en cours, tri avec raisons et page à reprendre, gestes envoyés au serveur, pièces rattachées avec provenance |
 
 Tests T01, T11, T20–T29, T31–T35 bloquants avant mise en service du périmètre correspondant. Les autres tests P0 restent obligatoires ; les exigences P1 peuvent être reportées explicitement dans une livraison réduite.
 

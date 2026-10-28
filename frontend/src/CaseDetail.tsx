@@ -45,7 +45,7 @@ import {
   type Tone,
 } from "./ui";
 
-const USAGES: [string, MessageKey][] = [
+export const USAGES: [string, MessageKey][] = [
   ["invoice", "usage.invoice"],
   ["packing_list", "usage.packing"],
   ["transport", "usage.transport"],
@@ -641,9 +641,14 @@ function Upload({ caseId, onDone }: { caseId: string; onDone: (selectId: string 
   return (
     <div className="upload">
       {!open ? (
-        <button type="button" className="btn-primary btn-block" onClick={() => setOpen(true)}>
-          <Icon name="plus" /> {tr("actions.addDocument")}
-        </button>
+        <>
+          <button type="button" className="btn-primary btn-block" onClick={() => setOpen(true)}>
+            <Icon name="plus" /> {tr("actions.addDocument")}
+          </button>
+          <button type="button" className="btn-secondary btn-block scan-entry" onClick={() => navigate(`/dossiers/${caseId}/numerisation`)}>
+            <Icon name="layers" /> {tr("scan.entry")}
+          </button>
+        </>
       ) : (
         <form className="upload-form" onSubmit={(e) => { e.preventDefault(); void send(); }}>
           <label>

@@ -13,6 +13,7 @@ PDF = "application/pdf"
 PNG = "image/png"
 JPEG = "image/jpeg"
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+# TIFF : sortie courante des scanners ; accepté dans un lot numérisé (NUM-02), pas comme pièce directe.
 TIFF = "image/tiff"
 
 ACCEPTED = {
@@ -60,6 +61,8 @@ def _detect(head: bytes) -> str | None:
         return PNG
     if head.startswith(b"\xff\xd8\xff"):
         return JPEG
+    if head.startswith((b"II*\x00", b"MM\x00*")):
+        return TIFF
     if head.startswith(b"PK\x03\x04"):
         return XLSX  # confirmé ou infirmé par l'examen de l'archive
     if head.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):

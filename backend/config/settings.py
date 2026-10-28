@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "apps.regulations",
     "apps.cases",
     "apps.extraction",
+    "apps.scans",
 ]
 
 MIDDLEWARE = [
@@ -195,6 +196,10 @@ CLAMAV_SCAN_TIMEOUT = env.int("CLAMAV_SCAN_TIMEOUT", default=120)
 EXTRACTION_MAX_PAGES = env.int("EXTRACTION_MAX_PAGES", default=500)
 OCR_LANGUAGES = env("OCR_LANGUAGES", default="fra+eng+spa+ara")
 OCR_PAGE_TIMEOUT_SECONDS = env.int("OCR_PAGE_TIMEOUT_SECONDS", default=120)
+# Numérisation : nombre de pages au plus dans un lot (scanner ou téléphone).
+SCAN_BATCH_MAX_PAGES = env.int("SCAN_BATCH_MAX_PAGES", default=300)
+# Un lot du scanner peut arriver en dizaines d'images : le plafond de Django (100) suit celui du lot.
+DATA_UPLOAD_MAX_NUMBER_FILES = SCAN_BATCH_MAX_PAGES + 10
 # Aucun fournisseur d'IA n'est raccordé : « disabled » tant que fournisseur, contrat et corpus ne sont pas fixés.
 AI_PROVIDER = env("AI_PROVIDER", default="disabled")
 # Au-delà, Django écrit le fichier reçu sur disque plutôt qu'en mémoire.
