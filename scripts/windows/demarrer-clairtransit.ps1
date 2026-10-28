@@ -16,14 +16,14 @@
 #   - clés secrètes générées sur ce PC, gardées dans donnees\cles.json (jamais dans le code).
 #   - envoi des invitations par e-mail facultatif : créer donnees\messagerie.json (voir plus bas) ;
 #     sans ce fichier, le lien d'activation se copie à la main.
-#   - IA en ligne facultative : créer donnees\ia.json (voir plus bas) ; sans ce fichier, aucune
-#     pièce ne part vers une IA et la lecture fonctionne sans internet.
+#   - IA en ligne facultative : le script prépare donnees\ia.json ; il suffit d'y placer la clé.
+#     Sans clé, aucune pièce ne part vers une IA et la lecture fonctionne sans internet.
 # Pour tout supprimer : arreter-clairtransit.ps1, puis effacer le dossier d'installation.
 #
 # Options :
 #   -Dossier <chemin>   autre dossier d'installation
 #   -MettreAJour        retélécharge le code de la branche (les données sont conservées)
-#   -Branche <nom>      branche du dépôt (défaut : mise-en-route)
+#   -Branche <nom>      branche du dépôt (défaut : main)
 #   -Demo               ajoute les comptes et le référentiel de démonstration (fictifs, marqués comme tels)
 #   -ImporterTarif <fichier>  importe un tarif (.xlsx ou .csv) et le publie en consultation :
 #                       il devient cherchable, jamais utilisé pour un calcul. À lancer une seule
@@ -32,7 +32,7 @@
 
 param(
     [string]$Dossier = (Join-Path $env:LOCALAPPDATA "ClairTransit"),
-    [string]$Branche = "mise-en-route",
+    [string]$Branche = "main",
     [switch]$MettreAJour,
     [switch]$Demo,
     [string]$ImporterTarif,
@@ -425,28 +425,37 @@ with open(sys.argv[1], "x", encoding="ascii") as fichier:
     }
 
     # IA en ligne facultative, propre à ce PC (la clé n'est jamais dans le code ni affichée).
-    # Exemple de donnees\ia.json, pour l'usage réel avec Claude :
-    #   { "fournisseur": "anthropic", "cle": "sk-ant-..." }
-    # Pour des essais sur des pièces fictives seulement, avec l'offre gratuite de Gemini :
-    #   { "fournisseur": "gemini", "cle": "AIza...", "gratuit": true }
-    # « modele » est facultatif (défaut : claude-haiku-5-5 ou gemini-2.5-flash-lite). Même avec une clé,
-    # rien ne part tant que l'administrateur de la société ne l'active pas (Administration > IA en ligne).
+    # Le fichier est préparé automatiquement. Pour un premier essai, l'utilisateur ne remplit que « cle ».
+    # Gemini 3.5 Flash-Lite est le choix de test par défaut ; Claude Haiku 5.5 reste prévu pour l'usage réel.
+    # Même avec une clé, rien ne part tant que l'administrateur de la société ne l'active pas
+    # dans Administration > IA en ligne.
     $fichierIA = Join-Path $Donnees "ia.json"
-    if (Test-Path $fichierIA) {
-        $ia = Get-Content $fichierIA -Raw -Encoding UTF8 | ConvertFrom-Json
-        $fournisseur = "$($ia.fournisseur)".Trim().ToLowerInvariant()
-        if (@("anthropic", "gemini") -notcontains $fournisseur) {
-            Write-Host "   IA en ligne ignorée : fournisseur « $($ia.fournisseur) » inconnu (anthropic ou gemini)." -ForegroundColor Yellow
-        } elseif (-not "$($ia.cle)".Trim()) {
-            Write-Host "   IA en ligne ignorée : la clé est vide dans $fichierIA." -ForegroundColor Yellow
-        } else {
-            $env:AI_PROVIDER = $fournisseur
-            $env:AI_API_KEY = "$($ia.cle)".Trim()
-            if ($ia.modele) { $env:AI_MODEL = "$($ia.modele)".Trim() }
-            $env:AI_FREE_TIER = if ($ia.gratuit -eq $true) { "true" } else { "false" }
-            $offre = if ($ia.gratuit -eq $true) { " (offre gratuite : pièces fictives uniquement)" } else { "" }
-            Info "IA en ligne disponible : $fournisseur$offre. À activer par l'administrateur de la société."
-        }
+    if (-not (Test-Path $fichierIA)) {
+        @'
+{
+  "fournisseur": "gemini",
+  "cle": "",
+  "modele": "gemini-3.5-flash-lite",
+  "gratuit": true
+}
+'@ | Set-Content -Path $fichierIA -Encoding UTF8
+        Info "Configuration IA préparée : $fichierIA"
+        Info "Pour tester Gemini, colle uniquement ta clé dans la valeur « cle », puis relance ClairTransit."
+    }
+
+    $ia = Get-Content $fichierIA -Raw -Encoding UTF8 | ConvertFrom-Json
+    $fournisseur = "$($ia.fournisseur)".Trim().ToLowerInvariant()
+    if (@("anthropic", "gemini") -notcontains $fournisseur) {
+        Write-Host "   IA en ligne ignorée : fournisseur « $($ia.fournisseur) » inconnu (anthropic ou gemini)." -ForegroundColor Yellow
+    } elseif (-not "$($ia.cle)".Trim()) {
+        Info "IA en ligne non configurée : ajoute la clé dans $fichierIA (champ « cle »)."
+    } else {
+        $env:AI_PROVIDER = $fournisseur
+        $env:AI_API_KEY = "$($ia.cle)".Trim()
+        if ($ia.modele) { $env:AI_MODEL = "$($ia.modele)".Trim() }
+        $env:AI_FREE_TIER = if ($ia.gratuit -eq $true) { "true" } else { "false" }
+        $offre = if ($ia.gratuit -eq $true) { " (offre gratuite : pièces fictives uniquement)" } else { "" }
+        Info "IA en ligne disponible : $fournisseur / $env:AI_MODEL$offre. À activer par l'administrateur de la société."
     }
 
     Push-Location $backend
