@@ -20,6 +20,7 @@ from apps.extraction.codes import FINDING_MESSAGES
 from apps.extraction.models import FieldObservation
 from apps.organizations.models import Role
 from apps.organizations.permissions import HasActiveOrganization, require_roles
+from apps.regulations.doc_types import mismatch_of, type_of
 from apps.tariffs.api import HISTORICAL_WARNING
 
 from . import completeness, proposals, services
@@ -80,6 +81,8 @@ def case_document_payload(link: CaseDocument) -> dict:
         "replaced_by_id": str(link.replaced_by_id) if link.replaced_by_id else None,
         "row_version": link.row_version,
         "document": document_payload(link.document),
+        "document_type": type_of(link),
+        "type_mismatch": mismatch_of(link),
         "latest_extraction": _latest_extraction(link),
     }
 
@@ -179,6 +182,7 @@ def invoice_payload(inv: Invoice) -> dict:
         "id": str(inv.id),
         "ordinal": inv.ordinal,
         "supplier_name": inv.supplier_name,
+        "buyer_name": inv.buyer_name,
         "invoice_number": inv.invoice_number,
         "invoice_date": inv.invoice_date,
         "currency": inv.currency,
@@ -363,6 +367,7 @@ class RevisionInput(serializers.Serializer):
 
 class InvoiceInput(serializers.Serializer):
     supplier_name = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    buyer_name = serializers.CharField(required=False, allow_blank=True, max_length=200)
     invoice_number = serializers.CharField(required=False, allow_blank=True, max_length=100)
     invoice_date = serializers.DateField(required=False, allow_null=True)
     currency = serializers.RegexField(r"^[A-Za-z]{3}$|^$", required=False, allow_blank=True)
@@ -569,8 +574,11 @@ def _upload_from(request):
 
 
 def _usage(request):
+    """usage : « auto » (type lu sur le titre) ou un usage connu ; document_type : code de la taxonomie."""
+    if request.data.get("document_type"):
+        return "auto"
     usage = request.data.get("usage") or CaseDocument.Usage.OTHER
-    if usage not in CaseDocument.Usage.values:
+    if usage not in [*CaseDocument.Usage.values, services.AUTO]:
         raise ApiError("INVALID_USAGE", "Usage de pièce inconnu.", 400, {"allowed": CaseDocument.Usage.values})
     return usage
 
@@ -598,6 +606,7 @@ class CaseDocumentsView(APIView):
             declared_mime=getattr(upload, "content_type", "") or "",
             duplicate_action=request.data.get("duplicate_action", ""),
             idempotency_key=(request.headers.get("Idempotency-Key") or "")[:100],
+            document_type=(request.data.get("document_type") or "")[:60],
         )
         link = CaseDocument.objects.select_related("document__uploaded_by", "added_by").get(pk=link.pk)
         return Response(case_document_payload(link), status=201 if created else 200)
@@ -614,6 +623,7 @@ class CaseDocumentReuseView(APIView):
             revision=case.current_revision,
             document_id=request.data.get("document_id"),
             usage=_usage(request),
+            document_type=(request.data.get("document_type") or "")[:60],
         )
         return Response(case_document_payload(link), status=201)
 

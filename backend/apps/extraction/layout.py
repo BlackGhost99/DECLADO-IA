@@ -98,8 +98,11 @@ _CARRIED = re.compile(r"\b(a reporter|report|reporte|carried forward|brought for
 _SUBTOTAL = re.compile(r"\b(sous-total|sous total|subtotal|sub-total|total page|total partiel)\b")
 _TAX = re.compile(r"^(tva|vat|taxe|tax)\b")
 _DISCOUNT = re.compile(r"^(remise|rabais|escompte|ristourne|discount)\b")
+# « Ocean freight », « Frais de port » ; « Port de déchargement » est un lieu, pas un frais (LEC-04).
 _FEE = re.compile(
-    r"^(frais|fret|freight|transport|assurance|insurance|emballage|packing|packaging|handling|port|shipping)\b"
+    r"^(?:(?:ocean|sea|air|road|inland|international|maritime)\s+)?"
+    r"(frais|fret|freight|transport|assurance|insurance|emballage|packing|packaging|handling|shipping"
+    r"|port(?!\s+(?:de|d'|du|des|of|a|à)\b))\b"
 )
 _FOOTER = re.compile(r"^(page \d+|\d+ ?/ ?\d+$)")
 _TOTAL = re.compile(r"\b(total|net a payer|montant du|amount due|grand total)\b")
@@ -123,6 +126,7 @@ _HEADER_PATTERNS = {
 }
 HEADER_LABELS = {
     "supplier_name": "Fournisseur",
+    "buyer_name": "Acheteur ou destinataire",
     "invoice_number": "N° de facture",
     "invoice_date": "Date de facture",
     "currency": "Devise",
@@ -333,7 +337,11 @@ def _classify(row_text: str, cells: dict[str, list[Item]], header_like: bool) ->
 
 def _row_amount(row: Row, cells: dict[str, list[Item]], reader: _Reader, label: str) -> Value:
     items = cells.get("amount")
-    if not items:
+    if items:
+        # « TOTAL 18 554.00 EUR » dans une seule cellule : le libellé n'est pas le montant (LEC-05).
+        start = next((k for k, i in enumerate(items) if looks_numeric(i.text) or isinstance(i.typed, Decimal)), None)
+        items = items[start:] if start is not None else items
+    else:
         numeric = [i for i in row.items if looks_numeric(i.text) or isinstance(i.typed, Decimal)]
         items = numeric[-1:] if numeric else None
     value = reader.value(items, "amount", label)
@@ -341,8 +349,83 @@ def _row_amount(row: Row, cells: dict[str, list[Item]], reader: _Reader, label: 
     return value
 
 
-def _header_fields(pages: list[Page], table_rows: set[int], reader: _Reader) -> tuple[dict[str, Value], list[dict]]:
+# Les numéros et références contiennent au moins un chiffre : « Invoice » n'est pas un numéro.
+_HAS_DIGIT = re.compile(r"\d")
+# Pays où une date 03/10/2026 se lit d'usage mois/jour, ou dont l'usage est mêlé : rien n'est déduit.
+MONTH_FIRST_OR_MIXED = {"US", "CA", "PH", "CN", "JP", "KR", "ZA"}
+INVOICE_LABEL_FIELDS = ("supplier_name", "buyer_name", "invoice_number", "invoice_date", "currency", "incoterm")
+
+
+def _labelled_header(pages: list[Page], table_rows: set[int], reader: _Reader) -> dict[str, Value]:
+    from .fields import KNOWN_LABELS, labelled_values, letterhead_company
+
     found: dict[str, Value] = {}
+    labels = {name: KNOWN_LABELS[name] for name in INVOICE_LABEL_FIELDS}
+    for name, hit in labelled_values(pages, labels, skip=table_rows).items():
+        raw = hit.text
+        if name == "invoice_number" and not _HAS_DIGIT.search(raw):
+            continue
+        if name == "incoterm":
+            m = _HEADER_PATTERNS["incoterm"].search(raw)
+            if not m:
+                continue
+            raw = m[1]
+        kind = {"invoice_date": "date", "currency": "currency"}.get(name, "text")
+        value = reader.value(hit.items, kind, HEADER_LABELS[name], text=raw)
+        if name == "incoterm":
+            value.parsed = raw[:20]
+        value.notes.append(f"Lu à côté du libellé « {hit.label} ».")
+        found[name] = value
+    if "supplier_name" not in found:
+        company = letterhead_company(pages)
+        if company:
+            value = reader.value(company.items, "text", HEADER_LABELS["supplier_name"], text=company.text)
+            value.origin = Origin.INFERRED
+            value.notes.append("Émetteur lu en tête de la facture (raison sociale) : à vérifier.")
+            found["supplier_name"] = value
+    return found
+
+
+def _issuer_country(pages: list[Page]) -> tuple[str, str] | None:
+    """Pays écrit dans l'adresse en tête de la première page, avant la grille des libellés."""
+    from .fields import header_rows
+
+    if not pages:
+        return None
+    for row in header_rows(pages[0]):
+        phrases = [" ".join(i.text for i in p) for p in _phrases(row.items, pages[0].merge_gap)]
+        for part in [part for phrase in phrases for part in reversed(re.split(r"[,;]", phrase))]:
+            words = norm(part).split()
+            for n in range(min(3, len(words)), 0, -1):
+                name = " ".join(words[-n:])
+                reading = parse_country(name)
+                if reading.value and len(name) > 2:
+                    return reading.value, " ".join(part.strip().split()[-n:])
+    return None
+
+
+def _resolve_day_month(header: dict[str, Value], pages: list[Page], reader: _Reader, field="invoice_date") -> None:
+    """LEC-06 : 03/10/2026 sur une facture en anglais se lit jour/mois si l'émetteur est établi dans
+    un pays où c'est l'usage ; la valeur est alors marquée « déduite », jamais présentée comme lue."""
+    value = header.get(field)
+    if value is None or value.status != Status.AMBIGUOUS or not value.raw:
+        return
+    issuer = _issuer_country(pages)
+    if not issuer or issuer[0] in MONTH_FIRST_OR_MIXED:
+        return
+    country, written = issuer
+    reading = parse_date(value.raw, english=False)
+    if reading.value is None:
+        return
+    value.parsed, value.status, value.origin = reading.value, Status.OK, Origin.INFERRED
+    value.notes = [
+        f"« {value.raw} » lu jour/mois : l'adresse de l'émetteur indique « {written} » ({country}), "
+        "où c'est l'usage. À vérifier."
+    ]
+
+
+def _header_fields(pages: list[Page], table_rows: set[int], reader: _Reader) -> tuple[dict[str, Value], list[dict]]:
+    found: dict[str, Value] = _labelled_header(pages, table_rows, reader)
     warnings: list[dict] = []
     for page in pages:
         for row in page.rows:
@@ -354,6 +437,8 @@ def _header_fields(pages: list[Page], table_rows: set[int], reader: _Reader) -> 
                     continue
                 m = pattern.search(text)
                 if not m:
+                    continue
+                if name == "invoice_number" and not _HAS_DIGIT.search(m[1]):
                     continue
                 start, end = m.span(1)
                 items, pos = [], 0
@@ -368,7 +453,48 @@ def _header_fields(pages: list[Page], table_rows: set[int], reader: _Reader) -> 
                 if name == "incoterm":
                     value.parsed = raw[:20]
                 found[name] = value
+    _resolve_day_month(found, pages, reader)
     return found, warnings
+
+
+# Références d'autres pièces imprimées sur la facture : elles servent au rapprochement (LEC-10).
+INVOICE_REFERENCES = {"related_bl": "Titre de transport cité", "purchase_order": "Bon de commande",
+                      "container": "Conteneur"}  # fmt: skip
+
+
+def _invoice_references(pages: list[Page], table_rows: set[int], reader: _Reader) -> dict[str, Value]:
+    from .fields import KNOWN_LABELS, labelled_values
+
+    labels = {name: KNOWN_LABELS[name] for name in INVOICE_REFERENCES}
+    accept = dict.fromkeys(INVOICE_REFERENCES, _HAS_DIGIT.search)
+    found = {}
+    for name, hit in labelled_values(pages, labels, skip=table_rows, accept=accept).items():
+        value = reader.value(hit.items, "text", INVOICE_REFERENCES[name], text=hit.text)
+        value.notes.append(f"Lu à côté du libellé « {hit.label} ».")
+        found[name] = value
+    return found
+
+
+def _loose_total(pages: list[Page], reader: _Reader) -> Charge | None:
+    """Total imprimé hors tableau reconnu : « TOTAL A PAYER 111.93 EUR » (LEC-05)."""
+    hit = None
+    for page in pages:
+        for row in page.rows:
+            key = norm(row.text)
+            if not _TOTAL.search(key) or _SUBTOTAL.search(key):
+                continue
+            numeric = [i for i in row.items if looks_numeric(i.text)]
+            if not numeric:
+                continue
+            first = row.items.index(numeric[0])
+            amount_items = row.items[first:]
+            if any(not looks_numeric(i.text) and not parse_currency(i.text).value for i in amount_items):
+                # « Total : 3 articles, voir annexe » : pas un montant sûr.
+                amount_items = [numeric[-1]]
+            label = " ".join(i.text for i in row.items[:first])[:80] or row.text[:80]
+            value = reader.value(amount_items, "amount", label)
+            hit = Charge(kind=RowKind.TOTAL, label=label, amount=value, span=value.span, page=page.number)
+    return hit
 
 
 def structure(pages: list[Page], *, origin: str = Origin.READ) -> ParsedDocument:
@@ -448,7 +574,10 @@ def structure(pages: list[Page], *, origin: str = Origin.READ) -> ParsedDocument
             doc.lines.append(current)
 
     doc.header, header_warnings = _header_fields(pages, table_rows, reader)
+    doc.header.update(_invoice_references(pages, table_rows, reader))
     doc.warnings.extend(header_warnings)
+    if not totals and (loose := _loose_total(pages, reader)):
+        totals.append(loose)
     if totals:
         final = totals[-1]
         doc.header["declared_total"] = Value(

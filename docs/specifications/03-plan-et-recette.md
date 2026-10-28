@@ -155,6 +155,13 @@ Aucune fixture ne doit présenter un taux synthétique comme un taux gabonais r�
 | T48 | ACC-06, ACC-02 | Console : administrateur de société et anonyme refusés (403) ; l’exploitant ne lit aucun dossier ni importateur ; société suspendue : plus aucun accès à ses données, réactivation possible |
 | T49 | ACC-07 | Lien d’activation : expiré, utilisé, annulé ou société suspendue refusé ; compte existant rattaché avec son propre mot de passe ; renouvellement invalide l’ancien lien |
 | T50 | ACC-08, ACC-02 | Agences et invitations d’une société invisibles d’une autre (404) ; agence d’une autre société refusée ; limite de sièges respectée ; écrans en quatre langues, RTL en arabe |
+| T51 | LEC-01 à LEC-05 | Facture fictive BatiPro (PDF généré et PDF de navigateur) : fournisseur lu en tête, acheteur, n°, devise, total 18 554,00 EUR, 3 marchandises, fret maritime en frais |
+| T52 | LEC-04, LEC-06 | Date 03/10/2026 sans pays d’émetteur : ambiguë, jamais devinée ; « Ocean freight » frais, « Port de déchargement » non |
+| T53 | LEC-07 | Titres « COMMERCIAL INVOICE », « BILL OF LADING », « FACTURE D’ASSURANCE » (sur deux lignes) donnent le type |
+| T54 | LEC-08, LEC-09 | B/L et facture d’assurance : informations lues avec leur source, absences « non trouvées » |
+| T55 | LEC-07 à LEC-09 | Dépôt « reconnaître d’après le titre » des 3 pièces : chaque pièce lue à sa façon, une seule facture créée, prime 111,93 sourcée |
+| T56 | LEC-10 | Pièces demandées par la société « reçues, à vérifier », non confirmées ; B/L cité par la facture et l’assurance proposé au rapprochement |
+| T57 | LEC-07 | Type choisi au dépôt confirmé ; type inconnu refusé (422) sans fichier stocké ; colisage sans lecture ; assurance déposée comme facture : écart montré, lecture d’assurance après confirmation ; écrans en quatre langues |
 
 Tests T01, T11, T20–T29, T31–T35 bloquants avant mise en service du périmètre correspondant. Les autres tests P0 restent obligatoires ; les exigences P1 peuvent être reportées explicitement dans une livraison réduite.
 

@@ -10,7 +10,7 @@ from apps.core.models import BackgroundJob
 from apps.organizations.models import Role
 from apps.organizations.permissions import HasActiveOrganization, require_roles
 
-from . import services
+from . import readers, services
 from .models import Divergence, ExtractionRun
 
 CanEdit = require_roles(Role.DECLARANT, Role.VALIDATOR, safe_methods_open=True)
@@ -64,6 +64,9 @@ def run_summary(run: ExtractionRun) -> dict:
         "hint": ERROR_HINTS.get(run.error_code),
         "warnings": run.warnings,
         "invoice_id": str(run.invoice_id) if run.invoice_id else None,
+        "reader": run.options.get("reader", readers.INVOICE),
+        "type_detection": run.stats.get("type_detection"),
+        "fields": document_fields(run),
         "previous_run_id": str(run.previous_run_id) if run.previous_run_id else None,
         "merge_report": run.merge_report,
         "created_by": run.created_by.email,
@@ -71,6 +74,28 @@ def run_summary(run: ExtractionRun) -> dict:
         "finished_at": run.finished_at,
         "job": job_payload(run.job),
     }
+
+
+def document_fields(run: ExtractionRun) -> list[dict]:
+    """Informations lues sur une pièce autre qu'une facture, dans l'ordre de leur type."""
+    reader = run.options.get("reader", readers.INVOICE)
+    if reader == readers.INVOICE or run.status != ExtractionRun.Status.SUCCEEDED:
+        return []
+    order = {spec.name: n for n, spec in enumerate(readers.SPECS.get(reader, ()))}
+    observations = run.observations.filter(entity_key="document").select_related("source_span")
+    return [
+        {
+            "field": obs.field_name,
+            "label": obs.label,
+            "raw": obs.raw_value,
+            "parsed": obs.parsed_value,
+            "status": obs.status,
+            "origin": obs.origin_type,
+            "notes": obs.notes,
+            "span": obs.source_span.as_dict() if obs.source_span_id else None,
+        }
+        for obs in sorted(observations, key=lambda o: order.get(o.field_name, 99))
+    ]
 
 
 def run_detail(run: ExtractionRun) -> dict:

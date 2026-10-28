@@ -289,7 +289,39 @@ def create_revision(*, org, actor, case_id, reason: str):
 # --- Pièces ----------------------------------------------------------------------------
 
 
-def _link_document(org, actor, revision, document, usage, idempotency_key="") -> CaseDocument:
+AUTO = "auto"
+
+
+def _check_type(document_type: str):
+    """Refuse un type inconnu avant d'enregistrer le moindre fichier."""
+    from apps.regulations.models import DocumentType
+
+    if document_type and document_type != AUTO:
+        found = DocumentType.objects.filter(code=document_type, active=True).first()
+        if found is None:
+            raise ApiError("UNKNOWN_DOCUMENT_TYPE", "Type de pièce inconnu.", 422, {"document_type": document_type})
+        return found
+    return None
+
+
+def _resolve_type(document, usage: str, document_type: str):
+    """(usage, type déclaré, détection) : un type choisi par l'agent est validé ; « auto » lit le titre."""
+    from apps.extraction.detection import detect_document_type
+    from apps.regulations.doc_types import usage_for_type
+
+    if declared := _check_type(document_type):
+        return usage_for_type(declared.code), declared, {}
+    # Le titre est lu même si l'usage est donné : un écart entre les deux est montré à l'agent.
+    detection = detect_document_type(document) or {}
+    if usage == AUTO:
+        usage = usage_for_type(detection["code"]) if detection else CaseDocument.Usage.OTHER
+        if detection:
+            detection["applied"] = True  # l'usage vient du titre lu, pas d'un choix de l'agent
+    return usage, None, detection
+
+
+def _link_document(org, actor, revision, document, usage, idempotency_key="", document_type="") -> CaseDocument:
+    usage, declared, detection = _resolve_type(document, usage, document_type)
     link = CaseDocument.objects.create(
         organization=org,
         revision=revision,
@@ -297,7 +329,20 @@ def _link_document(org, actor, revision, document, usage, idempotency_key="") ->
         usage=usage,
         added_by=actor,
         idempotency_key=idempotency_key,
+        detected_type=detection.get("code", ""),
+        type_detection=detection,
     )
+    if declared is not None:
+        from apps.regulations.models import DocumentClassification
+
+        # Choisir le type au dépôt vaut confirmation par l'agent qui dépose (LEC-07).
+        DocumentClassification.objects.create(
+            organization=org,
+            case_document=link,
+            document_type=declared,
+            confirmed_by=actor,
+            reason="Type indiqué au dépôt.",
+        )
     _event(
         org,
         actor,
@@ -307,14 +352,18 @@ def _link_document(org, actor, revision, document, usage, idempotency_key="") ->
         current={
             "document": str(document.id),
             "sha256": document.sha256,
-            "usage": usage,
+            "usage": link.usage,
             "name": document.original_name,
+            "document_type": declared.code if declared else "",
+            "detected_type": link.detected_type,
         },
     )
     return link
 
 
-def attach_upload(*, org, actor, revision, upload, usage, declared_mime="", duplicate_action="", idempotency_key=""):
+def attach_upload(
+    *, org, actor, revision, upload, usage, declared_mime="", duplicate_action="", idempotency_key="", document_type=""
+):
     """DOC-01/02/03 : dépôt contrôlé. Un fichier identique déjà présent est signalé ; l'utilisateur décide."""
     if idempotency_key:
         existing = CaseDocument.objects.for_organization(org).filter(idempotency_key=idempotency_key).first()
@@ -323,6 +372,7 @@ def attach_upload(*, org, actor, revision, upload, usage, declared_mime="", dupl
                 raise ApiError("IDEMPOTENCY_KEY_REUSED", "Clé d'idempotence déjà utilisée pour un autre dossier.", 409)
             return existing, False
     _require_editable(revision)
+    _check_type(document_type)
     with transaction.atomic():
         document = documents.store_upload(organization=org, actor=actor, upload=upload, declared_mime=declared_mime)
         duplicates = documents.find_duplicates(org, document.sha256, exclude_id=document.id)
@@ -350,17 +400,17 @@ def attach_upload(*, org, actor, revision, upload, usage, declared_mime="", dupl
             )
         try:
             with transaction.atomic():
-                link = _link_document(org, actor, revision, document, usage, idempotency_key)
+                link = _link_document(org, actor, revision, document, usage, idempotency_key, document_type)
         except IntegrityError:
             raise ApiError("IDEMPOTENCY_KEY_REUSED", "Requête déjà en cours de traitement.", 409) from None
     return link, True
 
 
 @transaction.atomic
-def reuse_document(*, org, actor, revision, document_id, usage) -> CaseDocument:
+def reuse_document(*, org, actor, revision, document_id, usage, document_type="") -> CaseDocument:
     _require_editable(revision)
     document = _get(Document.objects.for_organization(org), document_id)
-    return _link_document(org, actor, revision, document, usage)
+    return _link_document(org, actor, revision, document, usage, document_type=document_type)
 
 
 @transaction.atomic
@@ -384,6 +434,12 @@ def replace_document(*, org, actor, link_id, upload, declared_mime="") -> CaseDo
     new = CaseDocument.objects.create(
         organization=org, revision=old.revision, document=document, usage=old.usage, added_by=actor
     )
+    from apps.extraction.detection import detect_document_type
+
+    # La nouvelle version garde l'usage ; son titre est relu (le type confirmé ne se transmet pas).
+    if detection := detect_document_type(document):
+        new.detected_type, new.type_detection = detection["code"], detection
+        new.save(update_fields=["detected_type", "type_detection", "updated_at"])
     old.replaced_by = new
     bump(old)
     old.save()
@@ -401,7 +457,15 @@ def replace_document(*, org, actor, link_id, upload, declared_mime="") -> CaseDo
 
 # --- Factures et lignes --------------------------------------------------------------
 
-INVOICE_FIELDS = ("supplier_name", "invoice_number", "invoice_date", "currency", "incoterm", "declared_total")
+INVOICE_FIELDS = (
+    "supplier_name",
+    "buyer_name",
+    "invoice_number",
+    "invoice_date",
+    "currency",
+    "incoterm",
+    "declared_total",
+)
 EXTRACTED_LINE_FIELDS = (
     "source_reference",
     "description_raw",

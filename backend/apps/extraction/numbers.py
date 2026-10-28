@@ -182,6 +182,10 @@ _COUNTRIES = {
     "turkey": "TR", "cameroun": "CM", "cameroon": "CM", "gabon": "GA", "congo": "CG", "nigeria": "NG",
     "afrique du sud": "ZA", "south africa": "ZA", "maroc": "MA", "morocco": "MA", "bresil": "BR",
     "brazil": "BR", "coree du sud": "KR", "south korea": "KR", "portugal": "PT", "suisse": "CH",
+    "espana": "ES", "deutschland": "DE", "italia": "IT", "switzerland": "CH", "nederland": "NL",
+    "england": "GB", "uk": "GB", "turkiye": "TR", "republique du congo": "CG", "senegal": "SN", "tunisie": "TN",
+    "tunisia": "TN", "algerie": "DZ", "algeria": "DZ", "cote d'ivoire": "CI", "guinee equatoriale": "GQ",
+    "equatorial guinea": "GQ", "tchad": "TD", "chad": "TD", "centrafrique": "CF", "ghana": "GH",
 }  # fmt: skip
 
 

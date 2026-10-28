@@ -6,12 +6,14 @@ import {
   type CaseDetail,
   type CaseDocument,
   type CodeCheck,
+  type DocumentField,
   type FieldSource,
   type GoodsLine,
   type Invoice,
   type Me,
   type Membership,
   type NodeDetail,
+  type PieceType,
   type Preview,
   type Revision,
 } from "./api";
@@ -22,6 +24,8 @@ import { PdfViewer, type Highlight } from "./PdfViewer";
 import { DocumentChecklist } from "./DocumentChecklist";
 import { DocumentIntelligencePanel } from "./DocumentIntelligencePanel";
 import { ProposalsPanel } from "./Proposals";
+import { AUTO, PieceTypeSelect, uploadChoice } from "./PieceTypeSelect";
+import { confirmReason, fieldLabel, readerOf, typeLabel } from "./pieceTypes";
 import { tr, useI18n, type MessageKey } from "./i18n";
 import { navigate, rememberCase } from "./router";
 import {
@@ -49,6 +53,8 @@ export const USAGES: [string, MessageKey][] = [
   ["invoice", "usage.invoice"],
   ["packing_list", "usage.packing"],
   ["transport", "usage.transport"],
+  ["insurance", "usage.insurance"],
+  ["freight", "usage.freight"],
   ["origin", "usage.origin"],
   ["other", "usage.other"],
 ];
@@ -522,7 +528,7 @@ function DocumentsTab({
                   >
                     <DocGlyph usage={link.usage} mime={link.document.mime} />
                     <span className="doc-text">
-                      <strong>{usageLabel(link.usage, link.usage_label)}</strong>
+                      <strong>{link.document_type ? typeLabel(link.document_type) : usageLabel(link.usage, link.usage_label)}</strong>
                       <span>{link.document.original_name}</span>
                       <small>
                         {fmtDate(link.created_at)} • {formatBytes(link.document.bytes)}
@@ -592,7 +598,7 @@ function Upload({ caseId, onDone }: { caseId: string; onDone: (selectId: string 
   const [open, setOpen] = useState(false);
   const [limits, setLimits] = useState<{ max_bytes: number; accepted: string[] } | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [usage, setUsage] = useState("invoice");
+  const [choice, setChoice] = useState(AUTO);
   const [duplicate, setDuplicate] = useState<{ id: string; original_name: string; cases: string[] }[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -606,7 +612,8 @@ function Upload({ caseId, onDone }: { caseId: string; onDone: (selectId: string 
     setError(null);
     setMessage(null);
     try {
-      const link = await api.uploadDocument(caseId, file, usage, action, crypto.randomUUID());
+      const { usage, documentType } = uploadChoice(choice);
+      const link = await api.uploadDocument(caseId, file, usage, action, crypto.randomUUID(), documentType);
       setDuplicate(null);
       setMessage(
         link.document.readability === "ok"
@@ -615,6 +622,7 @@ function Upload({ caseId, onDone }: { caseId: string; onDone: (selectId: string 
       );
       setFile(null);
       setOpen(false);
+      await startReading(link);
       await onDone(link.id);
     } catch (err) {
       if (err instanceof ApiError && err.code === "DUPLICATE_DOCUMENT") {
@@ -625,10 +633,17 @@ function Upload({ caseId, onDone }: { caseId: string; onDone: (selectId: string 
     }
   }
 
+  /** Lecture lancée dès le dépôt pour une pièce qui a une lecture automatique ; un échec n'annule pas le dépôt. */
+  async function startReading(link: CaseDocument) {
+    if (!readerOf(link) || link.document.readability !== "ok" || link.latest_extraction) return;
+    await api.extract(link.id, { ocr: link.document.mime.startsWith("image/") }).catch(() => undefined);
+  }
+
   async function reuse(id: string) {
     setError(null);
     try {
-      const link = await api.reuseDocument(caseId, id, usage);
+      const { usage, documentType } = uploadChoice(choice);
+      const link = await api.reuseDocument(caseId, id, usage, documentType);
       setDuplicate(null);
       setOpen(false);
       setMessage(tr("upload.reused"));
@@ -657,11 +672,7 @@ function Upload({ caseId, onDone }: { caseId: string; onDone: (selectId: string 
           </label>
           <label>
             {tr("upload.type")}
-            <select value={usage} onChange={(e) => setUsage(e.target.value)}>
-              {USAGES.map(([v, l]) => (
-                <option key={v} value={v}>{tr(l)}</option>
-              ))}
-            </select>
+            <PieceTypeSelect value={choice} onChange={setChoice} />
           </label>
           {limits && (
             <p className="muted small">
@@ -786,6 +797,96 @@ function SourceLink({ source, onSource }: { source?: FieldSource; onSource: (h: 
 
 const PREVIEW_LINES = 3;
 
+const AMOUNT_FIELDS = new Set(["insured_value", "premium_total", "freight_total"]);
+
+const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
+
+/** Valeur lue affichée : date et montant mis en forme, texte tel qu'imprimé sinon. */
+function shownValue(field: DocumentField): string {
+  const parsed = typeof field.parsed === "string" ? field.parsed : "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(parsed)) return fmtDate(parsed);
+  if (AMOUNT_FIELDS.has(field.field) && /^-?\d+(\.\d+)?$/.test(parsed)) return fmtAmount(parsed);
+  return field.raw ?? "";
+}
+
+/** Informations lues sur un titre de transport, une assurance ou une facture de fret. */
+export function DocumentFields({ fields, onSource }: { fields: DocumentField[]; onSource: (h: Highlight) => void }) {
+  return (
+    <>
+      <h3 className="extracted-sub">{tr("extract.docRead")}</h3>
+      <dl className="field-list">
+        {fields.map((f) => {
+          const value = f.status === "missing" ? "" : shownValue(f);
+          const flagged = f.status !== "ok" || f.origin === "inferred";
+          const status = fieldStatus(value, f.origin, flagged);
+          return (
+            <div key={f.field} className="field-row">
+              <dt>{fieldLabel(f.field, f.label)}</dt>
+              <dd>
+                <span className="field-value" title={f.notes.join(" ") || undefined}>{value || "—"}</span>
+                <SourceLink source={{ span: f.span } as FieldSource} onSource={onSource} />
+                {value && flagged && f.notes.map((n) => <span key={n} className="block small muted">⚠ {n}</span>)}
+              </dd>
+              <Chip tone={status.tone} icon={status.tone === "amber" ? "alert" : status.tone === "green" ? "checkCircle" : undefined}>{status.label}</Chip>
+            </div>
+          );
+        })}
+      </dl>
+    </>
+  );
+}
+
+/** Type reconnu d'après le titre ou contredit par lui : proposé à l'agent, jamais appliqué sans lui. */
+export function TypeNote({ link, editable, onChange }: { link: CaseDocument; editable: boolean; onChange: () => Promise<void> }) {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const type = link.document_type;
+  const mismatch = link.type_mismatch?.evidence.method === "title" ? link.type_mismatch : null;
+
+  async function confirm(chosen: Pick<PieceType, "code" | "evidence">) {
+    setError(null);
+    setBusy(true);
+    try {
+      await api.confirmDocumentType(link.id, chosen.code, confirmReason(chosen, link.document.original_name));
+      await onChange();
+    } catch (err) {
+      setError(errorText(err, tr("doc.typeFailed")));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const canConfirm = editable && !link.replaced_by_id && !busy;
+  let note: ReactNode = null;
+  if (mismatch) {
+    note = (
+      <div className="note-amber small" role="note">
+        {tr("doc.mismatch", { title: mismatch.evidence.excerpt ?? "", type: typeLabel(mismatch), usage: usageLabel(link.usage, link.usage_label) })}{" "}
+        {canConfirm && <button type="button" className="btn-small" onClick={() => void confirm(mismatch)}>{tr("doc.useType")}</button>}
+      </div>
+    );
+  } else if (type?.source === "detected") {
+    const text = type.evidence.method === "title"
+      ? tr("doc.detected", { title: type.evidence.excerpt ?? "", type: typeLabel(type) })
+      : tr("doc.detectedFile", { type: typeLabel(type) });
+    note = (
+      <p className="muted small">
+        {text}{" "}
+        {canConfirm && <button type="button" className="btn-small" onClick={() => void confirm(type)}>{tr("doc.confirmType")}</button>}
+      </p>
+    );
+  } else if (type?.source === "confirmed") {
+    note = <p className="muted small">{tr("doc.confirmedType", { type: typeLabel(type) })}</p>;
+  }
+  if (!note && !error) return null;
+  return (
+    <>
+      {note}
+      {error && <p role="alert" className="error small">⚠ {error}</p>}
+    </>
+  );
+}
+
 function ExtractedPanel({
   link,
   revision,
@@ -806,17 +907,20 @@ function ExtractedPanel({
   const invoiceId = link.latest_extraction?.invoice_id;
   const invoice: Invoice | undefined =
     revision.invoices.find((i) => i.id === invoiceId) ?? revision.invoices.find((i) => i.document_id === link.id);
-  const canRead = link.usage === "invoice" || Boolean(link.latest_extraction);
+  const reader = readerOf(link);
+  const canRead = Boolean(reader) || Boolean(link.latest_extraction);
   const run = link.latest_extraction;
   const done = run?.status === "succeeded";
   const currency = invoice?.currency ? ` (${invoice.currency})` : "";
+  const pieceName = link.document_type ? typeLabel(link.document_type) : usageLabel(link.usage, link.usage_label);
+  const buyer = invoice?.buyer_name ?? "";
 
   return (
     <>
       <section className="card extracted-card" aria-labelledby="extracted-title">
         <div className="extracted-head">
           <div className="card-head">
-            <h2 id="extracted-title" className="card-title">{link.usage === "invoice" ? tr("extract.invoiceTitle") : tr("extract.docTitle", { usage: usageLabel(link.usage, link.usage_label) })}</h2>
+            <h2 id="extracted-title" className="card-title">{reader === "invoice" ? tr("extract.invoiceTitle") : tr("extract.docTitle", { usage: pieceName })}</h2>
             {run && (
               <Chip tone={done ? "green" : run.status === "failed" ? "red" : "blue"} icon={done ? "checkCircle" : run.status === "failed" ? "alert" : "clock"}>
                 {done ? tr("extract.done") : run.status_label}
@@ -839,8 +943,9 @@ function ExtractedPanel({
           ) : canRead ? (
             <ExtractionControls link={link} editable={editable} onDone={onChange} />
           ) : (
-            <p className="muted small">{tr("extract.onlyInvoices")}</p>
+            <p className="muted small">{tr("extract.noReader")}</p>
           )}
+          <TypeNote link={link} editable={editable} onChange={onChange} />
         </div>
         {invoice ? (
           <>
@@ -849,7 +954,7 @@ function ExtractedPanel({
               {(
                 [
                   ["supplier_name", tr("field.supplier"), invoice.supplier_name],
-                  ["importer", tr("field.importer"), importer ?? ""],
+                  ["importer", tr("field.importer"), importer || buyer],
                   ["invoice_number", tr("field.invoiceNo"), invoice.invoice_number],
                   ["invoice_date", tr("field.invoiceDate"), invoice.invoice_date ? fmtDate(invoice.invoice_date) : ""],
                   ["currency", tr("field.currency"), invoice.currency],
@@ -858,9 +963,11 @@ function ExtractedPanel({
                 ] as [string, string, string | null][]
               ).map(([field, label, value]) => {
                 const flagged = (invoice.review_flags ?? []).some((f) => f.field === field);
-                // L'importateur vient de la fiche du dossier, pas de la lecture de la facture.
+                // L'importateur vient de la fiche du dossier ; l'acheteur lu sur la facture reste à rattacher.
                 const status = field === "importer"
-                  ? value ? { tone: "green" as Tone, label: tr("field.confirmed") } : { tone: "gray" as Tone, label: tr("field.unknown") }
+                  ? importer ? { tone: "green" as Tone, label: tr("field.confirmed") }
+                    : buyer ? { tone: "amber" as Tone, label: tr("field.toLink") }
+                    : { tone: "gray" as Tone, label: tr("field.unknown") }
                   : fieldStatus(value, invoice.field_origins?.[field], flagged);
                 return (
                   <div key={field} className="field-row">
@@ -868,7 +975,17 @@ function ExtractedPanel({
                     <dd>
                       <span className="field-value">{value || "—"}</span>
                       {field === "importer" ? (
-                        value && <span className="source-link source-static">{tr("field.caseRecord")}</span>
+                        importer ? (
+                          <>
+                            <span className="source-link source-static">{tr("field.caseRecord")}</span>
+                            {buyer && !sameName(buyer, importer) && <span className="block small muted">{tr("field.buyerDiffers", { name: buyer })}</span>}
+                          </>
+                        ) : buyer && (
+                          <>
+                            <SourceLink source={invoice.field_sources?.buyer_name} onSource={onSource} />
+                            <span className="block small muted">{tr("field.buyerRead")}</span>
+                          </>
+                        )
                       ) : (
                         <SourceLink source={invoice.field_sources?.[field]} onSource={onSource} />
                       )}
@@ -880,8 +997,10 @@ function ExtractedPanel({
               })}
             </dl>
           </>
+        ) : done && run.fields && run.fields.length > 0 ? (
+          <DocumentFields fields={run.fields} onSource={onSource} />
         ) : (
-          done && <p className="muted small">{tr("extract.noInvoice")}</p>
+          done && reader === "invoice" && <p className="muted small">{tr("extract.noInvoice")}</p>
         )}
       </section>
       {invoice && (

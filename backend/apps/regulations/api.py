@@ -12,17 +12,12 @@ from apps.organizations.permissions import HasActiveOrganization, require_roles
 
 from .classification import suggest_document_type
 from .content_classifier import suggest_from_excerpts
+from .doc_types import CONFIRMED, DETECTED, type_of
 from .engine import CaseContext, UnresolvedRegulatoryCondition, evaluate_requirements
 from .models import CompanyDocumentPolicy, DocumentClassification, DocumentRequirement, DocumentType, RegulatorySource
 from .readiness import legal_coverage_gate
 from .taxonomy import FAMILIES, TYPES
 
-# Seuls ces usages existants identifient un type sans ambiguïté.
-# "transport" ne prouve PAS qu'il s'agit d'un B/L ou d'une LTA.
-KNOWN_USAGE_TYPES = {
-    "packing_list": "packing_list",
-    "origin": "certificate_of_origin",
-}
 TRANSPORT_MODES = {"sea", "air", "road", "rail", "multimodal"}
 
 
@@ -86,12 +81,10 @@ class CaseDocumentChecklistView(APIView):
         except UnresolvedRegulatoryCondition as exc:
             raise ApiError("REGULATORY_REVIEW_REQUIRED", str(exc), 422) from exc
 
-        classifications = {
-            row.case_document_id: row.document_type.code
-            for row in DocumentClassification.objects.filter(organization=request.organization)
-        }
         received_links = list(
-            revision.documents.filter(replaced_by__isnull=True).select_related("document").order_by("created_at")
+            revision.documents.filter(replaced_by__isnull=True)
+            .select_related("document", "confirmed_classification__document_type")
+            .order_by("created_at")
         )
         document_ids = [link.document_id for link in received_links]
         excerpts_by_document = {}
@@ -113,10 +106,14 @@ class CaseDocumentChecklistView(APIView):
                 "classification": suggest_from_excerpts(excerpts_by_document.get(link.document_id, [])),
                 "filename_hint": suggest_document_type(link.document.original_name),
             }
-            code = classifications.get(link.pk) or KNOWN_USAGE_TYPES.get(link.usage)
-            if code:
-                received.setdefault(code, []).append(payload)
-            else:
+            found = type_of(link)
+            if found:
+                # Un type détecté coche la pièce « reçue, à vérifier » ; il reste à confirmer.
+                payload["type_source"] = found["source"]
+                payload["detected_type"] = found["code"] if found["source"] == DETECTED else None
+                payload["type_evidence"] = found["evidence"] if found["source"] == DETECTED else None
+                received.setdefault(found["code"], []).append(payload)
+            if not found or found["source"] != CONFIRMED:
                 unclassified.append(payload)
 
         codes = {entry["document_type"] for entry in requirements}

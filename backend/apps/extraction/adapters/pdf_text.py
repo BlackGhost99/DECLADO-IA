@@ -5,7 +5,7 @@ from pathlib import Path
 from django.conf import settings
 
 from ..language import annotate_parsed
-from ..layout import structure
+from ..readers import INVOICE, read
 from ..schema import ParsedDocument, warning
 from . import ExtractionFailure, Progress
 from .words import rows_from_words
@@ -30,7 +30,7 @@ def _open(path: Path):
         raise ExtractionFailure("DOCUMENT_UNREADABLE", "PDF illisible : déposer une version lisible.") from exc
 
 
-def extract(path: Path, *, ocr: bool, progress: Progress) -> ParsedDocument:
+def extract(path: Path, *, ocr: bool, progress: Progress, reader: str = INVOICE) -> ParsedDocument:
     from . import ocr as ocr_adapter
 
     pdf = _open(path)
@@ -70,7 +70,7 @@ def extract(path: Path, *, ocr: bool, progress: Progress) -> ParsedDocument:
                     ocr_pages.append(number)
                 warnings.extend(result.warnings)
         progress("structuration", count, count)
-    doc = structure(pages)
+    doc = read(pages, reader)
     annotate_parsed(doc, pages)
     doc.warnings.extend(warnings)
     if without_text and not ocr:

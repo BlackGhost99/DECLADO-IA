@@ -111,7 +111,15 @@ class ParsedDocument:
     stats: dict = field(default_factory=dict)
 
 
-HEADER_FIELDS = ("supplier_name", "invoice_number", "invoice_date", "currency", "incoterm", "declared_total")
+HEADER_FIELDS = (
+    "supplier_name",
+    "buyer_name",
+    "invoice_number",
+    "invoice_date",
+    "currency",
+    "incoterm",
+    "declared_total",
+)
 LINE_FIELDS = ("source_reference", "description_raw", "quantity", "unit", "unit_price", "amount", "origin_country")
 
 

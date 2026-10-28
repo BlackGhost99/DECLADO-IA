@@ -7,7 +7,7 @@ from apps.documents.sniff import JPEG, PDF, PNG, XLSX
 
 from ..schema import ParsedDocument
 
-PARSER_VERSION = "1.0"
+PARSER_VERSION = "1.1"
 SCHEMA_VERSION = "1"
 
 Progress = Callable[[str, int, int], None]
@@ -31,18 +31,19 @@ def parser_for(mime: str, *, ocr: bool) -> str:
     raise ExtractionFailure("UNSUPPORTED_TYPE", "Ce type de pièce n'est pas extractible.")
 
 
-def run(mime: str, path: Path, *, ocr: bool, progress: Progress) -> ParsedDocument:
+def run(mime: str, path: Path, *, ocr: bool, progress: Progress, reader: str = "invoice") -> ParsedDocument:
+    """reader : lecture selon le type de pièce (facture, transport, assurance, fret), voir readers.py."""
     from . import ocr as ocr_adapter
     from . import pdf_text, xlsx
 
     if mime == XLSX:
-        return xlsx.extract(path, progress=progress)
+        return xlsx.extract(path, progress=progress, reader=reader)
     if mime in (PNG, JPEG):
         if not ocr:
             raise ExtractionFailure(
                 "OCR_REQUIRED", "Image : la lecture demande l'OCR. Relancer avec l'OCR ou saisir les lignes."
             )
-        return ocr_adapter.extract_image(path, progress=progress)
+        return ocr_adapter.extract_image(path, progress=progress, reader=reader)
     if mime == PDF:
-        return pdf_text.extract(path, ocr=ocr, progress=progress)
+        return pdf_text.extract(path, ocr=ocr, progress=progress, reader=reader)
     raise ExtractionFailure("UNSUPPORTED_TYPE", "Ce type de pièce n'est pas extractible.")

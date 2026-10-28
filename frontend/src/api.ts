@@ -367,7 +367,31 @@ export interface CaseDocument {
   replaced_by_id: string | null;
   row_version: number;
   document: DocumentInfo;
+  /** Type de la pièce : confirmé par un agent, reconnu d'après le titre, ou déduit de l'usage. */
+  document_type?: PieceType | null;
+  /** Titre lu qui contredit l'usage choisi au dépôt ; jamais appliqué sans confirmation. */
+  type_mismatch?: Omit<PieceType, "source"> | null;
   latest_extraction?: ExtractionRun | null;
+}
+
+export interface PieceType {
+  code: string;
+  label: string;
+  label_en: string;
+  source: "confirmed" | "detected" | "usage";
+  evidence: { method?: "title" | "filename"; excerpt?: string; reason?: string };
+}
+
+/** Information lue sur une pièce autre qu'une facture (B/L, assurance, fret). */
+export interface DocumentField {
+  field: string;
+  label: string;
+  raw: string | null;
+  parsed: unknown;
+  status: FieldSource["status"];
+  origin: FieldSource["origin"];
+  notes: string[];
+  span: Span | null;
 }
 
 /** Localisation d'une valeur lue : page physique (depuis 1) et zone normalisée 0–1, ou feuille et cellule. */
@@ -478,6 +502,8 @@ export interface ExtractionRun {
   hint: string | null;
   warnings: RunWarning[];
   invoice_id: string | null;
+  reader?: "invoice" | "transport" | "insurance" | "freight";
+  fields?: DocumentField[];
   previous_run_id: string | null;
   merge_report: Record<string, number | boolean>;
   created_by: string;
@@ -567,6 +593,7 @@ export interface Invoice {
   id: string;
   ordinal: number;
   supplier_name: string;
+  buyer_name?: string;
   invoice_number: string;
   invoice_date: string | null;
   currency: string;
@@ -838,10 +865,12 @@ export const api = {
   auditEvents: () => request<Page<OrgAuditEvent>>("GET", "/audit-events"),
   caseAudit: (id: string) => request<{ results: AuditEntry[] }>("GET", `/cases/${id}/audit`),
   documentLimits: () => request<{ max_bytes: number; accepted: string[] }>("GET", "/documents/limits"),
-  uploadDocument: (caseId: string, file: File, usage: string, duplicateAction = "", idempotencyKey = "") => {
+  /** usage : « auto » pour reconnaître le type d'après le titre ; documentType : type choisi par l'agent. */
+  uploadDocument: (caseId: string, file: File, usage: string, duplicateAction = "", idempotencyKey = "", documentType = "") => {
     const form = new FormData();
     form.append("file", file);
     form.append("usage", usage);
+    if (documentType) form.append("document_type", documentType);
     if (duplicateAction) form.append("duplicate_action", duplicateAction);
     return upload<CaseDocument>(
       `/cases/${caseId}/documents`,
@@ -849,8 +878,12 @@ export const api = {
       idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
     );
   },
-  reuseDocument: (caseId: string, document_id: string, usage: string) =>
-    request<CaseDocument>("POST", `/cases/${caseId}/documents/reuse`, { document_id, usage }),
+  reuseDocument: (caseId: string, document_id: string, usage: string, document_type = "") =>
+    request<CaseDocument>("POST", `/cases/${caseId}/documents/reuse`, { document_id, usage, ...(document_type ? { document_type } : {}) }),
+  confirmDocumentType: (linkId: string, document_type: string, reason: string) =>
+    request("POST", `/case-documents/${linkId}/confirm-type`, { document_type, reason }),
+  documentTypes: () => request<{ results: { code: string; label_fr: string; label_en: string; family: string }[] }>("GET", "/document-types"),
+  documentPolicies: () => request<{ results: { document_type: string; active: boolean }[] }>("GET", "/organization/document-policies"),
   replaceDocument: (linkId: string, file: File) => {
     const form = new FormData();
     form.append("file", file);

@@ -148,6 +148,16 @@ Limites initiales proposées : 50 Mo par fichier, 500 pages par facture PDF et 1
 | EXT-06 | P0 | Vérifier somme des lignes, remises, frais et total selon les informations présentes ; afficher l’écart et les composantes |
 | EXT-07 | P0 | Relancer l’extraction comme nouvelle tentative comparée à l’ancienne, sans perte des corrections |
 | EXT-08 | P1 | Distinguer en-têtes répétés, sous-totaux, lignes de frais et marchandises dans les factures multipages |
+| LEC-01 | P0 | Facture sans libellé « Fournisseur » : émetteur lu en tête (raison sociale avec forme juridique), marqué déduit et à vérifier |
+| LEC-02 | P0 | Acheteur ou destinataire lu sur la facture et montré à côté de l’importateur du dossier ; jamais rattaché d’office à une fiche importateur |
+| LEC-03 | P0 | Facture en grille : valeur lue à côté ou sous son libellé, avec le libellé noté en provenance ; un libellé sans valeur lisible reste sans valeur |
+| LEC-04 | P0 | Fret, assurance et frais (« Ocean freight », « Frais de port ») lus comme frais, jamais comme marchandises ; un lieu (« Port de déchargement ») n’est pas un frais |
+| LEC-05 | P0 | Total imprimé lu même quand libellé et montant partagent une cellule ou sont hors tableau |
+| LEC-06 | P0 | Date 03/10/2026 lue jour/mois seulement si l’adresse de l’émetteur indique un pays où c’est l’usage, marquée déduite ; sinon elle reste ambiguë |
+| LEC-07 | P0 | Type de pièce reconnu d’après le titre de la première page au dépôt (nom de fichier en dernier recours) : proposition à confirmer par un agent, avec le texte lu ; type choisi au dépôt = confirmation signée ; titre contredisant le choix de l’agent signalé, jamais appliqué seul |
+| LEC-08 | P0 | Lecture propre au type : titre de transport (n°, chargeur, destinataire, navire, ports, conteneur, colis, poids…), assurance (police, assuré, valeur assurée, prime…) et facture de fret ; chaque valeur sourcée, chaque absence « non trouvée » |
+| LEC-09 | P0 | Une pièce autre qu’une facture commerciale ne crée ni facture ni ligne de marchandise |
+| LEC-10 | P0 | Contrôle documentaire : pièce de type reconnu cochée « reçue, à vérifier », jamais vérifiée ; références croisées (B/L, facture, police, conteneur) proposées au rapprochement, jamais acceptées d’office |
 
 Une ligne au même libellé/prix qu’une autre peut être légitime. Le logiciel signale une duplication présumée ; il ne supprime aucune marchandise automatiquement. Les avoirs ou retours sont signalés et traités explicitement, sans les assimiler à des lignes positives ordinaires.
 

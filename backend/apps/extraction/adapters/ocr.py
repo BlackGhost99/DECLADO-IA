@@ -11,7 +11,8 @@ from django.conf import settings
 from PIL import Image, ImageOps
 
 from ..language import annotate_parsed
-from ..layout import Page, structure
+from ..layout import Page
+from ..readers import INVOICE, read
 from ..schema import Origin, ParsedDocument, warning
 from . import ExtractionFailure, Progress
 from .words import rows_from_words
@@ -134,7 +135,7 @@ def ocr_pdf_page(path: Path, number: int) -> OcrResult:
     return ocr_image(image, page_number=number)
 
 
-def extract_image(path: Path, *, progress: Progress) -> ParsedDocument:
+def extract_image(path: Path, *, progress: Progress, reader: str = INVOICE) -> ParsedDocument:
     progress("OCR", 0, 1)
     try:
         with Image.open(path) as image:
@@ -146,7 +147,7 @@ def extract_image(path: Path, *, progress: Progress) -> ParsedDocument:
         raise ExtractionFailure("DOCUMENT_UNREADABLE", "Image illisible : déposer une version lisible.") from exc
     progress("structuration", 1, 1)
     pages = [result.page] if result.page else []
-    doc = structure(pages, origin=Origin.OCR)
+    doc = read(pages, reader, origin=Origin.OCR)
     annotate_parsed(doc, pages)
     doc.warnings.extend(result.warnings)
     doc.stats.update({"pages": 1, "text_pages": 0, "ocr_pages": [1] if result.page else [], "pages_without_text": []})
