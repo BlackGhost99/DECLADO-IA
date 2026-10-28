@@ -315,7 +315,7 @@ def test_t63_settings_are_admin_only_and_never_show_the_key(world, session, sett
     assert resp.status_code == 200, resp.content
     body = resp.json()
     assert body["enabled"] is True and body["monthly_cap"] == 50 and body["row_version"] == 1
-    assert body["provider"] == {"name": "gemini", "label": "Google Gemini", "model": "gemini-2.5-flash-lite",
+    assert body["provider"] == {"name": "gemini", "label": "Google Gemini", "model": "gemini-3.5-flash-lite",
                                 "configured": True, "free_tier": True}  # fmt: skip
     assert "cle-secrete-de-test" not in resp.content.decode()
     assert admin.put(url, on).json()["code"] == "ROW_VERSION_CONFLICT"
