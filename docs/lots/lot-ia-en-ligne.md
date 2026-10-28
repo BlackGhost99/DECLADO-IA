@@ -1,6 +1,6 @@
 # IA en ligne pour compléter les pièces : compte rendu de livraison
 
-Date : 28 octobre 2026. Exigences : IAL-01 à IAL-10 (cahier des charges, « Extraction et contrôle documentaire »). Tests de recette : T58 à T67. Branche `ia-en-ligne`, au-dessus de `lecture-pieces`.
+Date : 28 octobre 2026. Exigences : IAL-01 à IAL-10 (cahier des charges, « Extraction et contrôle documentaire »). Tests de recette : T58 à T67. Livré et fusionné dans `main`.
 
 Demande : quand la lecture ne trouve pas une information sur une pièce, une IA en ligne peut la chercher dans le texte déjà lu. Décisions de l'utilisateur :
 - service en ligne, désactivé par défaut ;
@@ -47,16 +47,17 @@ La maquette validée avant le code est publiée : https://claude.ai/artifact/JQF
 - **Journal des envois** (IAL-10) : les 30 derniers envois, avec dossier, pièce, informations demandées et trouvées, coût et statut. Il n'est pas modifiable. L'audit compte les informations sans recopier les valeurs.
 - **Adaptateurs** :
   - `apps/extraction/ai_providers.py` est le seul endroit où un SDK est importé (`anthropic==2.3.0`, `google-genai==2.33.0`) ;
-  - modèles par défaut : `claude-haiku-5-5` et `gemini-2.5-flash-lite`.
+  - modèles par défaut : `claude-haiku-5-5` et `gemini-3.5-flash-lite`.
 - **Langues** : textes en français, anglais, espagnol et arabe (`frontend/src/i18n/ia.ts`). L'arabe s'affiche de droite à gauche.
 
 ## Ce que l'exploitant doit faire
 
-1. Créer une clé Claude sur https://console.anthropic.com (rubrique API Keys) et y ajouter un moyen de paiement.
-2. Sur le serveur, créer `donnees\ia.json` dans le dossier d'installation : `{ "fournisseur": "anthropic", "cle": "sk-ant-..." }`. Pour des essais sur des pièces fictives seulement : `{ "fournisseur": "gemini", "cle": "AIza...", "gratuit": true }`, avec une clé gratuite de Google AI Studio.
-3. Relancer `demarrer-clairtransit.ps1`. Le script affiche « IA en ligne disponible », sans la clé.
+1. Pour le premier essai, créer une clé Gemini dans Google AI Studio. Pour l'usage réel avec Claude, créer ensuite une clé dans la Claude Console et prévoir la facturation API.
+2. Lancer ou mettre à jour ClairTransit. Le script Windows crée automatiquement `donnees\ia.json` avec Gemini 3.5 Flash-Lite sélectionné et une clé vide. L'exploitant ne remplit que la valeur `cle`.
+3. Relancer `demarrer-clairtransit.ps1`. Le script affiche le fournisseur et le modèle disponibles, jamais la clé.
 4. Dans ClairTransit, l'administrateur de la société active l'IA (Administration > IA en ligne) et marque les clients qui refusent (Importateurs).
-5. Faire valider par le conseil de la société le contrat du fournisseur, la conservation des données et le transfert hors du Gabon.
+5. Pour passer à Claude en usage réel, remplacer la configuration du fichier par `{ "fournisseur": "anthropic", "cle": "sk-ant-...", "modele": "claude-haiku-5-5", "gratuit": false }`, puis relancer.
+6. Faire valider par le conseil de la société le contrat du fournisseur, la conservation des données et le transfert hors du Gabon.
 
 ## Commandes
 

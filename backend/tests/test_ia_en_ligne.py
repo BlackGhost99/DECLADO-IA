@@ -315,7 +315,7 @@ def test_t63_settings_are_admin_only_and_never_show_the_key(world, session, sett
     assert resp.status_code == 200, resp.content
     body = resp.json()
     assert body["enabled"] is True and body["monthly_cap"] == 50 and body["row_version"] == 1
-    assert body["provider"] == {"name": "gemini", "label": "Google Gemini", "model": "gemini-2.5-flash-lite",
+    assert body["provider"] == {"name": "gemini", "label": "Google Gemini", "model": "gemini-3.5-flash-lite",
                                 "configured": True, "free_tier": True}  # fmt: skip
     assert "cle-secrete-de-test" not in resp.content.decode()
     assert admin.put(url, on).json()["code"] == "ROW_VERSION_CONFLICT"
@@ -327,6 +327,13 @@ def test_t63_unknown_model_cost_is_unknown_not_zero(settings):
     settings.AI_PROVIDER, settings.AI_API_KEY, settings.AI_FREE_TIER = "anthropic", "k", False
     settings.AI_MODEL = "modele-inconnu"
     assert ai.estimate_cost(1000, 1000) is None and ai.estimate_cost(None, None) is None
+
+
+def test_t63_gemini_default_model_and_paid_cost_are_current(settings):
+    settings.AI_PROVIDER, settings.AI_API_KEY, settings.AI_FREE_TIER = "gemini", "k", False
+    settings.AI_MODEL = ""
+    assert ai.model_name() == "gemini-3.5-flash-lite"
+    assert ai.estimate_cost(1000, 1000) == Decimal("0.002800")
 
 
 # --- T64 : isolation entre sociétés --------------------------------------------------------------

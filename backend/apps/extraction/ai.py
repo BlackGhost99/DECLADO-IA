@@ -78,12 +78,14 @@ class DisabledProvider:
 
 # Fournisseurs connus : libellé affiché, modèle par défaut (petit modèle fait pour l'extraction) et lieu.
 PROVIDERS = {
-    "gemini": {"label": "Google Gemini", "model": "gemini-2.5-flash-lite"},
+    "gemini": {"label": "Google Gemini", "model": "gemini-3.5-flash-lite"},
     "anthropic": {"label": "Anthropic Claude", "model": "claude-haiku-5-5"},
 }
 # Prix publics en dollars par million de jetons (entrée, sortie), relevés le 28/10/2026 : une estimation,
 # la facture réelle vient du fournisseur. Modèle absent de la table : coût inconnu, jamais zéro.
 PRICES_PER_MTOK = {
+    ("gemini", "gemini-3.5-flash-lite"): (Decimal("0.30"), Decimal("2.50")),
+    # Ancien modèle conservé pour les installations qui le forcent explicitement.
     ("gemini", "gemini-2.5-flash-lite"): (Decimal("0.10"), Decimal("0.40")),
     ("anthropic", "claude-haiku-5-5"): (Decimal("0.10"), Decimal("0.50")),
 }
