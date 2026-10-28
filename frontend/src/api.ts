@@ -13,6 +13,8 @@ export interface Me {
   email: string;
   full_name: string;
   is_reference_manager: boolean;
+  /** Exploitant de la plateforme : console des sociétés, aucun accès à leurs dossiers. */
+  is_platform_operator: boolean;
   memberships: Membership[];
   active_organization_id: string | null;
   interface_locale: "fr" | "en" | "es" | "ar";
@@ -37,9 +39,112 @@ export interface Member {
   email: string;
   full_name: string;
   roles: Role[];
+  agency: string | null;
+  agency_name: string | null;
   active: boolean;
   row_version: number;
 }
+
+export type BusinessProfile = "transit" | "importer" | "logistics" | "expert";
+export type InvitationStatus = "pending" | "expired" | "accepted" | "revoked";
+
+export interface Invitation {
+  id: string;
+  email: string;
+  full_name: string;
+  roles: Role[];
+  agency: string | null;
+  agency_name: string | null;
+  expires_at: string;
+  created_at: string;
+  status: InvitationStatus;
+  /** Rendu une seule fois, à la création ou au renouvellement : sert à composer le lien. */
+  token?: string;
+  /** Envoi du lien par e-mail, à la création ou au renouvellement. */
+  email_status?: EmailStatus;
+}
+
+export type EmailStatus = "sent" | "failed" | "disabled" | "local_address" | "no_address";
+
+export interface InvitationPreview {
+  organization_name: string;
+  email: string;
+  full_name: string;
+  roles: Role[];
+  agency_name: string | null;
+  expires_at: string;
+  existing_account: boolean;
+}
+
+export interface Agency {
+  id: string;
+  name: string;
+  code: string;
+  country_code: string;
+  active: boolean;
+}
+
+export interface OrganizationOverview {
+  name: string;
+  primary_profile: BusinessProfile;
+  country_code: string;
+  default_locale: string;
+  max_users: number | null;
+  seats_used: number;
+  members: number;
+  pending_invitations: number;
+  agencies: number;
+}
+
+export interface AccessRequestInput {
+  company_name: string;
+  primary_profile: BusinessProfile;
+  country_code: string;
+  registration_number: string;
+  contact_name: string;
+  contact_role: string;
+  contact_email: string;
+  contact_phone: string;
+  preferred_locale: string;
+}
+
+export interface AccessRequestInfo extends AccessRequestInput {
+  id: string;
+  status: "pending" | "accepted" | "refused";
+  created_at: string;
+  decided_at: string | null;
+  decision_note: string;
+  organization: string | null;
+}
+
+export interface PlatformOrganization {
+  id: string;
+  name: string;
+  primary_profile: BusinessProfile;
+  country_code: string;
+  default_locale: string;
+  active: boolean;
+  is_demo: boolean;
+  max_users: number | null;
+  members: number;
+  pending_invitations: number;
+  admin_invitation: Invitation | null;
+  created_at: string;
+}
+
+export interface NewOrganizationInput {
+  name: string;
+  primary_profile: BusinessProfile;
+  country_code: string;
+  default_locale: string;
+  max_users: number | null;
+  admin_name: string;
+  admin_email: string;
+}
+
+/** Lien d'activation à copier : il marche sans e-mail ni internet sur le serveur de l'agence. */
+export const activationLink = (token: string) =>
+  `${window.location.origin}${window.location.pathname}#/activation/${encodeURIComponent(token)}`;
 
 export interface Page<T> {
   count: number;
@@ -73,6 +178,17 @@ async function ensureCsrf(): Promise<string> {
   return token ?? "";
 }
 
+/** Émis quand la session a pris fin pendant l'utilisation (expiration, déconnexion dans un autre onglet). */
+export const SESSION_ENDED_EVENT = "clairtransit:session-ended";
+
+function watchSession(path: string, response: Response): Response {
+  // /me et /auth/* répondent 401 normalement avant la connexion : seule une autre route signale une session perdue.
+  if (response.status === 401 && path !== "/me" && !path.startsWith("/auth/")) {
+    window.dispatchEvent(new Event(SESSION_ENDED_EVENT));
+  }
+  return response;
+}
+
 export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (method !== "GET") {
@@ -85,7 +201,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
     credentials: "same-origin",
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  return parse<T>(response);
+  return parse<T>(watchSession(path, response));
 }
 
 async function parse<T>(response: Response): Promise<T> {
@@ -104,7 +220,7 @@ export async function upload<T>(path: string, form: FormData, headers: Record<st
     credentials: "same-origin",
     body: form,
   });
-  return parse<T>(response);
+  return parse<T>(watchSession(path, response));
 }
 
 export interface EditionBrief {
@@ -673,6 +789,36 @@ export const api = {
   importers: () => request<Page<Importer>>("GET", "/importers"),
   createImporter: (data: Partial<Importer>) => request<Importer>("POST", "/importers", data),
   members: () => request<Page<Member>>("GET", "/organization/members"),
+  reactivateMember: (id: string) => request<Member>("POST", `/organization/members/${id}/reactivate`),
+  deactivateMember: (id: string) => request<Member>("POST", `/organization/members/${id}/deactivate`),
+  setMemberAgency: (id: string, agency_id: string | null) =>
+    request<Member>("PUT", `/organization/members/${id}/agency`, { agency_id }),
+  organizationOverview: () => request<OrganizationOverview>("GET", "/organization/overview"),
+  invitations: () => request<Invitation[]>("GET", "/organization/invitations"),
+  invite: (data: { email: string; full_name: string; roles: Role[]; agency_id: string | null }) =>
+    request<Invitation>("POST", "/organization/invitations", data),
+  invitationAction: (id: string, action: "renew" | "revoke") =>
+    request<Invitation>("POST", `/organization/invitations/${id}/${action}`),
+  agencies: () => request<Agency[]>("GET", "/organization/agencies"),
+  createAgency: (data: { name: string; code: string }) => request<Agency>("POST", "/organization/agencies", data),
+  setupStatus: () => request<{ needs_setup: boolean }>("GET", "/auth/setup"),
+  setup: (data: { full_name: string; email: string; password: string }) => request<Me>("POST", "/auth/setup", data),
+  requestAccess: (data: AccessRequestInput) => request<{ received: true }>("POST", "/auth/access-requests", data),
+  lookupInvitation: (token: string) => request<InvitationPreview>("POST", "/auth/invitations/lookup", { token }),
+  acceptInvitation: (data: { token: string; full_name: string; password: string }) =>
+    request<Me>("POST", "/auth/invitations/accept", data),
+  accessRequests: (status = "") =>
+    request<AccessRequestInfo[]>("GET", `/platform/access-requests${status ? `?status=${status}` : ""}`),
+  acceptAccessRequest: (id: string) =>
+    request<{ organization_id: string; invitation: Invitation }>("POST", `/platform/access-requests/${id}/accept`),
+  refuseAccessRequest: (id: string, note: string) =>
+    request<AccessRequestInfo>("POST", `/platform/access-requests/${id}/refuse`, { note }),
+  platformOrganizations: () => request<PlatformOrganization[]>("GET", "/platform/organizations"),
+  createOrganization: (data: NewOrganizationInput) =>
+    request<{ organization_id: string; invitation: Invitation }>("POST", "/platform/organizations", data),
+  setOrganizationState: (id: string, action: "suspend" | "reactivate") =>
+    request<{ active: boolean }>("POST", `/platform/organizations/${id}/${action}`),
+  renewAdminInvitation: (id: string) => request<Invitation>("POST", `/platform/invitations/${id}/renew`),
   searchTariffs: (q: string) =>
     request<{ results: SearchResult[] }>("GET", `/tariffs/search?q=${encodeURIComponent(q)}`),
   tariffNode: (id: string) => request<NodeDetail>("GET", `/tariffs/nodes/${id}`),

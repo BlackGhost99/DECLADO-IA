@@ -41,9 +41,10 @@ def me_payload(request) -> dict:
         "full_name": user.full_name,
         "interface_locale": user.interface_locale,
         "is_reference_manager": user.is_reference_manager,
+        "is_platform_operator": user.is_platform_operator,
         "mfa_enabled": TotpDevice.objects.filter(user=user, confirmed_at__isnull=False).exists(),
         "mfa_verified_session": bool(request.session.get("mfa_passed")),
-        "mfa_required_for_access": settings.MFA_ENFORCE,
+        "mfa_required_for_access": settings.MFA_ENFORCE or user.is_platform_operator,
         "memberships": [
             {
                 "organization": {

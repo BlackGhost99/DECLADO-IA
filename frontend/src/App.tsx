@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Administration } from "./Administration";
-import { api, ApiError, ROLE_LABELS, type Me, type Membership, type OrgAuditEvent } from "./api";
+import { Administration, adminTab } from "./Administration";
+import { api, ApiError, ROLE_LABELS, SESSION_ENDED_EVENT, type Me, type Membership, type OrgAuditEvent } from "./api";
 import { CaseDetailView, CASE_TABS } from "./CaseDetail";
 import { CasePicker, Cases } from "./Cases";
+import { Console } from "./Console";
 import { NewCasePage } from "./NewCase";
 import { Dashboard } from "./Dashboard";
 import { Icon, Logo, type IconName } from "./Icon";
 import cemacMap from "./assets/cemac-map.png";
 import { LoginForm } from "./LoginForm";
 import { MFAEnrollment } from "./MFAEnrollment";
+import { AccessRequestForm, Activation, FirstLaunch } from "./Onboarding";
 import { OrganizationPicker } from "./OrganizationPicker";
 import { ReferenceAdmin, TariffSearch } from "./Reference";
 import { ScanScreens } from "./Scans";
@@ -20,8 +22,11 @@ import { useLocaleSync } from "./i18n/sync";
 export default function App() {
   const { t } = useI18n();
   const { onAuthenticated, onSignedOut } = useLocaleSync();
+  const route = useRoute();
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsSetup, setNeedsSetup] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -32,6 +37,9 @@ export default function App() {
       if (!(err instanceof ApiError && err.status === 401)) throw err;
       setMe(null);
       onSignedOut();
+      // Serveur neuf : le premier écran crée le compte de l'exploitant.
+      const status = await api.setupStatus().catch(() => ({ needs_setup: false }));
+      setNeedsSetup(status.needs_setup);
     } finally {
       setLoading(false);
     }
@@ -40,6 +48,7 @@ export default function App() {
   /** Tout changement de profil (connexion, MFA, société) réapplique la langue effective. */
   const signedIn = useCallback(
     (profile: Me) => {
+      setSessionEnded(false);
       setMe(profile);
       onAuthenticated(profile);
     },
@@ -50,8 +59,42 @@ export default function App() {
     void refresh();
   }, [refresh]);
 
+  // Un autre onglet a pu changer de compte (activation d'une invitation, déconnexion) :
+  // on relit le profil au retour sur l'onglet plutôt que d'afficher des refus incompréhensibles.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh().catch(() => undefined);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refresh]);
+
+  // Session expirée ou fermée ailleurs : retour à la connexion plutôt qu'un refus sur chaque action.
+  useEffect(() => {
+    const onEnded = () => {
+      setSessionEnded(true);
+      void refresh().catch(() => undefined);
+    };
+    window.addEventListener(SESSION_ENDED_EVENT, onEnded);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, onEnded);
+  }, [refresh]);
+
   if (loading) return <p className="center">{t("loading")}</p>;
-  if (!me) return <LoginForm onLoggedIn={signedIn} />;
+  const [entry, token] = route.parts;
+  if (entry === "activation" && token) return <Activation key={token} token={token} onDone={signedIn} />;
+  if (!me) {
+    if (needsSetup) {
+      return (
+        <FirstLaunch
+          onDone={(profile) => {
+            setNeedsSetup(false);
+            signedIn(profile);
+          }}
+        />
+      );
+    }
+    return entry === "demande" ? <AccessRequestForm /> : <LoginForm onLoggedIn={signedIn} notice={sessionEnded ? tr("onb.sessionEnded") : undefined} />;
+  }
 
   const logout = async () => {
     await api.logout();
@@ -77,7 +120,7 @@ export default function App() {
 
   const active = me.memberships.find((m) => m.organization.id === me.active_organization_id) ?? null;
 
-  if (!active && !(me.memberships.length === 0 && me.is_reference_manager)) {
+  if (!active && !(me.memberships.length === 0 && (me.is_reference_manager || me.is_platform_operator))) {
     return (
       <main className="center">
         <OrganizationPicker me={me} onChange={signedIn} />
@@ -114,6 +157,12 @@ const NAV_CASE: NavItem[] = [
   { path: "controles", label: "nav.controls", icon: "checkCircle", caseTab: "controles" },
   { path: "validation", label: "nav.validation", icon: "shield", caseTab: "validation" },
   { path: "export", label: "nav.export", icon: "upload", caseTab: "export" },
+];
+
+/** Console de l'exploitant : les sociétés, jamais leurs dossiers. */
+const NAV_CONSOLE: NavItem[] = [
+  { path: "", label: "con.title", icon: "folder" },
+  { path: "demandes", label: "con.requests", icon: "message" },
 ];
 
 const NAV_ADMIN: NavItem[] = [
@@ -259,7 +308,9 @@ function Layout({
   const [query, setQuery] = useState("");
   const referenceOnly = !active;
   const groups = referenceOnly
-    ? [[NAV_CASE[2]], [NAV_ADMIN[0]]]
+    ? me.is_platform_operator
+      ? [NAV_CONSOLE, [NAV_CASE[2], NAV_ADMIN[0]]]
+      : [[NAV_CASE[2]], [NAV_ADMIN[0]]]
     : [NAV_MAIN, NAV_CASE, NAV_ADMIN];
 
   function go(item: NavItem) {
@@ -275,7 +326,9 @@ function Layout({
   const name = me.full_name || me.email;
   const roleLabel = active
     ? active.roles.map((r) => labels.role(r, ROLE_LABELS[r])).join(", ") || tr("role.none")
-    : tr("role.referenceManager");
+    : me.is_platform_operator
+      ? tr("con.role")
+      : tr("role.referenceManager");
 
   return (
     <div className="app">
@@ -357,7 +410,9 @@ function Page({ route, me, active }: { route: Route; me: Me; active: Membership 
   const [first, id, tab] = route.parts;
 
   if (!active) {
-    return first === "referentiel" ? <ReferenceAdmin canSeeImports={me.is_reference_manager} /> : <TariffSearch />;
+    if (first === "referentiel") return <ReferenceAdmin canSeeImports={me.is_reference_manager} />;
+    if (me.is_platform_operator && first !== "recherche") return <Console view={first === "demandes" ? "requests" : "home"} />;
+    return <TariffSearch />;
   }
 
   switch (first ?? "") {
@@ -386,7 +441,7 @@ function Page({ route, me, active }: { route: Route; me: Me; active: Membership 
     case "referentiel":
       return <ReferenceAdmin canSeeImports={me.is_reference_manager} />;
     case "administration":
-      return <Administration membership={active} />;
+      return <Administration key={route.query.get("onglet") ?? ""} membership={active} selfEmail={me.email} initialTab={adminTab(route.query.get("onglet"))} />;
     case "documents":
     case "marchandises":
     case "calculs":

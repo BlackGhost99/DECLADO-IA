@@ -150,6 +150,11 @@ Aucune fixture ne doit présenter un taux synthétique comme un taux gabonais r�
 | T43 | NUM-04, NUM-07 | Scan sans couche texte lu par OCR, page à l’envers remise à l’endroit ; sans OCR, pages signalées sans titre ni type inventé |
 | T44 | NUM-08 | Société B sans accès aux lots, pages, images et pièces de A (404) ; administrateur sans rôle de préparation en lecture seule (403 en écriture) |
 | T45 | NUM-01 à NUM-06 | Écrans : trois façons d’ajouter les pièces, lots en cours, tri avec raisons et page à reprendre, gestes envoyés au serveur, pièces rattachées avec provenance |
+| T46 | ACC-04 | Serveur vide : écran de mise en service, compte exploitant créé une seule fois (second essai refusé, 409), double authentification exigée côté serveur ; aucune société ni donnée fictive sans l’option démo |
+| T47 | ACC-05 | Demande publique : seul le profil ouvert et les pays CEMAC acceptés ; acceptation crée la société et l’invitation de l’administrateur ; refus motivé ; chaque décision journalisée |
+| T48 | ACC-06, ACC-02 | Console : administrateur de société et anonyme refusés (403) ; l’exploitant ne lit aucun dossier ni importateur ; société suspendue : plus aucun accès à ses données, réactivation possible |
+| T49 | ACC-07 | Lien d’activation : expiré, utilisé, annulé ou société suspendue refusé ; compte existant rattaché avec son propre mot de passe ; renouvellement invalide l’ancien lien |
+| T50 | ACC-08, ACC-02 | Agences et invitations d’une société invisibles d’une autre (404) ; agence d’une autre société refusée ; limite de sièges respectée ; écrans en quatre langues, RTL en arabe |
 
 Tests T01, T11, T20–T29, T31–T35 bloquants avant mise en service du périmètre correspondant. Les autres tests P0 restent obligatoires ; les exigences P1 peuvent être reportées explicitement dans une livraison réduite.
 

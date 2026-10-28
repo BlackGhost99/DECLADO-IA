@@ -98,6 +98,11 @@ Un échec d’OCR ou d’IA doit laisser possible la saisie manuelle. Un changem
 | ACC-01 | P0 | Authentifier l’utilisateur et appliquer ses droits côté serveur sur chaque action |
 | ACC-02 | P0 | Refuser tout accès à une donnée d’une autre société, y compris par URL de document ou tâche en arrière-plan |
 | ACC-03 | P0 | Désactiver un compte sans effacer ses décisions historiques ; invalider ses accès actifs |
+| ACC-04 | P0 | Installation neuve sans aucune donnée : le premier écran crée une seule fois le compte de l’exploitant ClairTransit, double authentification obligatoire ; données de démonstration seulement sur demande explicite et marquées fictives |
+| ACC-05 | P0 | Ouvrir une société de deux façons : créée par l’exploitant depuis sa console, ou demandée publiquement puis acceptée par lui ; aucune demande ne crée de compte avant acceptation ; refus motivé ; décision journalisée |
+| ACC-06 | P0 | Console de l’exploitant : sociétés, état, sièges, suspension et réactivation ; aucun accès aux dossiers, pièces ou importateurs des sociétés |
+| ACC-07 | P0 | Invitation par lien à usage unique, valable 72 heures et renouvelable : l’invité choisit lui-même son mot de passe, puis active la double authentification (obligatoire pour un administrateur) ; aucun mot de passe n’est choisi pour quelqu’un d’autre |
+| ACC-08 | P0 | Administration de la société : agences, invitations avec rôles et agence, désactivation et réactivation, limite de sièges ; premiers pas guidés pour l’administrateur |
 | CLI-01 | P0 | Créer un importateur avec nom, coordonnées, identifiants déclarés et contacts ; signaler les doublons possibles |
 | CLI-02 | P1 | Rechercher les anciens dossiers d’un importateur sans réutiliser automatiquement leurs règles fiscales |
 

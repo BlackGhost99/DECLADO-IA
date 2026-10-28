@@ -386,3 +386,24 @@ def test_xlsx_escaped_control_characters_are_flagged(xlsx_edition):
     damaged = node(xlsx_edition, "02013000")
     assert damaged.label_damaged and damaged.label_clean == "Viande d\ufffdsoss\ufffde fictive"
     assert issues(xlsx_edition, "DAMAGED_LABEL").filter(node=damaged).exists()
+
+
+def test_publish_command_publishes_a_draft_in_consultation_only(world, csv_edition, session):
+    from django.core.management import CommandError, call_command
+
+    with pytest.raises(CommandError, match="gestionnaire"):
+        call_command("publish_tariff_edition", label="Jeu F CSV")
+    with pytest.raises(CommandError, match="gestionnaire"):
+        call_command("publish_tariff_edition", label="Jeu F CSV", check_actor=True)
+    User.objects.create_user(
+        email="ops@test.test", password=PASSWORD, is_reference_manager=True, is_platform_operator=True
+    )
+    call_command("publish_tariff_edition", label="Jeu F CSV", check_actor=True)
+    csv_edition.refresh_from_db()
+    assert csv_edition.publication_state == "draft"
+    call_command("publish_tariff_edition", label="Jeu F CSV")
+    csv_edition.refresh_from_db()
+    assert csv_edition.publication_state == "consultation"
+    assert session("declarant@a.test").get("/api/v1/tariffs/search", q="01011000").json()["results"]
+    with pytest.raises(CommandError, match="brouillon"):
+        call_command("publish_tariff_edition", label="Jeu F CSV")

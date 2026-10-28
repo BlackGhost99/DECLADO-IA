@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "apps.cases",
     "apps.extraction",
     "apps.scans",
+    "apps.onboarding",
 ]
 
 MIDDLEWARE = [
@@ -109,6 +110,20 @@ CSRF_COOKIE_SAMESITE = "Lax"
 # Le cookie CSRF reste lisible par le client web pour l'en-tête X-CSRFToken.
 CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60 * 10)
+
+# Envoi des invitations par e-mail : facultatif. Sans serveur SMTP, le lien se copie à la main.
+EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=15)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER or "ClairTransit <no-reply@localhost>")
+INVITATION_EMAIL_ENABLED = env.bool("INVITATION_EMAIL_ENABLED", default=bool(EMAIL_HOST))
+# Adresse de l'interface telle que les invités l'ouvrent, pour les liens envoyés par e-mail.
+PUBLIC_APP_URL = env("PUBLIC_APP_URL", default="")
 
 # MFA is required for every production user, including technical administrators.
 # A dedicated Fernet key is required. See the security deployment instructions.

@@ -1,8 +1,19 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
+import qrcode from "qrcode-generator";
 import { api, ApiError, type Me } from "./api";
 import { tr } from "./i18n";
 
-export function MFAEnrollment({ onComplete }: { onComplete: (me: Me) => void }) {
+export function MFAEnrollment({
+  onComplete,
+  onSkip,
+  step,
+}: {
+  onComplete: (me: Me) => void;
+  /** Activation d'un agent : la double authentification peut être configurée plus tard. */
+  onSkip?: () => void;
+  /** Étape affichée au-dessus du titre pendant l'activation d'un compte. */
+  step?: string;
+}) {
   const [setup, setSetup] = useState<{ secret: string; provisioning_uri: string } | null>(null);
   const [code, setCode] = useState("");
   const [recovery, setRecovery] = useState<string[] | null>(null);
@@ -37,16 +48,19 @@ export function MFAEnrollment({ onComplete }: { onComplete: (me: Me) => void }) 
   return (
     <main className="login-page">
       <section className="card login">
+        {step && <p className="onb-small">{step}</p>}
         <h1>{tr("mfa.title")}</h1>
         <p>{tr("mfa.intro")}</p>
         {!setup && !recovery && <button type="button" className="btn-primary btn-block" onClick={() => void begin()} disabled={busy}>
           {tr("mfa.configure")}
         </button>}
         {setup && !recovery && <>
-          <p>{tr("mfa.openApp")}</p>
-          <code style={{ overflowWrap: "anywhere" }}>{setup.secret}</code>
-          <p>{tr("mfa.orLink")}</p>
-          <code style={{ overflowWrap: "anywhere" }}>{setup.provisioning_uri}</code>
+          <div className="onb-mfa">
+            <QrCode value={setup.provisioning_uri} label={tr("mfa.qrLabel")} />
+            <p>{tr("mfa.scanQr")}</p>
+          </div>
+          <p className="onb-small">{tr("mfa.orKey")}</p>
+          <code className="onb-secret">{setup.secret}</code>
           <form onSubmit={(e) => void confirm(e)}>
             <label>{tr("mfa.sixDigits")}
               <input required value={code} inputMode="numeric" autoComplete="one-time-code"
@@ -62,7 +76,30 @@ export function MFAEnrollment({ onComplete }: { onComplete: (me: Me) => void }) 
           <button type="button" className="btn-primary btn-block" onClick={() => void api.me().then(onComplete)}>{tr("mfa.saved")}</button>
         </>}
         {error && <p className="error" role="alert">{error}</p>}
+        {onSkip && !recovery && (
+          <button type="button" className="btn-secondary btn-block" onClick={onSkip}>{tr("onb.later")}</button>
+        )}
       </section>
     </main>
+  );
+}
+
+/** QR code du lien d'initialisation, dessiné dans le navigateur : le secret ne quitte pas l'application. */
+function QrCode({ value, label }: { value: string; label: string }) {
+  const cells = useMemo(() => {
+    const qr = qrcode(0, "M");
+    qr.addData(value);
+    qr.make();
+    const n = qr.getModuleCount();
+    const dark: [number, number][] = [];
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) dark.push([c, r]);
+    return { n, dark };
+  }, [value]);
+  const size = cells.n + 8;
+  return (
+    <svg className="onb-qr" viewBox={`-4 -4 ${size} ${size}`} role="img" aria-label={label} shapeRendering="crispEdges">
+      <rect x={-4} y={-4} width={size} height={size} fill="#fff" />
+      <path d={cells.dark.map(([x, y]) => `M${x} ${y}h1v1h-1z`).join("")} fill="#000" />
+    </svg>
   );
 }

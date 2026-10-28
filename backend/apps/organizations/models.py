@@ -30,6 +30,10 @@ class Organization(TimestampedModel):
     active = models.BooleanField(default=True)
     # Les jeux de démonstration sont repérables pour ne jamais être confondus avec des données réelles.
     is_demo = models.BooleanField(default=False)
+    # Pays CEMAC de la société (ISO 3166-1 alpha-2) ; une agence peut en déclarer un autre.
+    country_code = models.CharField(max_length=2, default="GA")
+    # Nombre d'utilisateurs prévu au contrat (affiliations actives + invitations en cours) ; vide = sans limite.
+    max_users = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = "société"
@@ -45,6 +49,9 @@ class Membership(TimestampedModel):
     roles = ArrayField(models.CharField(max_length=32, choices=Role.choices), default=list, blank=True)
     active = models.BooleanField(default=True)
     deactivated_at = models.DateTimeField(null=True, blank=True)
+    agency = models.ForeignKey(
+        "organizations.Agency", null=True, blank=True, on_delete=models.PROTECT, related_name="memberships"
+    )
 
     class Meta:
         verbose_name = "affiliation"
@@ -57,3 +64,7 @@ class Membership(TimestampedModel):
 
     def __str__(self):
         return f"{self.user} @ {self.organization}"
+
+
+# Profils et agences multi-métiers (importés pour la découverte Django).
+from .business_models import Agency, BusinessProfile, OrganizationBusinessProfile  # noqa: E402,F401

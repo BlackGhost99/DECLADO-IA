@@ -10,23 +10,38 @@
 #   - base PostgreSQL portable sur un port libre (55432 ou suivant), Python et Node portables ;
 #   - antivirus ClamAV portable (signature Talos vérifiée par empreinte), écoute locale seulement :
 #     sans lui, l'application refuse tout dépôt de fichier ;
-#   - données de démonstration fictives uniquement.
+#   - installation neuve : aucune société ni aucun compte. Au premier lancement, l'écran
+#     « Mise en service » crée le compte de l'exploitant ClairTransit (double authentification) ;
+#     les sociétés sont ensuite créées depuis sa console, ou après sa validation d'une demande ;
+#   - clés secrètes générées sur ce PC, gardées dans donnees\cles.json (jamais dans le code).
+#   - envoi des invitations par e-mail facultatif : créer donnees\messagerie.json (voir plus bas) ;
+#     sans ce fichier, le lien d'activation se copie à la main.
 # Pour tout supprimer : arreter-clairtransit.ps1, puis effacer le dossier d'installation.
 #
 # Options :
 #   -Dossier <chemin>   autre dossier d'installation
 #   -MettreAJour        retélécharge le code de la branche (les données sont conservées)
-#   -Branche <nom>      branche du dépôt (défaut : refonte-interface)
+#   -Branche <nom>      branche du dépôt (défaut : mise-en-route)
+#   -Demo               ajoute les comptes et le référentiel de démonstration (fictifs, marqués comme tels)
+#   -ImporterTarif <fichier>  importe un tarif (.xlsx ou .csv) et le publie en consultation :
+#                       il devient cherchable, jamais utilisé pour un calcul. À lancer une seule
+#                       fois, après la mise en service (il faut le compte de l'exploitant)
+#   -LibelleTarif <nom> nom de l'édition importée (défaut : nom du fichier)
 
 param(
     [string]$Dossier = (Join-Path $env:LOCALAPPDATA "ClairTransit"),
-    [string]$Branche = "refonte-interface",
-    [switch]$MettreAJour
+    [string]$Branche = "mise-en-route",
+    [switch]$MettreAJour,
+    [switch]$Demo,
+    [string]$ImporterTarif,
+    [string]$LibelleTarif
 )
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+# Chemin du tarif résolu ici, avant tout changement de dossier courant.
+if ($ImporterTarif) { $ImporterTarif = (Resolve-Path -LiteralPath $ImporterTarif -ErrorAction Stop).Path }
 
 $Depot = "https://github.com/BlackGhost99/DECLADO-IA"
 $UrlUv = "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip"
@@ -290,8 +305,23 @@ DatabaseMirror database.clamav.net
     if (-not (Etape-Faite "dependances")) {
         Titre "Bibliothèques (premier lancement ou mise à jour, quelques minutes)"
         Executer $uv @("pip", "install", "--python", $python, "-r", (Join-Path $backend "requirements.txt")) "Installation des bibliothèques Python impossible"
+        # Une connexion lente ou coupée (ECONNRESET) fait échouer npm : on réessaie avant d'abandonner.
+        $env:npm_config_fetch_retries = "5"
+        $env:npm_config_fetch_retry_mintimeout = "20000"
+        $env:npm_config_fetch_retry_maxtimeout = "120000"
         Push-Location $frontend
-        try { Executer $node @($npmCli, "ci", "--no-audit", "--no-fund") "Installation des bibliothèques de l'interface impossible" }
+        try {
+            for ($essai = 1; $essai -le 3; $essai++) {
+                try {
+                    Executer $node @($npmCli, "ci", "--no-audit", "--no-fund") "Installation des bibliothèques de l'interface impossible"
+                    break
+                } catch {
+                    if ($essai -eq 3) { throw }
+                    Info "Échec du téléchargement (réseau ?), nouvel essai dans 15 secondes ($essai/3)…"
+                    Start-Sleep -Seconds 15
+                }
+            }
+        }
         finally { Pop-Location }
         Marquer-Etape "dependances"
     }
@@ -340,8 +370,25 @@ StreamMaxLength 60M
     $portInterface = Port-Libre 5173
     if ($portInterface -eq $portApi) { $portInterface = Port-Libre ($portApi + 1) }
 
+    # Clés propres à cette installation, créées une seule fois. Les perdre rend illisibles
+    # les secrets de double authentification : elles suivent les sauvegardes du dossier donnees.
+    $fichierCles = Join-Path $Donnees "cles.json"
+    if (-not (Test-Path $fichierCles)) {
+        $script = Join-Path $Outils "generer_cles.py"
+        Set-Content -Path $script -Encoding ASCII -Value @'
+import json, secrets, sys
+from cryptography.fernet import Fernet
+with open(sys.argv[1], "x", encoding="ascii") as fichier:
+    json.dump({"django": secrets.token_urlsafe(50), "mfa": Fernet.generate_key().decode("ascii")}, fichier)
+'@
+        Executer $python @("-I", $script, $fichierCles) "Création des clés de l'installation impossible"
+        Info "Clés de l'installation créées : $fichierCles"
+    }
+    $cles = Get-Content $fichierCles -Raw | ConvertFrom-Json
+
     $env:DJANGO_DEBUG = "true"
-    $env:DJANGO_SECRET_KEY = "dev-only-change-me"
+    $env:DJANGO_SECRET_KEY = $cles.django
+    $env:MFA_ENCRYPTION_KEY = $cles.mfa
     $env:DJANGO_ALLOWED_HOSTS = "localhost,127.0.0.1"
     $env:DATABASE_URL = "postgres://clairtransit@127.0.0.1:$portBase/clairtransit"
     $env:CELERY_TASK_ALWAYS_EAGER = "true"
@@ -353,10 +400,51 @@ StreamMaxLength 60M
     $env:CLAMAV_PORT = "$portClamav"
     $env:VITE_API_PROXY = "http://127.0.0.1:$portApi"
 
+    # Messagerie facultative, propre à ce PC (jamais dans le code). Exemple de donnees\messagerie.json :
+    #   { "serveur": "smtp.exemple.com", "port": 587, "utilisateur": "invitations@exemple.com",
+    #     "mot_de_passe": "...", "expediteur": "ClairTransit <invitations@exemple.com>",
+    #     "adresse_publique": "https://clairtransit.exemple.com" }
+    # « adresse_publique » est l'adresse que les invités ouvrent ; un lien en 127.0.0.1 n'est jamais envoyé.
+    $fichierMessagerie = Join-Path $Donnees "messagerie.json"
+    if (Test-Path $fichierMessagerie) {
+        $messagerie = Get-Content $fichierMessagerie -Raw -Encoding UTF8 | ConvertFrom-Json
+        $env:EMAIL_HOST = $messagerie.serveur
+        $env:EMAIL_PORT = if ($messagerie.port) { "$($messagerie.port)" } else { "587" }
+        $env:EMAIL_HOST_USER = $messagerie.utilisateur
+        $env:EMAIL_HOST_PASSWORD = $messagerie.mot_de_passe
+        $env:EMAIL_USE_TLS = if ($env:EMAIL_PORT -eq "465") { "false" } else { "true" }
+        $env:EMAIL_USE_SSL = if ($env:EMAIL_PORT -eq "465") { "true" } else { "false" }
+        if ($messagerie.expediteur) { $env:DEFAULT_FROM_EMAIL = $messagerie.expediteur }
+        if ($messagerie.adresse_publique) { $env:PUBLIC_APP_URL = $messagerie.adresse_publique }
+        Info "Envoi des invitations par e-mail : $($messagerie.serveur)"
+    }
+
     Push-Location $backend
     try {
         Executer $python @("manage.py", "migrate", "--noinput") "Migration de la base impossible"
-        if (-not (Etape-Faite "demo")) {
+        # Catalogue des types de pièces (facture, B/L, LTA...) : sans lui, la politique documentaire
+        # de la société n'a rien à proposer. Aucune obligation réglementaire n'y est créée.
+        Executer $python @("manage.py", "seed_document_types") "Chargement du catalogue des pièces impossible"
+        if ($ImporterTarif) {
+            Titre "Import du tarif"
+            $fichierTarif = $ImporterTarif
+            $extension = [IO.Path]::GetExtension($fichierTarif).ToLowerInvariant()
+            $commande = switch ($extension) {
+                ".xlsx" { "import_tariff_xlsx" }
+                ".csv" { "import_tariff_csv" }
+                default { throw "Format de tarif non pris en charge : $extension (attendu .xlsx ou .csv)" }
+            }
+            $libelle = if ($LibelleTarif) { $LibelleTarif } else { [IO.Path]::GetFileNameWithoutExtension($fichierTarif) }
+            # Vérifié avant l'import pour ne pas laisser un brouillon orphelin à chaque essai.
+            & $python manage.py publish_tariff_edition --label $libelle --check-actor
+            if ($LASTEXITCODE -ne 0) {
+                throw "Terminez d'abord la mise en service dans le navigateur, puis relancez avec -ImporterTarif."
+            }
+            Executer $python @("manage.py", $commande, $fichierTarif, "--label", $libelle) "Import du tarif impossible"
+            Executer $python @("manage.py", "publish_tariff_edition", "--label", $libelle) "Publication du tarif impossible"
+            Info "Tarif « $libelle » cherchable dans Référentiel › Recherche (consultation seulement)."
+        }
+        if ($Demo -and -not (Etape-Faite "demo")) {
             Titre "Données de démonstration (fictives)"
             Executer $python @("manage.py", "import_tariff_csv", "..\fixtures\synthetic\referentiel-f.csv", "--label", "Jeu F (CSV fictif)") "Import du référentiel fictif impossible"
             $script = Join-Path $Outils "publier_demo.py"
@@ -408,8 +496,16 @@ for edition in TariffEdition.objects.filter(label="Jeu F (CSV fictif)", publicat
     Start-Process $adresse
     Titre "C'est prêt"
     Info "Adresse      : $adresse"
-    Info "Compte       : validateur@alpha.demo   (autres comptes : declarant@alpha.demo, admin@alpha.demo)"
-    Info "Mot de passe : $MotDePasseDemo"
+    if (Etape-Faite "demo") {
+        Info "Cette installation contient les données de démonstration (fictives)."
+        Info "Compte       : validateur@alpha.demo   (autres comptes : declarant@alpha.demo, admin@alpha.demo)"
+        Info "Mot de passe : $MotDePasseDemo"
+        if (-not $Demo) { Info "Pour une installation neuve, sans démonstration : relancer avec -Dossier <un nouveau dossier>." }
+    } else {
+        Info "Installation neuve : au premier lancement, l'écran « Mise en service » crée le compte exploitant."
+        Info "Il faut une application d'authentification (téléphone) pour la double authentification."
+        Info "Le référentiel tarifaire est vide : la recherche tarifaire attend l'import de la source officielle."
+    }
     Info "Deux fenêtres restent ouvertes (API et interface) : ne pas les fermer pendant l'utilisation."
     Info "L'antivirus ClamAV tourne sans fenêtre, sur 127.0.0.1:$portClamav ; tout fichier déposé passe par lui."
     Info "Pour tout arrêter : powershell -ExecutionPolicy Bypass -File .\arreter-clairtransit.ps1"

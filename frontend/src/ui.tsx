@@ -261,6 +261,22 @@ export const EVENT_LABELS: Record<string, string> = {
   "scan.piece_type_set": "Type de pièce choisi",
   "scan.batch_attached": "Lot rattaché au dossier",
   "scan.batch_cancelled": "Lot abandonné",
+  "platform.setup": "Mise en service",
+  "access_request.submitted": "Demande d'espace reçue",
+  "access_request.accepted": "Demande d'espace acceptée",
+  "access_request.refused": "Demande d'espace refusée",
+  "organization.created": "Société créée",
+  "organization.suspended": "Société suspendue",
+  "organization.reactivated": "Société réactivée",
+  "invitation.created": "Invitation créée",
+  "invitation.renewed": "Nouveau lien d'invitation",
+  "invitation.email_sent": "Invitation envoyée par e-mail",
+  "invitation.email_failed": "Échec de l'envoi de l'invitation par e-mail",
+  "invitation.revoked": "Invitation annulée",
+  "invitation.accepted": "Compte activé",
+  "agency.created": "Agence ajoutée",
+  "membership.agency_changed": "Agence d'un utilisateur modifiée",
+  "membership.reactivated": "Utilisateur réactivé",
 };
 
 export const eventLabel = (type: string) =>

@@ -8,6 +8,7 @@ from apps.clients import api as clients
 from apps.document_graph import api as document_graph
 from apps.extraction import api as extraction
 from apps.localization import api as localization
+from apps.onboarding import api as onboarding
 from apps.organizations import api as organizations
 from apps.regulations.api import (
     CaseDocumentChecklistView,
@@ -30,6 +31,19 @@ urlpatterns = [
     path("auth/mfa/confirm", mfa_api.MFAConfirmView.as_view()),
     path("auth/mfa/verify", mfa_api.MFAVerifyView.as_view()),
     path("auth/mfa/status", mfa_api.MFAStatusView.as_view()),
+    path("auth/setup", onboarding.SetupView.as_view()),
+    path("auth/access-requests", onboarding.PublicAccessRequestView.as_view()),
+    path("auth/invitations/lookup", onboarding.InvitationLookupView.as_view()),
+    path("auth/invitations/accept", onboarding.InvitationAcceptView.as_view()),
+    path("platform/access-requests", onboarding.PlatformAccessRequestListView.as_view()),
+    path("platform/access-requests/<uuid:request_id>/accept", onboarding.PlatformAccessRequestAcceptView.as_view()),
+    path("platform/access-requests/<uuid:request_id>/refuse", onboarding.PlatformAccessRequestRefuseView.as_view()),
+    path("platform/organizations", onboarding.PlatformOrganizationListView.as_view()),
+    path(
+        "platform/organizations/<uuid:organization_id>/<str:action>",
+        onboarding.PlatformOrganizationStateView.as_view(),
+    ),
+    path("platform/invitations/<uuid:invitation_id>/renew", onboarding.PlatformInvitationRenewView.as_view()),
     path("me", accounts.MeView.as_view()),
     path("me/locale", localization.UserLocaleView.as_view()),
     path("organization/locale", localization.OrganizationLocaleView.as_view()),
@@ -37,6 +51,12 @@ urlpatterns = [
     path("organization/members", organizations.MemberListView.as_view()),
     path("organization/members/<uuid:member_id>/roles", organizations.MemberRolesView.as_view()),
     path("organization/members/<uuid:member_id>/deactivate", organizations.MemberDeactivateView.as_view()),
+    path("organization/members/<uuid:member_id>/reactivate", onboarding.MemberReactivateView.as_view()),
+    path("organization/members/<uuid:member_id>/agency", onboarding.MemberAgencyView.as_view()),
+    path("organization/overview", onboarding.OrganizationOverviewView.as_view()),
+    path("organization/invitations", onboarding.InvitationListView.as_view()),
+    path("organization/invitations/<uuid:invitation_id>/<str:action>", onboarding.InvitationActionView.as_view()),
+    path("organization/agencies", onboarding.AgencyListView.as_view()),
     path("importers", clients.ImporterListView.as_view()),
     path("importers/<uuid:pk>", clients.ImporterDetailView.as_view()),
     path("audit-events", audit.AuditEventListView.as_view()),

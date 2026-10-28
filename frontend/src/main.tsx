@@ -8,6 +8,7 @@ import "@fontsource/source-sans-3/600.css";
 import "@fontsource/source-sans-3/700.css";
 import "./styles.css";
 import "./maquette.css";
+import "./onboarding.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

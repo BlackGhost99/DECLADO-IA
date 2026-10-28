@@ -45,6 +45,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     # Gestionnaire du référentiel tarifaire (permission distincte, hors société).
     is_reference_manager = models.BooleanField(default=False)
+    # Exploitant de la plateforme (console ClairTransit) : crée et suspend les sociétés clientes,
+    # sans aucun accès à leurs dossiers ni à leurs pièces. Double authentification toujours exigée.
+    is_platform_operator = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     deactivated_at = models.DateTimeField(null=True, blank=True)
 
