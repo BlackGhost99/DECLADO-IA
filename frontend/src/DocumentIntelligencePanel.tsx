@@ -121,7 +121,7 @@ export function DocumentIntelligencePanel({ revision, editable }: { revision: Re
   }
 
   return <section className="card" aria-labelledby="doc-intelligence-title">
-    <h2 id="doc-intelligence-title">{t.title}</h2>
+    <h2 id="doc-intelligence-title" className="card-title">{t.title}</h2>
     <p className="muted small">{t.note} {t.intro}</p>
     {error && <p role="alert" className="error">{error}</p>}
     <p className="row">

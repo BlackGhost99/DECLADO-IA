@@ -269,6 +269,14 @@ def revision_payload(revision: CaseRevision) -> dict:
         "territory": revision.territory,
         "planned_declaration_date": revision.planned_declaration_date,
         "regime": revision.regime,
+        "client_reference": revision.client_reference,
+        "transport_mode": revision.transport_mode,
+        "transport_mode_label": revision.get_transport_mode_display() if revision.transport_mode else "",
+        "entry_office": revision.entry_office,
+        "origin_country": revision.origin_country,
+        "provenance_country": revision.provenance_country,
+        "priority": revision.priority,
+        "priority_label": revision.get_priority_display(),
         "is_editable": revision.is_editable,
         "row_version": revision.row_version,
         "target_edition": None
@@ -328,6 +336,14 @@ class CaseInput(serializers.Serializer):
     regime = serializers.CharField(required=False, allow_blank=True, max_length=60)
     territory = serializers.CharField(required=False, max_length=10)
     target_edition_id = serializers.UUIDField(required=False, allow_null=True)
+    client_reference = serializers.CharField(required=False, allow_blank=True, max_length=60)
+    transport_mode = serializers.ChoiceField(
+        choices=CaseRevision.TransportMode.choices, required=False, allow_blank=True
+    )
+    entry_office = serializers.CharField(required=False, allow_blank=True, max_length=120)
+    origin_country = serializers.RegexField(r"^[A-Za-z]{2}$|^$", required=False, allow_blank=True)
+    provenance_country = serializers.RegexField(r"^[A-Za-z]{2}$|^$", required=False, allow_blank=True)
+    priority = serializers.ChoiceField(choices=CaseRevision.Priority.choices, required=False)
 
 
 class RevisionInput(serializers.Serializer):
@@ -335,6 +351,14 @@ class RevisionInput(serializers.Serializer):
     regime = serializers.CharField(required=False, allow_blank=True, max_length=60)
     territory = serializers.CharField(required=False, max_length=10)
     target_edition_id = serializers.UUIDField(required=False, allow_null=True)
+    client_reference = serializers.CharField(required=False, allow_blank=True, max_length=60)
+    transport_mode = serializers.ChoiceField(
+        choices=CaseRevision.TransportMode.choices, required=False, allow_blank=True
+    )
+    entry_office = serializers.CharField(required=False, allow_blank=True, max_length=120)
+    origin_country = serializers.RegexField(r"^[A-Za-z]{2}$|^$", required=False, allow_blank=True)
+    provenance_country = serializers.RegexField(r"^[A-Za-z]{2}$|^$", required=False, allow_blank=True)
+    priority = serializers.ChoiceField(choices=CaseRevision.Priority.choices, required=False)
 
 
 class InvoiceInput(serializers.Serializer):

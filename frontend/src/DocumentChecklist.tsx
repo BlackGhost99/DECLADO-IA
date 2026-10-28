@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, request } from "./api";
-import { useI18n } from "./i18n";
+import { tr, useI18n } from "./i18n";
 
 interface Requirement {
   document_type: string;
@@ -37,7 +37,7 @@ export function DocumentChecklist({ revisionId }: { revisionId: string }) {
   }
   return (
     <section className="card" aria-labelledby="document-checklist-title">
-      <h2 id="document-checklist-title">{t("checklistTitle")}</h2>
+      <h2 id="document-checklist-title" className="card-title">{t("checklistTitle")}</h2>
       <p className="muted">{t("checklistNotice")}</p>
       <div className="row">
         <label>{t("operation")}
@@ -60,7 +60,7 @@ export function DocumentChecklist({ revisionId }: { revisionId: string }) {
         <p>{t("coverage")} {result.coverage} — {t("validationNo")}</p>
         {result.requirements.length === 0
           ? <p className="warning">{t("noRule")}</p>
-          : <table><thead><tr><th>{t("documents")}</th><th>{t("status")}</th><th>{t("basis")}</th></tr></thead>
+          : <table className="data"><thead><tr><th>{t("documents")}</th><th>{t("status")}</th><th>{t("basis")}</th></tr></thead>
             <tbody>{result.requirements.map((r) => <tr key={r.document_type}>
               <td>{r.label}</td><td>{r.status === "missing" ? t("missing") : t("receivedReview")}</td>
               <td>{r.reasons.map((v) => v.kind === "regulation"
@@ -93,7 +93,7 @@ function ClassificationPicker({
 
   useEffect(() => {
     void request<{ results: { code: string; label_fr: string }[] }>("GET", "/document-types")
-      .then((page) => setTypes(page.results), () => setError("Catalogue indisponible."));
+      .then((page) => setTypes(page.results), () => setError(tr("chk.catalogUnavailable")));
   }, []);
 
   async function submit() {
@@ -104,23 +104,23 @@ function ClassificationPicker({
       });
       onConfirmed();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Confirmation impossible.");
+      setError(err instanceof ApiError ? err.message : tr("chk.confirmFailed"));
     }
   }
 
   return <div className="row">
     <strong>{doc.filename}</strong>
-    <label>Type vérifié
+    <label>{tr("chk.verifiedType")}
       <select value={choice} onChange={(e) => setChoice(e.target.value)}>
-        <option value="">Sélectionner</option>
+        <option value="">{tr("choose")}</option>
         {types.map((item) => <option key={item.code} value={item.code}>{item.label_fr}</option>)}
       </select>
     </label>
-    <label>Justification
+    <label>{tr("chk.justification")}
       <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />
     </label>
     <button type="button" disabled={!choice || reason.trim().length < 3} onClick={() => void submit()}>
-      Confirmer
+      {tr("chk.confirm")}
     </button>
     {error && <p role="alert" className="error">{error}</p>}
   </div>;

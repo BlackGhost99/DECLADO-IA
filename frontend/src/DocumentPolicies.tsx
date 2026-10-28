@@ -49,13 +49,13 @@ export function DocumentPolicies({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <section className="card">
-      <h2>{t("policyTitle")}</h2>
+      <h2 className="card-title">{t("policyTitle")}</h2>
       <p className="muted">
         {t("policyInfo")}
       </p>
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
-      <table>
+      <table className="data">
         <thead><tr><th>{t("documents")}</th><th>{t("operation")}</th><th>{t("transport")}</th><th>{t("reason")}</th></tr></thead>
         <tbody>{policies.map((p) => (
           <tr key={p.id}><td>{p.label}</td><td>{p.operation || t("allOperations")}</td>

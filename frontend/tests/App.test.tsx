@@ -1,9 +1,10 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render as baseRender, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../src/App";
+import type { ReactElement } from "react";
 import { I18nProvider } from "../src/i18n";
 
-function renderApp() { return render(<I18nProvider><App /></I18nProvider>); }
+const render = (ui: ReactElement) => baseRender(ui, { wrapper: I18nProvider });
 
 const me = {
   id: "u1",
@@ -11,8 +12,8 @@ const me = {
   full_name: "Multi",
   is_reference_manager: false,
   memberships: [
-    { organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville" }, roles: ["declarant"] },
-    { organization: { id: "b", name: "Transit Bêta (démo)", is_demo: true, timezone: "Africa/Libreville" }, roles: ["declarant"] },
+    { organization: { id: "a", name: "Transit Alpha (démo)", is_demo: true, timezone: "Africa/Libreville", default_locale: "fr" as const }, roles: ["declarant"] },
+    { organization: { id: "b", name: "Transit Bêta (démo)", is_demo: true, timezone: "Africa/Libreville", default_locale: "fr" as const }, roles: ["declarant"] },
   ],
   active_organization_id: null,
 };
@@ -21,12 +22,16 @@ function json(status: number, body: unknown) {
   return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  window.location.hash = "";
+  sessionStorage.clear();
+});
 
 describe("App", () => {
   it("affiche le formulaire de connexion quand la session est absente", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(() => json(401, { code: "NOT_AUTHENTICATED" }));
-    renderApp();
+    render(<App />);
     expect(await screen.findByRole("heading", { name: /connexion/i })).toBeInTheDocument();
   });
 
@@ -37,7 +42,7 @@ describe("App", () => {
       if (url.endsWith("/auth/csrf")) return Promise.resolve(new Response(null, { status: 204 }));
       return json(400, { code: "INVALID_CREDENTIALS", message: "Identifiants incorrects." });
     });
-    renderApp();
+    render(<App />);
     fireEvent.change(await screen.findByLabelText(/e-mail/i), { target: { value: "x@y.z" } });
     fireEvent.change(screen.getByLabelText(/mot de passe/i), { target: { value: "bad" } });
     fireEvent.click(screen.getByRole("button", { name: /se connecter/i }));
@@ -53,13 +58,13 @@ describe("App", () => {
       if (url.endsWith("/importers")) return json(200, { count: 1, results: [{ id: "i", name: "Comptoir Fictif Bêta", identifiers: { nif: "DEMO-B-0001" }, contacts: [], address: "", notes: "", row_version: 1 }] });
       return json(404, { code: "NOT_FOUND", message: url, init });
     });
-    renderApp();
+    render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Transit Bêta (démo)" }));
-    fireEvent.click(await screen.findByRole("tab", { name: "Importateurs" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Administration" }));
     expect(await screen.findByText("Comptoir Fictif Bêta")).toBeInTheDocument();
     const call = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/me/active-organization"))!;
     expect((call[1]!.headers as Record<string, string>)["X-CSRFToken"]).toBe("tok123");
-    await waitFor(() => expect(screen.getByText("Démonstration")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Démonstration · données fictives/)).toBeInTheDocument());
   });
 
   it("affiche la fiche d'un code avec l'avertissement historique et la valeur inconnue", async () => {
@@ -82,8 +87,8 @@ describe("App", () => {
       if (url.includes("/tariffs/nodes/")) return json(200, node);
       return json(404, {});
     });
-    renderApp();
-    fireEvent.click(await screen.findByRole("tab", { name: "Référentiel" }));
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Recherche tarifaire" }));
     fireEvent.change(await screen.findByLabelText(/code, préfixe/i), { target: { value: "autres" } });
     fireEvent.click(screen.getByRole("button", { name: "Rechercher" }));
     fireEvent.click(await screen.findByRole("button", { name: /0101\.90\.00/ }));

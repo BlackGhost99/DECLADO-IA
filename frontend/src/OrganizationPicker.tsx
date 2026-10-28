@@ -1,5 +1,5 @@
 import { api, ROLE_LABELS, type Me } from "./api";
-import { useI18n, useBusinessLabels } from "./i18n";
+import { useBusinessLabels, useI18n } from "./i18n";
 
 interface Props {
   me: Me;
@@ -30,12 +30,12 @@ export function OrganizationPicker({ me, onChange, compact }: Props) {
   }
 
   return (
-    <section className="card">
+    <section className="card org-picker">
       <h1>{t("orgChoose")}</h1>
       <ul className="plain">
         {me.memberships.map((m) => (
           <li key={m.organization.id}>
-            <button type="button" onClick={() => void select(m.organization.id)}>
+            <button type="button" className="btn-primary" onClick={() => void select(m.organization.id)}>
               {m.organization.name}
             </button>{" "}
             <span className="muted">{m.roles.map((r) => labels.role(r, ROLE_LABELS[r])).join(", ")}</span>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, type CodeCheck, type GoodsLine, type Proposal, type ProposalSet } from "./api";
 import { errorText } from "./ui";
-import { useI18n } from "./i18n";
+import { fill, useI18n } from "./i18n";
 
 type Act = (a: () => Promise<unknown>) => Promise<void>;
 
@@ -36,7 +36,7 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
     try {
       setSet(await api.propose(goods.id, { edition_id: editionId || undefined, query, explicit }));
     } catch (err) {
-      setError(errorText(err, "Recherche impossible."));
+      setError(errorText(err, t("searchUnavailable")));
     }
   }
 
@@ -75,7 +75,7 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
       {set && (
         <>
           <p className="muted">
-            {set.proposals.length} piste(s) dans « {set.edition_label} » · {set.producer} · {set.is_ai ? "IA" : t("noAI")}.
+            {fill(t("prop.count"), { n: set.proposals.length, edition: set.edition_label, producer: set.producer, ai: set.is_ai ? t("prop.ai") : t("noAI") })}
             {t("proposalWarning")}
             {!set.is_current && ` ${t("rerunSearch")}`}
           </p>

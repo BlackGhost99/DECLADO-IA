@@ -68,6 +68,18 @@ class CaseRevision(OrganizationOwnedModel):
         HISTORICAL = "historical", "Simulation sur référence historique"
         OPERATIONAL = "operational", "Opérationnel"
 
+    class TransportMode(models.TextChoices):
+        SEA = "sea", "Maritime"
+        AIR = "air", "Aérien"
+        ROAD = "road", "Routier"
+        RAIL = "rail", "Ferroviaire"
+        MULTIMODAL = "multimodal", "Multimodal"
+
+    class Priority(models.TextChoices):
+        NORMAL = "normal", "Normale"
+        HIGH = "high", "Haute"
+        URGENT = "urgent", "Urgente"
+
     EDITABLE_STATES = (State.DRAFT, State.IN_PREPARATION, State.TO_CORRECT)
 
     case = models.ForeignKey(CustomsCase, on_delete=models.PROTECT, related_name="revisions")
@@ -78,6 +90,13 @@ class CaseRevision(OrganizationOwnedModel):
     territory = models.CharField(max_length=10, default="GA")
     planned_declaration_date = models.DateField(null=True, blank=True)
     regime = models.CharField(max_length=60, blank=True)
+    # Renseignements de préparation saisis par l'utilisateur ; vides tant qu'ils sont inconnus.
+    client_reference = models.CharField(max_length=60, blank=True)
+    transport_mode = models.CharField(max_length=20, choices=TransportMode.choices, blank=True)
+    entry_office = models.CharField(max_length=120, blank=True)
+    origin_country = models.CharField(max_length=2, blank=True)  # ISO 3166 alpha-2, en texte
+    provenance_country = models.CharField(max_length=2, blank=True)
+    priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.NORMAL)
     target_edition = models.ForeignKey(
         "tariffs.TariffEdition", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )

@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { api, ApiError, type Me } from "./api";
+import { Logo } from "./Icon";
 import { LanguageSelector, useI18n } from "./i18n";
 
 export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
-  const {t} = useI18n();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -31,27 +32,45 @@ export function LoginForm({ onLoggedIn }: { onLoggedIn: (me: Me) => void }) {
   }
 
   return (
-    <main className="center">
+    <main className="login-page">
       <form className="card login" onSubmit={submit} aria-labelledby="login-title">
-        <LanguageSelector />
+        <div className="login-lang">
+          <LanguageSelector />
+        </div>
+        <div className="login-brand">
+          <Logo size={48} />
+          <span>
+            <strong>ClairTransit</strong>
+            <small>{t("dash.heroSub")}</small>
+          </span>
+        </div>
         <h1 id="login-title">{t("loginTitle")}</h1>
-        {secondFactor && <p>Entrez le code à six chiffres de votre application d’authentification, ou un code de récupération.</p>}
-        {!secondFactor && <label>
-          {t("email")}
-          <input type="email" autoComplete="username" required value={email}
-                 onChange={(e) => setEmail(e.target.value)} />
-        </label>}
-        {!secondFactor && <label>
-          {t("password")}
-          <input type="password" autoComplete="current-password" required value={password}
-                 onChange={(e) => setPassword(e.target.value)} />
-        </label>}
-        {secondFactor && <label>Code MFA
-          <input autoComplete="one-time-code" value={code} required
-                 onChange={(e) => setCode(e.target.value)} />
-        </label>}
+        {secondFactor && <p>{t("mfa.enterCode")}</p>}
+        {!secondFactor && (
+          <label>
+            {t("email")}
+            <input type="email" autoComplete="username" required value={email}
+                   onChange={(e) => setEmail(e.target.value)} />
+          </label>
+        )}
+        {!secondFactor && (
+          <label>
+            {t("password")}
+            <input type="password" autoComplete="current-password" required value={password}
+                   onChange={(e) => setPassword(e.target.value)} />
+          </label>
+        )}
+        {secondFactor && (
+          <label>
+            {t("mfa.code")}
+            <input autoComplete="one-time-code" value={code} required
+                   onChange={(e) => setCode(e.target.value)} />
+          </label>
+        )}
         {error && <p role="alert" className="error">⚠ {error}</p>}
-        <button type="submit" disabled={busy}>{busy ? t("signingIn") : secondFactor ? "Valider le code" : t("login")}</button>
+        <button type="submit" className="btn-primary btn-block" disabled={busy}>
+          {busy ? t("signingIn") : secondFactor ? t("mfa.validate") : t("login")}
+        </button>
       </form>
     </main>
   );
