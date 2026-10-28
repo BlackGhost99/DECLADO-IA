@@ -89,12 +89,12 @@ def test_t67_gemini_adapter_sends_text_and_json_schema(server):
     }}  # fmt: skip
     from google.genai import types
 
-    provider = ai_providers.build("gemini", api_key="cle-gemini", model="gemini-2.5-flash-lite", timeout=5)
+    provider = ai_providers.build("gemini", api_key="cle-gemini", model="gemini-3.5-flash-lite", timeout=5)
     provider.client = __import__("google.genai", fromlist=["Client"]).Client(
         api_key="cle-gemini", http_options=types.HttpOptions(base_url=url, timeout=5000)
     )
     result = provider.complete_fields(text="[page 1]\nTotal 12 PALLETS", piece="titre de transport", fields=FIELDS)
-    assert seen["path"].endswith("/models/gemini-2.5-flash-lite:generateContent")
+    assert seen["path"].endswith("/models/gemini-3.5-flash-lite:generateContent")
     assert seen["headers"]["x-goog-api-key"] == "cle-gemini"
     body = seen["body"]
     assert body["systemInstruction"]["parts"][0]["text"] == ai.SYSTEM_PROMPT
@@ -109,7 +109,7 @@ def test_t67_gemini_error_becomes_provider_error(server):
     from google import genai
     from google.genai import types
 
-    provider = ai_providers.build("gemini", api_key="k", model="gemini-2.5-flash-lite", timeout=5)
+    provider = ai_providers.build("gemini", api_key="k", model="gemini-3.5-flash-lite", timeout=5)
     provider.client = genai.Client(api_key="k", http_options=types.HttpOptions(base_url=url, timeout=5000))
     seen["reply"] = lambda path: {
         "status": 429,
