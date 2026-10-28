@@ -47,7 +47,7 @@ La maquette validée avant le code est publiée : https://claude.ai/artifact/JQF
 - **Journal des envois** (IAL-10) : les 30 derniers envois, avec dossier, pièce, informations demandées et trouvées, coût et statut. Il n'est pas modifiable. L'audit compte les informations sans recopier les valeurs.
 - **Adaptateurs** :
   - `apps/extraction/ai_providers.py` est le seul endroit où un SDK est importé (`anthropic==2.3.0`, `google-genai==2.33.0`) ;
-  - modèles par défaut : `claude-haiku-5-5` et `gemini-2.5-flash-lite`.
+  - modèles par défaut : `claude-haiku-5-5` et `gemini-3.5-flash-lite`.
 - **Langues** : textes en français, anglais, espagnol et arabe (`frontend/src/i18n/ia.ts`). L'arabe s'affiche de droite à gauche.
 
 ## Ce que l'exploitant doit faire
