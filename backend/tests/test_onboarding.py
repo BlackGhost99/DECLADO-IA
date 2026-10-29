@@ -411,6 +411,8 @@ def test_platform_can_adjust_capacity_with_reason_and_optimistic_lock(world, ope
     event = AuditEvent.objects.get(event_type="organization.capacities_changed", organization=org)
     assert event.previous["max_users"] == org.max_users
     assert event.current["reason"] == "Demande client de postes et agences"
+    tenant_audit = session("admin@a.test").get("/api/v1/audit-events").json()["results"]
+    assert all(item["event_type"] != "organization.capacities_changed" for item in tenant_audit)
 
     stale = operator.patch(
         url, {"max_users": 80, "max_agencies": 2, "row_version": org.row_version, "reason": "Autre demande client"}
