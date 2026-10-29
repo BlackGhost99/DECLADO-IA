@@ -79,6 +79,12 @@ def test_t51_invoice_grid_letterhead_freight_and_total_are_read(name):
         Decimal("3184.00"),
         Decimal("7080.00"),
     ]
+    # « 40 pcs » d'un seul tenant (pièce à filigrane) : quantité 40, unité pcs, jamais l'unité « 40 pcs ».
+    assert [(line.fields["quantity"].parsed, line.fields["unit"].parsed) for line in doc.lines] == [
+        (Decimal("40"), "pcs"),
+        (Decimal("80"), "pcs"),
+        (Decimal("6"), "pcs"),
+    ]
     charges = {c.kind: c.amount.parsed for c in doc.charges}
     assert charges == {"subtotal": Decimal("16124.00"), "fee": Decimal("2430.00"), "total": Decimal("18554.00")}
 

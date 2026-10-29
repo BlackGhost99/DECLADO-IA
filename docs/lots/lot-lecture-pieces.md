@@ -75,3 +75,10 @@ Migrations : `cases/0006_lecture_des_pieces` (type reconnu, acheteur, usages Ass
 ## Prochaine étape
 
 Reporter le fret et l'assurance lus sur les pièces dans la valorisation, comme propositions à confirmer, et comparer les références croisées (n° de facture cité sur le B/L, valeur assurée et total de la facture).
+
+## Correctifs du 29 octobre 2026
+
+- **Quantité collée à son unité** (LEC-03) : sur la facture à filigrane fournie par l'utilisateur, « 40 pcs » tombait sous la colonne Unité. La quantité restait inconnue et l'unité valait « 40 pcs ». La quantité est maintenant lue (40) et l'unité devient « pcs ». T51 le vérifie sur les trois versions de la facture BatiPro. Les dossiers déjà lus gardent l'ancienne lecture : relancer la lecture de la facture (Options de lecture > Relancer).
+- **Signalements nommés** : sur une ligne de marchandise, « Absent du document : à renseigner » dit maintenant de quelle information il parle (Origine, Réf. fournisseur…).
+- **Pièces demandées** : après « Ajouter à la politique », le formulaire se vide et le tableau affiche « Importation » et le mode de transport traduits, au lieu des codes.
+

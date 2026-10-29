@@ -7,6 +7,8 @@ type Policy = {
   id: number; document_type: string; label: string; operation: string;
   regime: string; transport_mode: string; reason: string; active: boolean;
 };
+const TRANSPORTS = ["sea", "air", "road", "rail", "multimodal"] as const;
+type Transport = (typeof TRANSPORTS)[number];
 
 export function DocumentPolicies({ isAdmin }: { isAdmin: boolean }) {
   const { t } = useI18n();
@@ -41,6 +43,9 @@ export function DocumentPolicies({ isAdmin }: { isAdmin: boolean }) {
         document_type: docType, operation, transport_mode: transport, reason,
       });
       await load();
+      // Formulaire vidé : la pièce ajoutée apparaît dans le tableau, rien ne reste « en attente ».
+      setDocType("");
+      setReason("");
       setMessage(t("policySaved"));
     } catch {
       setError(t("policyError"));
@@ -58,8 +63,8 @@ export function DocumentPolicies({ isAdmin }: { isAdmin: boolean }) {
       <table className="data">
         <thead><tr><th>{t("documents")}</th><th>{t("operation")}</th><th>{t("transport")}</th><th>{t("reason")}</th></tr></thead>
         <tbody>{policies.map((p) => (
-          <tr key={p.id}><td>{p.label}</td><td>{p.operation || t("allOperations")}</td>
-            <td>{p.transport_mode || t("all")}</td><td>{p.reason || t("internalPolicy")}</td></tr>
+          <tr key={p.id}><td>{p.label}</td><td>{p.operation === "import" || p.operation === "export" ? t(p.operation) : p.operation || t("allOperations")}</td>
+            <td>{TRANSPORTS.includes(p.transport_mode as Transport) ? t(p.transport_mode as Transport) : p.transport_mode || t("all")}</td><td>{p.reason || t("internalPolicy")}</td></tr>
         ))}</tbody>
       </table>
       {isAdmin && <form className="row" onSubmit={submit}>
