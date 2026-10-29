@@ -386,14 +386,24 @@ def test_platform_can_adjust_capacity_with_reason_and_optimistic_lock(world, ope
     assert "cases" not in overview and "importers" not in overview and "documents" not in overview
     assert all("email" in a and "mfa_enabled" in a for a in overview["administrators"])
     assert session("admin@a.test").get(url).status_code == 403
-    assert session("admin@a.test").patch(url, {
-        "max_users": 100, "max_agencies": 5, "row_version": org.row_version, "reason": "Demande du client"
-    }).status_code == 403
+    assert (
+        session("admin@a.test")
+        .patch(
+            url, {"max_users": 100, "max_agencies": 5, "row_version": org.row_version, "reason": "Demande du client"}
+        )
+        .status_code
+        == 403
+    )
 
-    changed = operator.patch(url, {
-        "max_users": 100, "max_agencies": 2, "row_version": org.row_version,
-        "reason": "Demande client de postes et agences"
-    })
+    changed = operator.patch(
+        url,
+        {
+            "max_users": 100,
+            "max_agencies": 2,
+            "row_version": org.row_version,
+            "reason": "Demande client de postes et agences",
+        },
+    )
     assert changed.status_code == 200, changed.content
     assert changed.json()["max_users"] == 100
     assert changed.json()["max_agencies"] == 2
@@ -402,10 +412,9 @@ def test_platform_can_adjust_capacity_with_reason_and_optimistic_lock(world, ope
     assert event.previous["max_users"] == org.max_users
     assert event.current["reason"] == "Demande client de postes et agences"
 
-    stale = operator.patch(url, {
-        "max_users": 80, "max_agencies": 2, "row_version": org.row_version,
-        "reason": "Autre demande client"
-    })
+    stale = operator.patch(
+        url, {"max_users": 80, "max_agencies": 2, "row_version": org.row_version, "reason": "Autre demande client"}
+    )
     assert stale.status_code == 409 and stale.json()["code"] == "REVISION_CONFLICT"
     assert AuditEvent.objects.filter(event_type="organization.capacities_changed", organization=org).count() == 1
 
@@ -415,34 +424,48 @@ def test_platform_cannot_lower_limits_below_existing_capacity(world, operator):
     url = f"/api/v1/platform/organizations/{org.pk}"
     before = operator.get(url).json()
     if before["members"] + before["pending_invitations"] > 1:
-        result = operator.patch(url, {
-            "max_users": 1, "max_agencies": None, "row_version": before["row_version"],
-            "reason": "Réduction de capacité demandée"
-        })
+        result = operator.patch(
+            url,
+            {
+                "max_users": 1,
+                "max_agencies": None,
+                "row_version": before["row_version"],
+                "reason": "Réduction de capacité demandée",
+            },
+        )
         assert result.status_code == 409 and result.json()["code"] == "SEATS_IN_USE"
-    assert operator.patch(url, {
-        "max_users": 4, "max_agencies": 1, "row_version": before["row_version"],
-        "reason": "ok"
-    }).status_code == 400
+    assert (
+        operator.patch(
+            url, {"max_users": 4, "max_agencies": 1, "row_version": before["row_version"], "reason": "ok"}
+        ).status_code
+        == 400
+    )
 
 
 def test_seats_and_agencies_enforced_across_company_entry_points(world, operator, session):
     org = world["org_a"]
     overview = operator.get(f"/api/v1/platform/organizations/{org.pk}").json()
     limit = overview["members"] + overview["pending_invitations"]
-    changed = operator.patch(f"/api/v1/platform/organizations/{org.pk}", {
-        "max_users": limit, "max_agencies": 1, "row_version": overview["row_version"],
-        "reason": "Limiter les capacités du client"
-    })
+    changed = operator.patch(
+        f"/api/v1/platform/organizations/{org.pk}",
+        {
+            "max_users": limit,
+            "max_agencies": 1,
+            "row_version": overview["row_version"],
+            "reason": "Limiter les capacités du client",
+        },
+    )
     assert changed.status_code == 200, changed.content
     admin = session("admin@a.test")
-    invite = admin.post("/api/v1/organization/invitations", {
-        "email": "blocked@example.test", "roles": ["declarant"], "full_name": "Blocked", "agency_id": None
-    })
+    invite = admin.post(
+        "/api/v1/organization/invitations",
+        {"email": "blocked@example.test", "roles": ["declarant"], "full_name": "Blocked", "agency_id": None},
+    )
     assert invite.status_code == 409 and invite.json()["code"] == "SEAT_LIMIT"
-    member = admin.post("/api/v1/organization/members", {
-        "email": "blocked-direct@example.test", "roles": ["declarant"], "initial_password": STRONG
-    })
+    member = admin.post(
+        "/api/v1/organization/members",
+        {"email": "blocked-direct@example.test", "roles": ["declarant"], "initial_password": STRONG},
+    )
     assert member.status_code == 409 and member.json()["code"] == "SEAT_LIMIT"
     first = admin.post("/api/v1/organization/agencies", {"name": "Première", "code": "FIRST"})
     assert first.status_code == 201, first.content
