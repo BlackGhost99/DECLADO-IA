@@ -93,6 +93,7 @@ export interface OrganizationOverview {
   country_code: string;
   default_locale: string;
   max_users: number | null;
+  max_agencies: number | null;
   seats_used: number;
   members: number;
   pending_invitations: number;
