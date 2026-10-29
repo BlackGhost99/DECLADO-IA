@@ -555,6 +555,7 @@ class OrganizationOverviewView(APIView):
                 "country_code": org.country_code,
                 "default_locale": org.default_locale,
                 "max_users": org.max_users,
+                "max_agencies": org.max_agencies,
                 "seats_used": services.seats_used(org),
                 "members": Membership.objects.filter(organization=org, active=True).count(),
                 "pending_invitations": services.pending_invitations(org).count(),
