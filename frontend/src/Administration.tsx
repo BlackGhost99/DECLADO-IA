@@ -401,9 +401,13 @@ function InviteForm({ agencies, onInvited }: { agencies: Agency[]; onInvited: (i
 
 function Agencies() {
   const [items, setItems] = useState<Agency[] | null>(null);
+  const [overview, setOverview] = useState<OrganizationOverview | null>(null);
   const [form, setForm] = useState({ name: "", code: "" });
   const [error, setError] = useState("");
-  const load = () => void api.agencies().then(setItems, () => setItems([]));
+  const load = () => {
+    void api.agencies().then(setItems, () => setItems([]));
+    void api.organizationOverview().then(setOverview, () => setOverview(null));
+  };
   useEffect(load, []);
 
   async function create(event: FormEvent) {
@@ -422,6 +426,7 @@ function Agencies() {
     <section className="card" aria-labelledby="agencies-title">
       <h2 id="agencies-title" className="card-title">{tr("adm.agencies")}</h2>
       <p className="muted small">{tr("adm.agenciesHelp")}</p>
+      {overview && <p className="muted small">{tr("con.agencyLimit")}: {overview.agencies} / {overview.max_agencies ?? tr("con.noLimit")}</p>}
       {items === null ? (
         <p className="muted">{tr("loading")}</p>
       ) : items.length === 0 ? (
