@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.audit.services import record_event
-from apps.core.exceptions import ApiError
+from apps.core.exceptions import ApiError, RevisionConflict
 from apps.organizations.business_models import OPEN_PROFILES, Agency, OrganizationBusinessProfile
 from apps.organizations.models import Membership, Organization, Role
 from apps.organizations.services import _clean_roles
@@ -195,9 +195,13 @@ def create_organization(
 @transaction.atomic
 def set_organization_active(*, organization: Organization, actor: User, active: bool) -> Organization:
     """Une société suspendue garde ses données ; ses utilisateurs ne peuvent plus y entrer."""
+    organization = Organization.objects.select_for_update().get(pk=organization.pk)
     previous = organization.active
+    if previous == active:
+        return organization
     organization.active = active
-    organization.save(update_fields=["active", "updated_at"])
+    organization.row_version += 1
+    organization.save(update_fields=["active", "row_version", "updated_at"])
     record_event(
         organization=organization,
         actor=actor,
@@ -205,6 +209,38 @@ def set_organization_active(*, organization: Organization, actor: User, active: 
         entity=organization,
         previous={"active": previous},
         current={"active": active},
+    )
+    return organization
+
+
+@transaction.atomic
+def update_organization_capacities(
+    *, organization: Organization, actor: User, max_users: int | None,
+    max_agencies: int | None, row_version: int, reason: str
+) -> Organization:
+    """Seul l'exploitant fixe les capacités ; aucune donnée métier n'est lue ou renvoyée."""
+    organization = Organization.objects.select_for_update().get(pk=organization.pk)
+    if organization.row_version != row_version:
+        raise RevisionConflict(row_version, organization.row_version)
+    used = seats_used(organization)  # membres actifs ET invitations encore valides
+    agencies = Agency.objects.for_organization(organization).filter(active=True).count()
+    if max_users is not None and max_users < used:
+        raise ApiError("SEATS_IN_USE", "La limite ne peut pas être inférieure aux places utilisées.", 409,
+                       {"used": used})
+    if max_agencies is not None and max_agencies < agencies:
+        raise ApiError("AGENCIES_IN_USE", "La limite ne peut pas être inférieure aux agences actives.", 409,
+                       {"used": agencies})
+    previous = {"max_users": organization.max_users, "max_agencies": organization.max_agencies}
+    current = {"max_users": max_users, "max_agencies": max_agencies}
+    if previous == current:
+        return organization
+    organization.max_users = max_users
+    organization.max_agencies = max_agencies
+    organization.row_version += 1
+    organization.save(update_fields=["max_users", "max_agencies", "row_version", "updated_at"])
+    record_event(
+        organization=organization, actor=actor, event_type="organization.capacities_changed",
+        entity=organization, previous=previous, current={**current, "reason": reason}, scope="platform",
     )
     return organization
 
@@ -242,6 +278,8 @@ def _new_token() -> str:
 def invite(
     *, organization: Organization, actor: User, email: str, full_name: str, roles, agency: Agency | None
 ) -> tuple[Invitation, str]:
+    # Même verrou pour invitations, créations directes, réactivations et modifications de quota.
+    organization = Organization.objects.select_for_update().get(pk=organization.pk)
     roles = _clean_roles(roles)
     if not roles:
         raise ApiError("ROLE_REQUIRED", "Choisissez au moins un rôle.", 400)
@@ -281,6 +319,10 @@ def renew_invitation(*, invitation: Invitation, actor: User) -> tuple[Invitation
         raise ApiError("INVITATION_USED", "Cette invitation a déjà été utilisée.", 409)
     if invitation.revoked_at:
         raise ApiError("INVITATION_REVOKED", "Cette invitation a été annulée.", 409)
+    organization = Organization.objects.select_for_update().get(pk=invitation.organization_id)
+    # Renouveler un lien expiré réserve de nouveau une place.
+    if invitation.expires_at <= timezone.now():
+        check_seat(organization)
     token = _new_token()
     invitation.token_hash = _hash(token)
     invitation.expires_at = timezone.now() + INVITATION_TTL
@@ -369,6 +411,9 @@ def accept_invitation(*, token: str, full_name: str, password: str) -> tuple[Use
 
 @transaction.atomic
 def create_agency(*, organization: Organization, actor: User, name: str, code: str) -> Agency:
+    organization = Organization.objects.select_for_update().get(pk=organization.pk)
+    if organization.max_agencies is not None and Agency.objects.for_organization(organization).filter(active=True).count() >= organization.max_agencies:
+        raise ApiError("AGENCY_LIMIT", "Nombre d\u0027agences autorisé atteint.", 409)
     code = code.strip().upper()
     if Agency.objects.for_organization(organization).filter(code=code).exists():
         raise ApiError("AGENCY_EXISTS", "Une agence porte déjà ce code.", 409)
@@ -408,7 +453,8 @@ def set_member_agency(*, membership: Membership, actor: User, agency: Agency | N
 def reactivate_member(*, membership: Membership, actor: User) -> Membership:
     if membership.active:
         return membership
-    check_seat(membership.organization)
+    organization = Organization.objects.select_for_update().get(pk=membership.organization_id)
+    check_seat(organization)
     membership.active = True
     membership.deactivated_at = None
     membership.row_version += 1

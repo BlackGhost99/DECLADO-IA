@@ -6,6 +6,8 @@
 """
 
 from django.contrib.auth import login
+from apps.accounts.models import TotpDevice
+from apps.audit.models import AuditEvent
 from django.db.models import Count, Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
@@ -96,6 +98,13 @@ class OrganizationInput(serializers.Serializer):
     max_users = serializers.IntegerField(required=False, allow_null=True, default=None)
     admin_name = serializers.CharField(max_length=200)
     admin_email = serializers.EmailField()
+
+
+class PlatformCapacitiesInput(serializers.Serializer):
+    max_users = serializers.IntegerField(min_value=1, required=True, allow_null=True)
+    max_agencies = serializers.IntegerField(min_value=1, required=True, allow_null=True)
+    row_version = serializers.IntegerField(min_value=1)
+    reason = serializers.CharField(min_length=8, max_length=500, trim_whitespace=True)
 
 
 class RefuseInput(serializers.Serializer):
@@ -269,12 +278,17 @@ class PlatformAccessRequestRefuseView(APIView):
         return Response(AccessRequestSerializer(item).data)
 
 
-def _organization_rows():
+def _organization_rows(organization_id=None):
     organizations = (
         Organization.objects.select_related("business_profile")
-        .annotate(members=Count("memberships", filter=Q(memberships__active=True)))
+        .annotate(
+            members=Count("memberships", filter=Q(memberships__active=True), distinct=True),
+            agencies_count=Count("agencies", filter=Q(agencies__active=True), distinct=True),
+        )
         .order_by("name")
     )
+    if organization_id is not None:
+        organizations = organizations.filter(pk=organization_id)
     pending = services.pending_invitations
     rows = []
     for org in organizations:
@@ -296,13 +310,48 @@ def _organization_rows():
                 "active": org.active,
                 "is_demo": org.is_demo,
                 "max_users": org.max_users,
+                "max_agencies": org.max_agencies,
+                "row_version": org.row_version,
                 "members": org.members,
+                "agencies": org.agencies_count,
                 "pending_invitations": pending(org).count(),
                 "admin_invitation": InvitationSerializer(admin_invite).data if admin_invite else None,
                 "created_at": org.created_at,
             }
         )
     return rows
+
+
+_PLATFORM_AUDIT_EVENTS = (
+    "organization.created", "organization.suspended", "organization.reactivated",
+    "organization.capacities_changed",
+)
+
+
+def _organization_detail(organization: Organization):
+    result = _organization_rows(organization.pk)[0]
+    admins = Membership.objects.filter(
+        organization=organization, roles__contains=[Role.ORG_ADMIN]
+    ).select_related("user").order_by("user__email")
+    enabled_mfa = set(TotpDevice.objects.filter(
+        user_id__in=[member.user_id for member in admins], confirmed_at__isnull=False
+    ).values_list("user_id", flat=True))
+    result["administrators"] = [
+        {"full_name": member.user.full_name, "email": member.user.email,
+         "active": member.active and member.user.is_active,
+         "mfa_enabled": member.user_id in enabled_mfa}
+        for member in admins
+    ]
+    events = AuditEvent.objects.filter(
+        organization=organization, event_type__in=_PLATFORM_AUDIT_EVENTS
+    ).select_related("actor").order_by("-at")[:30]
+    result["history"] = [
+        {"id": str(event.pk), "at": event.at, "event_type": event.event_type,
+         "actor": event.actor.full_name if event.actor else None,
+         "previous": event.previous, "current": event.current}
+        for event in events
+    ]
+    return result
 
 
 class PlatformOrganizationListView(APIView):
@@ -325,6 +374,21 @@ def _organization(pk) -> Organization:
     if org is None:
         raise ApiError("NOT_FOUND", "Élément introuvable.", 404)
     return org
+
+
+class PlatformOrganizationDetailView(APIView):
+    permission_classes = [IsPlatformOperator]
+
+    def get(self, request, organization_id):
+        return Response(_organization_detail(_organization(organization_id)))
+
+    def patch(self, request, organization_id):
+        data = PlatformCapacitiesInput(data=request.data)
+        data.is_valid(raise_exception=True)
+        updated = services.update_organization_capacities(
+            organization=_organization(organization_id), actor=request.user, **data.validated_data
+        )
+        return Response(_organization_detail(updated))
 
 
 class PlatformOrganizationStateView(APIView):

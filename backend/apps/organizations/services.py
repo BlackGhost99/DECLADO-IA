@@ -24,6 +24,11 @@ def _clean_roles(roles) -> list[str]:
 def add_member(
     *, organization: Organization, actor: User, email: str, full_name: str, roles, initial_password: str | None
 ) -> Membership:
+    # Empêche de contourner la capacité via l\u0027ancien endpoint de création directe.
+    Organization.objects.select_for_update().get(pk=organization.pk)
+    from apps.onboarding.services import check_seat
+
+    check_seat(organization)
     roles = _clean_roles(roles)
     email = email.strip().lower()
     user = User.objects.filter(email=email).first()
