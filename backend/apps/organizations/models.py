@@ -34,6 +34,8 @@ class Organization(TimestampedModel):
     country_code = models.CharField(max_length=2, default="GA")
     # Nombre d'utilisateurs prévu au contrat (affiliations actives + invitations en cours) ; vide = sans limite.
     max_users = models.PositiveIntegerField(null=True, blank=True)
+    # Agences actives autorisées ; vide = sans limite. Quota contrôlé côté serveur.
+    max_agencies = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = "société"

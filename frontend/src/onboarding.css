@@ -101,3 +101,39 @@
 @media (max-width: 560px) { .onb-mfa { flex-direction: column; align-items: flex-start; } }
 .onb-mail-ok { color: var(--green); font-weight: 600; }
 .onb-mail-off { color: var(--muted); }
+
+/* Console exploitant : pilotage sans accès aux informations métier des sociétés. */
+.console-stats { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:14px; margin:16px 0; }
+.console-stat { display:flex; flex-direction:column; gap:9px; padding:18px 20px; background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+.console-stat span { font-size:12px; color:var(--muted); font-weight:600; }
+.console-stat strong { color:var(--heading); font-size:28px; line-height:1; font-variant-numeric:tabular-nums; }
+.console-create { margin:16px 0; width:min(730px,100%); }
+.console-section-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
+.console-section-heading h2,.console-section-heading h3,.console-section-heading p { margin:0; }
+.console-section-heading h3 { color:var(--heading); }
+.console-section-heading .small { margin-top:4px; }
+.console-search { display:flex; align-items:center; gap:8px; padding:4px 12px; border:1px solid var(--border); background:var(--surface-2); border-radius:9px; color:var(--muted); }
+.console-search input { border:0; outline:0; background:transparent; min-width:220px; min-height:30px; width:100%; }
+.console-companies { margin-top:16px; }
+.console-companies .onb-table td { vertical-align:middle; }
+.console-selected { background:var(--primary-soft); }
+.console-quota-full { color:var(--amber, #9a5900); font-weight:700; }
+.console-confirm { border:1px solid var(--border-strong); background:var(--surface-2); border-radius:10px; padding:16px; margin-top:16px; }
+.console-confirm p { margin:8px 0 12px; font-size:13px; }
+.console-detail { margin-top:20px; padding:20px; background:var(--surface-2); border:1px solid var(--border); border-radius:12px; }
+.console-detail-grid { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:16px; }
+.console-panel { padding:18px; border:1px solid var(--border); border-radius:10px; background:var(--surface); min-width:0; }
+.console-panel h4 { margin:0 0 10px; color:var(--heading); }
+.console-cap-form { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+.console-cap-form label { display:grid; gap:6px; color:var(--text); font-size:13px; font-weight:600; }
+.console-cap-form input,.console-cap-form textarea { width:100%; border:1px solid var(--border); border-radius:8px; padding:10px; background:var(--surface); color:var(--text); min-width:0; }
+.console-cap-form textarea { min-height:76px; resize:vertical; font:inherit; }
+.console-cap-form .console-reason,.console-cap-form .error { grid-column:1 / -1; }
+.console-cap-form button { justify-self:start; grid-column:1 / -1; }
+.console-admin-list,.console-history ul { list-style:none; padding:0; margin:0; }
+.console-admin-list li,.console-history li { display:grid; gap:5px; padding:10px 0; border-bottom:1px solid var(--border); overflow-wrap:anywhere; }
+.console-admin-tags { display:flex; gap:6px; }
+.console-history { margin-top:16px; }
+@media(max-width:1100px) { .console-stats { grid-template-columns:repeat(3,1fr); } }
+@media(max-width:760px) { .console-stats { grid-template-columns:repeat(2,1fr); } .console-detail-grid { grid-template-columns:1fr; } }
+@media(max-width:520px) { .console-stats { grid-template-columns:1fr 1fr; } .console-search,.console-search input { width:100%; min-width:0; } .console-detail { padding:10px; } }

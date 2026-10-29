@@ -42,6 +42,7 @@ urlpatterns = [
     path("platform/ai-settings", ai_settings.PlatformAISettingsView.as_view()),
     path("platform/organizations/<uuid:organization_id>/ai-quota", ai_settings.PlatformAIQuotaView.as_view()),
     path("platform/organizations", onboarding.PlatformOrganizationListView.as_view()),
+    path("platform/organizations/<uuid:organization_id>", onboarding.PlatformOrganizationDetailView.as_view()),
     path(
         "platform/organizations/<uuid:organization_id>/<str:action>",
         onboarding.PlatformOrganizationStateView.as_view(),
