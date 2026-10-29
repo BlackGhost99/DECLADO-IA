@@ -19,7 +19,6 @@ export function aiCost(value: string | null, freeTier: boolean): string {
 /** Onglet « IA en ligne » de l'administration : réglage de la société, réservé à son administrateur. */
 export function AISettingsPanel({ organizationName, onManageClients }: { organizationName: string; onManageClients: () => void }) {
   const [data, setData] = useState<AISettings | null>(null);
-  const [cap, setCap] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,13 +27,12 @@ export function AISettingsPanel({ organizationName, onManageClients }: { organiz
     api.aiSettings().then(
       (d) => {
         setData(d);
-        setCap(String(d.monthly_cap));
       },
       (err) => setError(errorText(err, tr("saveError"))),
     );
   }, []);
 
-  async function save(change: Partial<Pick<AISettings, "enabled" | "mode" | "monthly_cap">>) {
+  async function save(change: Partial<Pick<AISettings, "enabled" | "mode">>) {
     if (!data) return;
     setBusy(true);
     setMessage(null);
@@ -43,24 +41,16 @@ export function AISettingsPanel({ organizationName, onManageClients }: { organiz
       const next = await api.saveAISettings({
         enabled: data.enabled,
         mode: data.mode,
-        monthly_cap: data.monthly_cap,
         row_version: data.row_version,
         ...change,
       });
       setData(next);
-      setCap(String(next.monthly_cap));
       setMessage(tr("ai.saved"));
     } catch (err) {
       setError(errorText(err, tr("saveError")));
     } finally {
       setBusy(false);
     }
-  }
-
-  function saveCap(event: FormEvent) {
-    event.preventDefault();
-    const value = Number.parseInt(cap, 10);
-    if (Number.isInteger(value) && value >= 0) void save({ monthly_cap: value });
   }
 
   if (!data) return error ? <p role="alert" className="error">⚠ {error}</p> : <p className="muted">{tr("loading")}</p>;
@@ -122,46 +112,21 @@ export function AISettingsPanel({ organizationName, onManageClients }: { organiz
           </section>
         </div>
         <div className="ia-stack">
-          <section className="card" aria-labelledby="ai-service-title">
-            <h2 id="ai-service-title" className="card-title">{tr("ai.service")}</h2>
-            <dl className="ia-kv">
-              <dt>{tr("ai.provider")}</dt>
-              <dd>{provider.label ?? tr("ai.noProvider")}</dd>
-              {provider.model && (
-                <>
-                  <dt>{tr("ai.model")}</dt>
-                  <dd className="code">{provider.model}</dd>
-                </>
-              )}
-              <dt>{tr("ai.place")}</dt>
-              <dd>{tr("ai.placeValue")}</dd>
-              <dt>{tr("ai.retention")}</dt>
-              <dd>{tr("ai.retentionValue")}</dd>
-              <dt>{tr("ai.personal")}</dt>
-              <dd>{tr("ai.personalValue")}</dd>
-              <dt>{tr("ai.key")}</dt>
-              <dd>
-                {provider.configured
-                  ? <Chip tone="green" icon="checkCircle">{tr("ai.keyOk")}</Chip>
-                  : <Chip tone="gray">{tr("ai.keyMissing")}</Chip>}
-              </dd>
-            </dl>
-            {provider.free_tier && <p className="note-amber small ia-gap" role="note">{tr("ai.freeTier")}</p>}
-            <p className="note-blue small ia-gap">{tr("ai.keyNote")}</p>
+          <section className="card">
+            <h2 className="card-title">{tr("ai.service")}</h2>
+            <p className="small">{tr("ai.managedByOperator")}</p>
+            <p className="small muted">{tr("ai.place")}: {tr("ai.placeValue")}. {tr("ai.retentionValue")}.</p>
+            {provider.free_tier && <p className="note-amber small" role="note">{tr("ai.freeTier")}</p>}
           </section>
           <section className="card" aria-labelledby="ai-cap-title">
             <h2 id="ai-cap-title" className="card-title">{tr("ai.cap")}</h2>
-            <form className="ia-row" onSubmit={saveCap}>
-              <input type="number" min={0} max={100000} value={cap} aria-label={tr("ai.perMonth")} onChange={(e) => setCap(e.target.value)} />
-              <span>{tr("ai.perMonth")}</span>
-              <button type="submit" className="btn-small" disabled={busy || cap === String(data.monthly_cap)}>{tr("save")}</button>
-            </form>
+            <p className="small"><strong>{data.monthly_cap}</strong> {tr("ai.perMonth")}</p>
+            <p className="muted small">{tr("ai.capOperator")}</p>
             <div className="ia-meter" role="progressbar" aria-valuemin={0} aria-valuemax={usage.cap} aria-valuenow={Math.min(usage.sent, usage.cap)} aria-label={tr("ai.usage", { sent: usage.sent, cap: usage.cap })}>
               <span style={{ width: `${percent}%` }} />
             </div>
             <p className="muted small">
               {tr("ai.usage", { sent: usage.sent, cap: usage.cap })}{" "}
-              {provider.free_tier ? tr("ai.costFree") : usage.cost_estimate === null ? tr("ai.costUnknown") : tr("ai.cost", { cost: aiCost(usage.cost_estimate, false) })}{" "}
               {tr("ai.capHint")}
             </p>
           </section>
@@ -197,7 +162,7 @@ export function AISettingsPanel({ organizationName, onManageClients }: { organiz
                 <tr>
                   <th scope="col">{tr("ai.colDate")}</th><th scope="col">{tr("ai.colCase")}</th><th scope="col">{tr("ai.colPiece")}</th>
                   <th scope="col" className="num">{tr("ai.colAsked")}</th><th scope="col" className="num">{tr("ai.colFound")}</th>
-                  <th scope="col" className="num">{tr("ai.colCost")}</th><th scope="col">{tr("ai.colStatus")}</th>
+                  <th scope="col">{tr("ai.colStatus")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -211,7 +176,6 @@ export function AISettingsPanel({ organizationName, onManageClients }: { organiz
                     </td>
                     <td className="num">{r.requested}</td>
                     <td className="num">{r.status === "sent" ? r.found : "—"}</td>
-                    <td className="num">{r.status === "sent" ? `${aiCost(r.cost_estimate, r.free_tier)} $` : "—"}</td>
                     <td title={r.error_message ?? undefined}>
                       <Chip tone={STATUS_TONE[r.status]}>{tr(`ai.status.${r.status}` as MessageKey)}</Chip>
                     </td>

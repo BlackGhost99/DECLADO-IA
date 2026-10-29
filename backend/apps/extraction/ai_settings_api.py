@@ -10,10 +10,12 @@ from rest_framework.views import APIView
 from apps.audit.services import record_event
 from apps.clients.models import Importer
 from apps.core.exceptions import ApiError
-from apps.organizations.models import Role
+from apps.onboarding.api import IsPlatformOperator
+from apps.organizations.models import Organization, Role
 from apps.organizations.permissions import require_roles
 
 from . import ai, ai_completion
+from .ai_settings_services import set_platform_quota
 from .models import AICompletion, OrganizationAISettings
 
 JOURNAL_SIZE = 30
@@ -92,7 +94,7 @@ def payload(org) -> dict:
 class AISettingsInput(serializers.Serializer):
     enabled = serializers.BooleanField()
     mode = serializers.ChoiceField(choices=OrganizationAISettings.Mode.choices)
-    monthly_cap = serializers.IntegerField(min_value=0, max_value=100000)
+    monthly_cap = serializers.IntegerField(min_value=0, max_value=100000, required=False)
     row_version = serializers.IntegerField(min_value=0)
 
 
@@ -113,7 +115,11 @@ class OrganizationAISettingsView(APIView):
                 "AI_NOT_CONFIGURED", "Aucune clé de fournisseur d'IA sur ce serveur : l'exploitant doit l'ajouter.", 409
             )
         with transaction.atomic():
+            Organization.objects.select_for_update().get(pk=org.pk)
             config = OrganizationAISettings.objects.for_organization(org).select_for_update().first()
+            cap = config.monthly_cap if config else OrganizationAISettings().monthly_cap
+            if "monthly_cap" in data and data["monthly_cap"] != cap:
+                raise ApiError("AI_CAP_OPERATOR_ONLY", "Seul l'exploitant fixe le plafond de la société.", 403)
             current = config.row_version if config else 0
             if data["row_version"] != current:
                 raise ApiError("ROW_VERSION_CONFLICT", "Réglage modifié entre-temps : recharger la page.", 409)
@@ -124,7 +130,7 @@ class OrganizationAISettingsView(APIView):
                 config = OrganizationAISettings(organization=org)
             else:
                 config.row_version += 1
-            config.enabled, config.mode, config.monthly_cap = data["enabled"], data["mode"], data["monthly_cap"]
+            config.enabled, config.mode = data["enabled"], data["mode"]
             config.updated_by = request.user
             config.save()
             record_event(
@@ -141,3 +147,49 @@ class OrganizationAISettingsView(APIView):
                 },  # fmt: skip
             )
         return Response(payload(org))
+
+
+def platform_summary(org):
+    """Console exploitant : limites et totaux uniquement, aucun dossier ni client."""
+    config = ai_completion.settings_for(org)
+    return {
+        "id": str(org.pk),
+        "name": org.name,
+        "monthly_cap": config.monthly_cap,
+        "row_version": 0 if config._state.adding else config.row_version,
+        "usage": _usage(org, config.monthly_cap),
+    }
+
+
+class PlatformAISettingsView(APIView):
+    permission_classes = [IsPlatformOperator]
+
+    def get(self, request):
+        return Response(
+            {
+                "provider": ai.provider_info(),
+                "organizations": [platform_summary(org) for org in Organization.objects.order_by("name", "id")],
+            }
+        )
+
+
+class PlatformQuotaInput(serializers.Serializer):
+    monthly_cap = serializers.IntegerField(min_value=0, max_value=100000)
+    row_version = serializers.IntegerField(min_value=0)
+
+
+class PlatformAIQuotaView(APIView):
+    permission_classes = [IsPlatformOperator]
+
+    def put(self, request, organization_id):
+        serializer = PlatformQuotaInput(data=request.data)
+        if not serializer.is_valid():
+            raise ApiError("INVALID_REQUEST", "Requête invalide.", 400, serializer.errors)
+        data = serializer.validated_data
+        org = set_platform_quota(
+            organization_id=organization_id,
+            actor=request.user,
+            monthly_cap=data["monthly_cap"],
+            row_version=data["row_version"],
+        )
+        return Response(platform_summary(org))
