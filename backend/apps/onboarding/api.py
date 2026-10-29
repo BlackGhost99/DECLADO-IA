@@ -6,8 +6,6 @@
 """
 
 from django.contrib.auth import login
-from apps.accounts.models import TotpDevice
-from apps.audit.models import AuditEvent
 from django.db.models import Count, Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
@@ -18,6 +16,8 @@ from rest_framework.views import APIView
 
 from apps.accounts.api import me_payload
 from apps.accounts.mfa import rate_limit
+from apps.accounts.models import TotpDevice
+from apps.audit.models import AuditEvent
 from apps.core.exceptions import ApiError
 from apps.organizations.business_models import Agency, BusinessProfile
 from apps.organizations.context import set_active_organization
