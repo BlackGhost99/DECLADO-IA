@@ -33,7 +33,11 @@ class AuditEventListView(ListAPIView):
 
     def get_queryset(self):
         # Les annotations internes de la plateforme ne sont pas des événements métier du client.
-        qs = AuditEvent.objects.select_related("actor").filter(organization=self.request.organization).exclude(scope="platform")
+        qs = (
+            AuditEvent.objects.select_related("actor")
+            .filter(organization=self.request.organization)
+            .exclude(scope="platform")
+        )
         params = self.request.query_params
         if params.get("event_type"):
             qs = qs.filter(event_type=params["event_type"])
