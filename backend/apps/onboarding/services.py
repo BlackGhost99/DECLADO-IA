@@ -412,7 +412,8 @@ def accept_invitation(*, token: str, full_name: str, password: str) -> tuple[Use
 @transaction.atomic
 def create_agency(*, organization: Organization, actor: User, name: str, code: str) -> Agency:
     organization = Organization.objects.select_for_update().get(pk=organization.pk)
-    if organization.max_agencies is not None and Agency.objects.for_organization(organization).filter(active=True).count() >= organization.max_agencies:
+    active_agencies = Agency.objects.for_organization(organization).filter(active=True).count()
+    if organization.max_agencies is not None and active_agencies >= organization.max_agencies:
         raise ApiError("AGENCY_LIMIT", "Nombre d\u0027agences autorisé atteint.", 409)
     code = code.strip().upper()
     if Agency.objects.for_organization(organization).filter(code=code).exists():
