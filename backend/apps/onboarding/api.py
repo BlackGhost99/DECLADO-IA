@@ -323,32 +323,48 @@ def _organization_rows(organization_id=None):
 
 
 _PLATFORM_AUDIT_EVENTS = (
-    "organization.created", "organization.suspended", "organization.reactivated",
+    "organization.created",
+    "organization.suspended",
+    "organization.reactivated",
     "organization.capacities_changed",
 )
 
 
 def _organization_detail(organization: Organization):
     result = _organization_rows(organization.pk)[0]
-    admins = Membership.objects.filter(
-        organization=organization, roles__contains=[Role.ORG_ADMIN]
-    ).select_related("user").order_by("user__email")
-    enabled_mfa = set(TotpDevice.objects.filter(
-        user_id__in=[member.user_id for member in admins], confirmed_at__isnull=False
-    ).values_list("user_id", flat=True))
+    admins = (
+        Membership.objects.filter(organization=organization, roles__contains=[Role.ORG_ADMIN])
+        .select_related("user")
+        .order_by("user__email")
+    )
+    enabled_mfa = set(
+        TotpDevice.objects.filter(
+            user_id__in=[member.user_id for member in admins], confirmed_at__isnull=False
+        ).values_list("user_id", flat=True)
+    )
     result["administrators"] = [
-        {"full_name": member.user.full_name, "email": member.user.email,
-         "active": member.active and member.user.is_active,
-         "mfa_enabled": member.user_id in enabled_mfa}
+        {
+            "full_name": member.user.full_name,
+            "email": member.user.email,
+            "active": member.active and member.user.is_active,
+            "mfa_enabled": member.user_id in enabled_mfa,
+        }
         for member in admins
     ]
-    events = AuditEvent.objects.filter(
-        organization=organization, event_type__in=_PLATFORM_AUDIT_EVENTS
-    ).select_related("actor").order_by("-at")[:30]
+    events = (
+        AuditEvent.objects.filter(organization=organization, event_type__in=_PLATFORM_AUDIT_EVENTS)
+        .select_related("actor")
+        .order_by("-at")[:30]
+    )
     result["history"] = [
-        {"id": str(event.pk), "at": event.at, "event_type": event.event_type,
-         "actor": event.actor.full_name if event.actor else None,
-         "previous": event.previous, "current": event.current}
+        {
+            "id": str(event.pk),
+            "at": event.at,
+            "event_type": event.event_type,
+            "actor": event.actor.full_name if event.actor else None,
+            "previous": event.previous,
+            "current": event.current,
+        }
         for event in events
     ]
     return result
