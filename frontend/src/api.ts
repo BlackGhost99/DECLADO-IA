@@ -793,6 +793,162 @@ export interface CaseSummary {
   revision_no: number;
 }
 
+// ---- Taxes et règles (barème importé, modifications de l'admin ClairTransit, calcul d'un dossier) ----
+
+export type TaxBaseKind = "value" | "value_ddi" | "value_ddi_da";
+
+export interface TaxAmendment {
+  sequence: number;
+  tax: string;
+  hs_code: string;
+  national_code: string;
+  scope: "code" | "all";
+  rate: string;
+  previous_rate: string | null;
+  effective_from: string;
+  source_kind: "finance_law" | "cemac_act" | "customs_circular" | "operator";
+  source_reference: string;
+  reason: string;
+  created_by: string;
+  created_at: string;
+  version: number;
+}
+
+export interface TaxOverviewRow {
+  code: string;
+  label: string;
+  base_kind: TaxBaseKind;
+  scope: "article" | "declaration";
+  common_rate: string | null;
+  distinct: number;
+  empty: number;
+  values: [string, number][];
+  empty_means_none: boolean;
+  status: "verified" | "from_schedule" | "to_confirm" | "set" | "export_only";
+  amendment: TaxAmendment | null;
+  note: string;
+}
+
+export interface TaxSchedule {
+  id: string;
+  label: string;
+  territory: string;
+  source: string;
+  sheet: string;
+  reference_sheet: string;
+  edition_id: string | null;
+  imported_at: string;
+  counts: { lines?: number; codes?: number; review?: Record<string, number> };
+}
+
+export interface TaxOverview {
+  schedule: TaxSchedule | null;
+  version: number;
+  rules_version: string;
+  can_edit: boolean;
+  formula: string;
+  taxes: TaxOverviewRow[];
+  history: TaxAmendment[];
+  review: Record<string, number>;
+}
+
+export interface ScheduleLineInfo {
+  hs_code: string;
+  national_code: string;
+  label: string;
+  unit: string;
+  row_number: number;
+  review: string[];
+  reference: { dd_raw?: string; dd_percent?: string | null; row?: number };
+  rates: Record<string, string>;
+}
+
+export interface CodeRate {
+  tax: string;
+  rate: string | null;
+  status: "known" | "unknown" | "none" | "export_only";
+  source: "schedule" | "amendment" | "none";
+  raw: string;
+  cell: string;
+  amendment: { sequence: number; effective_from: string; source_kind: string; source_reference: string; scope: string } | null;
+  note: string;
+}
+
+export interface CodeRates {
+  hs_code: string;
+  national_code: string;
+  label: string;
+  unit: string;
+  row_number: number | null;
+  date: string;
+  version: number;
+  notes: string[];
+  rates: CodeRate[];
+  cumulative_rate: string | null;
+  review: string[];
+  reference: ScheduleLineInfo["reference"];
+  subpositions: { national_code: string; label: string; row_number: number; review: string[] }[];
+  history: TaxAmendment[];
+  can_edit: boolean;
+}
+
+export interface AmendmentInput {
+  tax: string;
+  scope: "code" | "all";
+  hs_code: string;
+  national_code?: string;
+  rate: string;
+  effective_from: string;
+  source_kind: TaxAmendment["source_kind"];
+  source_reference: string;
+  reason: string;
+}
+
+export interface CalcTax {
+  code: string;
+  base_kind: TaxBaseKind;
+  base: string | null;
+  rate: string | null;
+  amount: string | null;
+  reason: string;
+  rate_status: CodeRate["status"];
+  source: CodeRate["source"];
+  cell: string;
+}
+
+export interface CalcArticle {
+  goods_line_id: string;
+  ordinal: number;
+  description: string;
+  hs_code: string;
+  code_status: "confirmed" | "stale" | "missing";
+  value: { xaf: string | null; invoice: string | null; freight: string | null; insurance: string | null; notes: string[] };
+  cumulative_rate: string | null;
+  taxes: CalcTax[];
+  total: string | null;
+  known_total: string | null;
+  unknown: string[];
+}
+
+export interface CaseCalculation {
+  warning: string;
+  demo: boolean;
+  mode: string;
+  rules_version: string;
+  taxes_version: number;
+  schedule: { label: string; source: string } | null;
+  date: string;
+  date_is_planned: boolean;
+  provisional: boolean;
+  provisional_reasons: string[];
+  pieces: Record<"freight" | "insurance", { document_id: string; title: string; amount: string | null; currency: string; xaf: string | null }[]>;
+  articles: CalcArticle[];
+  total_value: string | null;
+  global_taxes: CalcTax[];
+  totals: { total: string | null; known_total: string | null; by_tax: Record<string, string | null> };
+  notes: Record<string, string>;
+}
+
 export interface CaseDetail extends CaseSummary {
   revision: Revision;
 }
@@ -959,6 +1115,13 @@ export const api = {
   tariffRecord: (id: string) => request<RecordDetail>("GET", `/tariffs/records/${id}`),
   editions: () => request<Edition[]>("GET", "/tariffs/editions"),
   importRuns: () => request<Page<ImportRunInfo>>("GET", "/reference-imports"),
+  taxOverview: () => request<TaxOverview>("GET", "/fiscal/taxes"),
+  taxReview: (kind: string, page = 1) =>
+    request<{ count: number; page: number; results: ScheduleLineInfo[] }>("GET", `/fiscal/taxes/review/${kind}?page=${page}`),
+  codeRates: (code: string, national = "") =>
+    request<CodeRates>("GET", `/fiscal/rates?code=${encodeURIComponent(code)}${national ? `&national=${encodeURIComponent(national)}` : ""}`),
+  amendRate: (body: AmendmentInput) => request<TaxAmendment>("POST", "/fiscal/amendments", body),
+  caseCalculation: (caseId: string) => request<CaseCalculation>("GET", `/cases/${caseId}/calculation`),
   cases: (params: Record<string, string>) =>
     request<{ results: CaseSummary[]; states: [string, string][] }>(
       "GET",
