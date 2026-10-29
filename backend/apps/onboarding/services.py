@@ -215,8 +215,13 @@ def set_organization_active(*, organization: Organization, actor: User, active: 
 
 @transaction.atomic
 def update_organization_capacities(
-    *, organization: Organization, actor: User, max_users: int | None,
-    max_agencies: int | None, row_version: int, reason: str
+    *,
+    organization: Organization,
+    actor: User,
+    max_users: int | None,
+    max_agencies: int | None,
+    row_version: int,
+    reason: str,
 ) -> Organization:
     """Seul l'exploitant fixe les capacités ; aucune donnée métier n'est lue ou renvoyée."""
     organization = Organization.objects.select_for_update().get(pk=organization.pk)
@@ -225,11 +230,13 @@ def update_organization_capacities(
     used = seats_used(organization)  # membres actifs ET invitations encore valides
     agencies = Agency.objects.for_organization(organization).filter(active=True).count()
     if max_users is not None and max_users < used:
-        raise ApiError("SEATS_IN_USE", "La limite ne peut pas être inférieure aux places utilisées.", 409,
-                       {"used": used})
+        raise ApiError(
+            "SEATS_IN_USE", "La limite ne peut pas être inférieure aux places utilisées.", 409, {"used": used}
+        )
     if max_agencies is not None and max_agencies < agencies:
-        raise ApiError("AGENCIES_IN_USE", "La limite ne peut pas être inférieure aux agences actives.", 409,
-                       {"used": agencies})
+        raise ApiError(
+            "AGENCIES_IN_USE", "La limite ne peut pas être inférieure aux agences actives.", 409, {"used": agencies}
+        )
     previous = {"max_users": organization.max_users, "max_agencies": organization.max_agencies}
     current = {"max_users": max_users, "max_agencies": max_agencies}
     if previous == current:
@@ -239,8 +246,13 @@ def update_organization_capacities(
     organization.row_version += 1
     organization.save(update_fields=["max_users", "max_agencies", "row_version", "updated_at"])
     record_event(
-        organization=organization, actor=actor, event_type="organization.capacities_changed",
-        entity=organization, previous=previous, current={**current, "reason": reason}, scope="platform",
+        organization=organization,
+        actor=actor,
+        event_type="organization.capacities_changed",
+        entity=organization,
+        previous=previous,
+        current={**current, "reason": reason},
+        scope="platform",
     )
     return organization
 
