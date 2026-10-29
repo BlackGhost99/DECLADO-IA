@@ -8,6 +8,7 @@ from apps.clients import api as clients
 from apps.document_graph import api as document_graph
 from apps.extraction import ai_settings_api as ai_settings
 from apps.extraction import api as extraction
+from apps.fiscal import api as fiscal
 from apps.localization import api as localization
 from apps.onboarding import api as onboarding
 from apps.organizations import api as organizations
@@ -91,6 +92,7 @@ urlpatterns = [
     path("cases/<uuid:case_id>/documents", cases.CaseDocumentsView.as_view()),
     path("cases/<uuid:case_id>/documents/reuse", cases.CaseDocumentReuseView.as_view()),
     path("cases/<uuid:case_id>/audit", cases.CaseAuditView.as_view()),
+    path("cases/<uuid:case_id>/calculation", fiscal.CaseCalculationView.as_view()),
     path("case-documents/<uuid:link_id>/replace", cases.CaseDocumentReplaceView.as_view()),
     path("revisions/<uuid:revision_id>", cases.RevisionDetailView.as_view()),
     path("revisions/<uuid:revision_id>/document-checklist", CaseDocumentChecklistView.as_view()),
@@ -134,6 +136,10 @@ urlpatterns = [
     path("documents/<uuid:document_id>/download", cases.DocumentDownloadView.as_view()),
     path("documents/<uuid:document_id>/preview", cases.DocumentPreviewView.as_view()),
     path("files/<str:token>/<str:name>", cases.FileView.as_view()),
+    path("fiscal/taxes", fiscal.TaxesOverviewView.as_view()),
+    path("fiscal/taxes/review/<str:kind>", fiscal.ReviewListView.as_view()),
+    path("fiscal/rates", fiscal.CodeRatesView.as_view()),
+    path("fiscal/amendments", fiscal.AmendmentListView.as_view()),
     path("tariffs/editions", tariffs.EditionListView.as_view()),
     path("tariffs/editions/<uuid:edition_id>/publish", tariffs.PublishEditionView.as_view()),
     path("tariffs/editions/<uuid:edition_id>/withdraw", tariffs.WithdrawEditionView.as_view()),

@@ -3,6 +3,7 @@ import {
   api,
   ApiError,
   type AuditEntry,
+  type CaseCalculation,
   type CaseDetail,
   type AIProposal,
   type AIState,
@@ -23,6 +24,7 @@ import { Controls, controlItems } from "./Controls";
 import { Divergences, ExtractionControls, Flags, LineEditor, OriginBadge, TotalsPanel } from "./Extraction";
 import { Icon, type IconName } from "./Icon";
 import { PdfViewer, type Highlight } from "./PdfViewer";
+import { CalcLinesTable, CalcTaxesTable, useCaseCalculation, xaf } from "./Taxes";
 import { DocumentChecklist } from "./DocumentChecklist";
 import { DocumentIntelligencePanel } from "./DocumentIntelligencePanel";
 import { ProposalsPanel } from "./Proposals";
@@ -1962,15 +1964,6 @@ function GoodsCard({
 
 // ---- Calculs, validation, export : ce qui existe, et ce qui manque encore -----------------------
 
-/** Taxes habituelles d'une importation au Gabon : leurs taux ne sont affichés qu'une fois vérifiés. */
-const TAXES: [string, MessageKey][] = [
-  ["DD", "tax.DD"],
-  ["TCI", "tax.TCI"],
-  ["CCI", "tax.CCI"],
-  ["RS", "tax.RS"],
-  ["TVA", "tax.TVA"],
-];
-
 const unknown = (text = tr("value.unknownM")) => <em className="muted">{text}</em>;
 
 /** Montant par devise, sur toutes les factures ; null si une facture ne fournit pas la valeur. */
@@ -2022,6 +2015,10 @@ function SideAlerts({ detail, go }: { detail: CaseDetail; go: (tab: string) => v
 
 function Calculation({ detail, go }: { detail: CaseDetail; go: (tab: string) => void }) {
   const revision = detail.revision;
+  const { data: calc, failed } = useCaseCalculation(detail.id, detail);
+  const totalTaxes = calc?.totals.total ?? null;
+  const knownTotal = calc?.totals.known_total && calc.totals.known_total !== "0" ? calc.totals.known_total : null;
+  const freightInsurance = calc ? sumPieces(calc) : null;
   const total = invoiceTotals(revision);
   const goodsValue = invoiceSum(revision, (i) => i.totals_check?.components.goods);
   const fees = invoiceSum(revision, (i) => i.totals_check?.components.fees);
@@ -2036,40 +2033,32 @@ function Calculation({ detail, go }: { detail: CaseDetail; go: (tab: string) => 
         <section className="card calc-card" aria-labelledby="calc-title">
           <div className="card-head">
             <h2 id="calc-title" className="card-title">{tr("calc.title")}</h2>
-            <span className="calc-currency">{tr("calc.currencyNote", { cur: "" })}<strong>{tr("calc.invoiceCurrency")}</strong></span>
+            <span className="calc-currency">{tr("calc.currencyNote", { cur: "" })}<strong>{calc ? "FCFA" : tr("calc.invoiceCurrency")}</strong></span>
           </div>
           <div className="stats stats-4 flat calc-stats">
             <StatCard icon="box" tone="green" label={tr("calc.goodsValue")} value={goodsValue || tr("calc.unknownF")} hint={tr("calc.goodsValueHint")} />
             <StatCard icon="truck" tone="blue" label={tr("calc.fees")} value={fees || tr("calc.unknownPl")} hint={tr("calc.feesHint")} />
             <StatCard icon="file" tone="blue" label={tr("calc.invoiceTotal")} value={total || tr("value.unknownM")} hint={incoterms ? tr("calc.printedWith", { inc: incoterms }) : tr("calc.printedTotal")} />
-            <StatCard icon="calculator" tone="gray" label={tr("calc.base")} value={tr("calc.notCalculatedF")} hint={tr("calc.customsValue")} />
+            <StatCard
+              icon="calculator"
+              tone={calc?.total_value ? "green" : "gray"}
+              label={tr("calc.base")}
+              value={calc?.total_value ? `${xaf(calc.total_value)} FCFA` : tr("calc.notCalculatedF")}
+              hint={calc?.provisional && calc.total_value ? tr("fx.provisionalValue") : tr("calc.customsValue")}
+            />
           </div>
           <h3 className="calc-h3">{tr("calc.taxesTitle")}</h3>
-          <div className="table-wrap">
-            <table className="data calc-taxes">
-              <thead>
-                <tr><th scope="col">{tr("col.code")}</th><th scope="col">{tr("col.label")}</th><th scope="col">{tr("col.rate")}</th><th scope="col">{tr("calc.base")}</th><th scope="col" className="num">{tr("col.amountPlain")}</th></tr>
-              </thead>
-              <tbody>
-                {TAXES.map(([code, label]) => (
-                  <tr key={code}>
-                    <td><strong>{code}</strong></td>
-                    <td>{tr(label)}</td>
-                    <td>{unknown(tr("calc.notVerified"))}</td>
-                    <td>{unknown(tr("calc.notCalculatedF"))}</td>
-                    <td className="num">—</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {calc ? <CalcTaxesTable calc={calc} /> : <p className="muted">{failed ? tr("fx.loadError") : tr("loading")}</p>}
           <div className="total-band">
             <span>{tr("calc.totalTaxes")}</span>
-            <strong>{tr("calc.notCalculatedM")}</strong>
+            <strong>
+              {totalTaxes !== null ? `${xaf(totalTaxes)} FCFA` : knownTotal ? `${xaf(knownTotal)} FCFA` : tr("calc.notCalculatedM")}
+              {totalTaxes === null && knownTotal && <span className="tx-prov small"> {tr("fx.incomplete")}</span>}
+              {totalTaxes !== null && calc?.provisional && <span className="tx-prov small"> {tr("fx.provisional")}</span>}
+            </strong>
           </div>
-          <p className="calc-note">
-            <Icon name="info" size={15} /> {tr("calc.engineNote")}
-          </p>
+          {calc && <CalcNotes calc={calc} />}
+          {calc && calc.articles.length > 0 && <CalcLinesTable calc={calc} />}
           <div className="calc-bottom">
           <section aria-labelledby="recap-title">
             <h2 id="recap-title" className="calc-h3">{tr("calc.recap")}</h2>
@@ -2077,13 +2066,13 @@ function Calculation({ detail, go }: { detail: CaseDetail; go: (tab: string) => 
               <div><dt>{tr("calc.goodsValueLines")}</dt><dd>{goodsValue || unknown()}</dd></div>
               <div><dt>{tr("calc.fees")}</dt><dd>{fees || unknown()}</dd></div>
               <div><dt>{tr("calc.printedInvoiceTotal")}</dt><dd>{total || unknown()}</dd></div>
-              <div><dt>{tr("calc.freightInsurance")}</dt><dd>{unknown(tr("calc.toConfirm"))}</dd></div>
-              <div><dt>{tr("calc.customsValueCap")}</dt><dd>{unknown(tr("calc.notCalculatedF"))}</dd></div>
-              <div><dt>{tr("calc.totalTaxesShort")}</dt><dd>{unknown(tr("calc.notCalculatedM"))}</dd></div>
+              <div><dt>{tr("calc.freightInsurance")}</dt><dd>{freightInsurance ? `${xaf(freightInsurance)} FCFA` : unknown(tr("calc.toConfirm"))}</dd></div>
+              <div><dt>{tr("calc.customsValueCap")}</dt><dd>{calc?.total_value ? `${xaf(calc.total_value)} FCFA` : unknown(tr("calc.notCalculatedF"))}</dd></div>
+              <div><dt>{tr("calc.totalTaxesShort")}</dt><dd>{totalTaxes !== null ? `${xaf(totalTaxes)} FCFA` : unknown(tr("calc.notCalculatedM"))}</dd></div>
             </dl>
             <div className="total-band">
               <span>{tr("calc.totalToPay")}</span>
-              <strong>{tr("calc.notCalculatedM")}</strong>
+              <strong>{totalTaxes !== null ? `${xaf(totalTaxes)} FCFA` : tr("calc.notCalculatedM")}</strong>
             </div>
           </section>
           <section className="calc-more" aria-labelledby="more-title">
@@ -2105,6 +2094,40 @@ function Calculation({ detail, go }: { detail: CaseDetail; go: (tab: string) => 
         <SideAlerts detail={detail} go={go} />
         <ValidationActions detail={detail} go={go} />
       </div>
+    </div>
+  );
+}
+
+/** Fret et assurance ajoutés à la valeur, en FCFA ; null si rien n'est ajouté. */
+function sumPieces(calc: CaseCalculation): string | null {
+  const parts = calc.articles.flatMap((a) => [a.value.freight, a.value.insurance]).filter((v): v is string => !!v);
+  return parts.length ? String(parts.reduce((a, v) => a + Number(v), 0)) : null;
+}
+
+function CalcNotes({ calc }: { calc: CaseCalculation }) {
+  const complete = calc.totals.total !== null;
+  return (
+    <div className="calc-note-stack">
+      {calc.provisional && (
+        <p className="note-amber small" role="note">
+          <Icon name="info" size={15} /> <strong>{tr("fx.provisionalCap")}</strong> : {calc.provisional_reasons.join(" ")}{" "}
+          {calc.articles.some((a) => a.value.notes.length) && tr("fx.seeLines")}
+        </p>
+      )}
+      {!complete && calc.totals.known_total && calc.totals.known_total !== "0" && (
+        <p className="note-amber small" role="note">
+          {tr("fx.partial", { amount: `${xaf(calc.totals.known_total)} FCFA` })}
+        </p>
+      )}
+      <p className="calc-note">
+        <Icon name="info" size={15} />{" "}
+        {tr("fx.calcNote", {
+          version: calc.taxes_version,
+          schedule: calc.schedule?.label ?? tr("fx.noSchedule"),
+          date: fmtDate(calc.date),
+        })}{" "}
+        {calc.notes.TCI && tr("fx.tciNote")} {tr("fx.internalNote")}
+      </p>
     </div>
   );
 }

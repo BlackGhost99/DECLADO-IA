@@ -26,7 +26,8 @@
 #   -Branche <nom>      branche du dépôt (défaut : main)
 #   -Demo               ajoute les comptes et le référentiel de démonstration (fictifs, marqués comme tels)
 #   -ImporterTarif <fichier>  importe un tarif (.xlsx ou .csv) et le publie en consultation :
-#                       il devient cherchable, jamais utilisé pour un calcul. À lancer une seule
+#                       il devient cherchable. Un classeur « Tarif CEMAC SWD » (DDI, TVA, TCI...
+#                       en colonnes) devient aussi le barème des taxes du calcul. À lancer une
 #                       fois, après la mise en service (il faut le compte de l'exploitant)
 #   -LibelleTarif <nom> nom de l'édition importée (défaut : nom du fichier)
 
@@ -473,6 +474,10 @@ with open(sys.argv[1], "x", encoding="ascii") as fichier:
                 ".csv" { "import_tariff_csv" }
                 default { throw "Format de tarif non pris en charge : $extension (attendu .xlsx ou .csv)" }
             }
+            # Classeur « Tarif CEMAC SWD » (une colonne par taxe) : il apporte aussi le barème des taxes.
+            if ($extension -eq ".xlsx" -and ((& $python manage.py is_swd_workbook $fichierTarif) -eq "oui")) {
+                $commande = "import_tax_schedule"
+            }
             $libelle = if ($LibelleTarif) { $LibelleTarif } else { [IO.Path]::GetFileNameWithoutExtension($fichierTarif) }
             # Vérifié avant l'import pour ne pas laisser un brouillon orphelin à chaque essai.
             & $python manage.py publish_tariff_edition --label $libelle --check-actor
@@ -482,6 +487,9 @@ with open(sys.argv[1], "x", encoding="ascii") as fichier:
             Executer $python @("manage.py", $commande, $fichierTarif, "--label", $libelle) "Import du tarif impossible"
             Executer $python @("manage.py", "publish_tariff_edition", "--label", $libelle) "Publication du tarif impossible"
             Info "Tarif « $libelle » cherchable dans Référentiel › Recherche (consultation seulement)."
+            if ($commande -eq "import_tax_schedule") {
+                Info "Taxes et taux du classeur actifs dans Référentiel › Taxes et règles (modifiables par l'admin ClairTransit seulement)."
+            }
         }
         if ($Demo -and -not (Etape-Faite "demo")) {
             Titre "Données de démonstration (fictives)"

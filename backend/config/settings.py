@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "apps.extraction",
     "apps.scans",
     "apps.onboarding",
+    "apps.fiscal",
 ]
 
 MIDDLEWARE = [

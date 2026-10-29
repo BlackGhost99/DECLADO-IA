@@ -11,6 +11,7 @@ import {
 } from "./api";
 import { Icon } from "./Icon";
 import { tr, type MessageKey } from "./i18n";
+import { CodeTaxes, TaxesPanel } from "./Taxes";
 import { Chip, fmtDate, PageHeader, StatCard, type Tone } from "./ui";
 
 const QUALITY: Record<string, MessageKey> = { known: "originRead", unknown: "unknownBlank", unparseable: "notNumeric" };
@@ -232,7 +233,9 @@ function NodePanel({ detail, onOpen }: { detail: NodeDetail; onOpen: (id: string
         </dd>
       </dl>
 
-      <h3>{tr("ref.taxesRates")}</h3>
+      <CodeTaxes code={detail.code} />
+
+      <h3>{tr("fx.sourceValues")}</h3>
       {detail.rate_observations.items.length === 0 ? (
         <p className="muted small">{tr("ref.noValue")}</p>
       ) : (
@@ -402,6 +405,7 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
           </button>
         ))}
       </div>
+      {tab !== "taxes" && (
       <div className="stats stats-3">
         <StatCard
           icon="file"
@@ -419,6 +423,7 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
           hint={lines ? (operational ?? latest)?.label : canSeeImports ? tr("ref.noImport") : tr("ref.managerOnly")}
         />
       </div>
+      )}
 
       {tab === "tarif" && (
         <>
@@ -437,33 +442,7 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
         </>
       )}
 
-      {tab === "taxes" && (
-        <section className="card" aria-labelledby="taxes-title">
-          <h2 id="taxes-title" className="card-title">{tr("ref.taxesRules")}</h2>
-          <p className="note-amber small">
-            {tr("ref.noRules")}
-          </p>
-          <div className="table-wrap">
-            <table className="data">
-              <thead>
-                <tr><th scope="col">{tr("ref.code")}</th><th scope="col">{tr("ref.tax")}</th><th scope="col">{tr("ref.base")}</th><th scope="col">{tr("ref.rate")}</th><th scope="col">{tr("ref.source")}</th><th scope="col">{tr("ref.state")}</th></tr>
-              </thead>
-              <tbody>
-                {TAX_RULES.map(([code, name, base]) => (
-                  <tr key={code}>
-                    <td><strong>{code}</strong></td>
-                    <td>{tr(name)}</td>
-                    <td className="small">{tr(base)}</td>
-                    <td><em className="muted">{tr("ref.notEntered")}</em></td>
-                    <td><em className="muted">{tr("ref.toProvide")}</em></td>
-                    <td><Chip tone="gray">{tr("ref.toDefine")}</Chip></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+      {tab === "taxes" && <TaxesPanel />}
 
       {tab === "versions" && (
       <section className="card" aria-labelledby="editions-title">
@@ -537,11 +516,3 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
     </>
   );
 }
-
-const TAX_RULES: [string, MessageKey, MessageKey][] = [
-  ["DD", "tax.DD", "base.cif"],
-  ["TCI", "tax.TCI", "base.value"],
-  ["CCI", "tax.CCI", "base.value"],
-  ["RS", "tax.RS", "base.value"],
-  ["TVA", "tax.TVA", "base.valueDuties"],
-];
