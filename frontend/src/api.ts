@@ -129,10 +129,19 @@ export interface PlatformOrganization {
   active: boolean;
   is_demo: boolean;
   max_users: number | null;
+  max_agencies: number | null;
+  row_version: number;
   members: number;
+  agencies: number;
   pending_invitations: number;
   admin_invitation: Invitation | null;
   created_at: string;
+}
+
+export interface PlatformCompanyDetail extends PlatformOrganization {
+  administrators: { full_name: string; email: string; active: boolean; mfa_enabled: boolean }[];
+  history: { id: string; at: string; event_type: string; actor: string | null;
+    previous: Record<string, unknown> | null; current: Record<string, unknown> | null }[];
 }
 
 export interface NewOrganizationInput {
@@ -935,6 +944,9 @@ export const api = {
   refuseAccessRequest: (id: string, note: string) =>
     request<AccessRequestInfo>("POST", `/platform/access-requests/${id}/refuse`, { note }),
   platformOrganizations: () => request<PlatformOrganization[]>("GET", "/platform/organizations"),
+  platformCompany: (id: string) => request<PlatformCompanyDetail>("GET", `/platform/organizations/${id}`),
+  updateCompanyCapacities: (id: string, data: { max_users: number | null; max_agencies: number | null; row_version: number; reason: string }) =>
+    request<PlatformCompanyDetail>("PATCH", `/platform/organizations/${id}`, data),
   createOrganization: (data: NewOrganizationInput) =>
     request<{ organization_id: string; invitation: Invitation }>("POST", "/platform/organizations", data),
   setOrganizationState: (id: string, action: "suspend" | "reactivate") =>
