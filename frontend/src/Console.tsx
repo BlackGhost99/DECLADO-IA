@@ -23,6 +23,7 @@ export function Console({ view }: { view: "home" | "requests" }) {
   const [issued, setIssued] = useState<IssuedLink | null>(null);
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [showAI, setShowAI] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const load = () => {
@@ -54,7 +55,6 @@ export function Console({ view }: { view: "home" | "requests" }) {
       </PageHeader>
       {error && <p role="alert" className="error">⚠ {error}</p>}
       {issued && <ActivationLink {...issued} />}
-      {view === "home" && <PlatformAIPanel />}
       {view === "home" && organizations && <CompanyStats items={organizations} />}
       {(view === "requests" || requests === null || requests.length > 0) && (
         <Requests
@@ -87,6 +87,18 @@ export function Console({ view }: { view: "home" | "requests" }) {
             act(async () => issue(tr("con.linkFor", { name: inv.full_name || inv.email }), await api.renewAdminInvitation(inv.id)))
           }
         />
+      )}
+      {view === "home" && (
+        <section className="card" aria-label={tr("ai.platformTitle")}>
+          <div className="console-section-heading">
+            <h2 className="card-title">{tr("ai.platformTitle")}</h2>
+            <button type="button" className="btn-outline-small" aria-expanded={showAI}
+              aria-controls="console-ai-settings" onClick={() => setShowAI((value) => !value)}>
+              {tr(showAI ? "con.closeDetails" : "con.manage")}
+            </button>
+          </div>
+          {showAI && <div id="console-ai-settings"><PlatformAIPanel /></div>}
+        </section>
       )}
     </>
   );
