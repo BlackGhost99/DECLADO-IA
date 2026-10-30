@@ -126,6 +126,7 @@ def test_t21_bases_follow_the_rules_and_each_tax_is_rounded_up():
     )
     amounts = {t.code: t.amount for t in article.amounts}
     assert (amounts["DDI"], amounts["TVA"], article.total) == (Decimal("10000"), Decimal("19800"), Decimal("29800"))
+    assert article.other_accounts == {"TCI": Decimal("0")}
     assert {t.code: t.base for t in article.amounts}["TVA"] == Decimal("110000")
 
 
@@ -136,8 +137,8 @@ def test_real_declaration_amounts_are_reproduced_to_the_franc():
     amounts = {t.code: t.amount for t in article.amounts}
     expected = {"DDI": 54907, "TVA": 108716, "TCI": 5491, "CCI": 2197, "OAD": 275, "CSS": 6040, "CAF": 1099}
     assert {k: amounts[k] for k in expected} == {k: Decimal(v) for k, v in expected.items()}
-    # Total de l'article sur la déclaration (TCI à part) : 173 234.
-    assert article.total - amounts["TCI"] == Decimal("173234")
+    # Total de l'article sur la déclaration : 173 234, la TCI (compte 2) à part.
+    assert article.total == Decimal("173234") and article.other_accounts == {"TCI": Decimal("5491")}
 
 
 def test_t22_unknown_rate_is_not_zero_and_blocks_the_total():
@@ -145,7 +146,7 @@ def test_t22_unknown_rate_is_not_zero_and_blocks_the_total():
     article = engine.compute_article(Decimal("1000"), rates)
     amounts = {t.code: t.amount for t in article.amounts}
     assert amounts["TVA"] is None and amounts["DDI"] == Decimal("100") and article.total is None
-    assert "TVA" in article.unknown and article.known_total == Decimal("110")
+    assert "TVA" in article.unknown and article.known_total == Decimal("100")  # la TCI est au compte 2
     # Un DDI inconnu rend inconnues les taxes calculées sur valeur + DDI.
     article = engine.compute_article(Decimal("1000"), {"DDI": None, "DA": Decimal("0"), "TVA": Decimal("18")})
     tva = next(t for t in article.amounts if t.code == "TVA")
@@ -217,18 +218,19 @@ def test_t69_only_the_platform_admin_amends_a_rate_and_it_is_dated_and_audited(w
         TaxAmendment.objects.get().save()
 
 
-def test_redevance_is_set_for_all_codes_and_a_later_amendment_wins(world, schedule, manager, session):
+def test_single_rate_for_all_codes_and_a_later_amendment_wins(world, schedule, manager, session):
     s = session(manager.email)
-    assert amend(s, tax="RI", hs_code="", rate="0.5").status_code == 201
+    # La redevance informatique est calculée par SYDONIA : aucun taux à saisir.
+    assert amend(s, tax="RI", hs_code="", rate="0.5").status_code == 400
     assert amend(s, tax="TVA", scope="all", hs_code="", rate="19").status_code == 201
     assert amend(s, tax="TVA", rate="5").status_code == 201
     rates = rates_for("42010000").rates
-    assert rates["RI"].rate == Decimal("0.5") and rates["TVA"].rate == Decimal("5")
+    assert rates["RI"].rate is None and rates["TVA"].rate == Decimal("5")
     assert rates_for("01012100").rates["TVA"].rate == Decimal("19")
     overview = s.get("/api/v1/fiscal/taxes").json()
-    assert overview["version"] == 4 and overview["can_edit"] is True
+    assert overview["version"] == 3 and overview["can_edit"] is True
     ri = next(t for t in overview["taxes"] if t["code"] == "RI")
-    assert ri["status"] == "set" and ri["common_rate"] == "0.5"
+    assert ri["status"] == "sydonia" and ri["common_rate"] is None and "SYDONIA" in ri["note"]
     assert amend(s, tax="DSO").status_code == 400
 
 
@@ -307,10 +309,13 @@ def test_t70_case_calculation_shows_each_tax_with_base_rate_and_cell(world, sche
     assert (taxes["DDI"]["amount"], taxes["DDI"]["rate"], taxes["DDI"]["cell"]) == ("54907", "10", "G3")
     assert (taxes["TVA"]["base"], taxes["TVA"]["amount"]) == ("603977", "108716")
     assert taxes["DA"]["rate_status"] == "none" and taxes["DA"]["amount"] == "0"
-    assert article["total"] == "178725" and body["provisional"] is False
-    # Redevance informatique sans taux saisi : total de la déclaration absent, somme connue affichée.
-    assert body["totals"]["total"] is None and body["totals"]["known_total"] == "178725"
-    assert body["global_taxes"][0]["code"] == "RI" and body["global_taxes"][0]["amount"] is None
+    # Total de l'article comme sur la déclaration : 173 234 ; la TCI (compte 2) est à part.
+    assert article["total"] == "173234" and article["other_accounts"] == {"TCI": "5491"}
+    assert body["provisional"] is False
+    # Redevance informatique calculée par SYDONIA : ni montant ici, ni total « incomplet » pour elle.
+    assert body["totals"]["total"] == "173234" and body["totals"]["other_accounts"] == {"TCI": "5491"}
+    ri = body["global_taxes"][0]
+    assert ri["code"] == "RI" and ri["amount"] is None and ri["reason"] == "Calculée par SYDONIA."
     assert body["rules_version"] == rules.RULES_VERSION and body["taxes_version"] == 1
 
 

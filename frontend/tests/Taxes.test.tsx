@@ -33,7 +33,7 @@ function overview(canEdit: boolean): TaxOverview {
       row("DDI", { distinct: 4, values: [["10", 5], ["30", 4], ["20", 2], ["5", 1]] }),
       row("DA", { base_kind: "value_ddi", distinct: 2, values: [["25", 3], ["40", 1]], empty_means_none: true, status: "from_schedule" }),
       row("TCI"),
-      row("RI", { scope: "declaration", common_rate: null, values: [], distinct: 0, status: "to_confirm" }),
+      row("RI", { scope: "declaration", common_rate: null, values: [], distinct: 0, status: "sydonia" }),
       row("DSO", { values: [["3", 2], ["7.5", 1]], distinct: 2, status: "export_only" }),
     ],
     history: [], review: { tec_difference: 1, empty_tax: 2, national_subposition: 3 },
@@ -47,7 +47,7 @@ describe("Taxes et règles", () => {
     const table = await screen.findByRole("table");
     expect(within(table).getByText("Droit de douane import").closest("tr")).toHaveTextContent("5 à 30 % selon le code");
     expect(within(table).getByText("Droit d'accise").closest("tr")).toHaveTextContent("valeur + DDI");
-    expect(within(table).getByText("Redevance informatique").closest("tr")).toHaveTextContent("taux à confirmer");
+    expect(within(table).getByText("Redevance informatique").closest("tr")).toHaveTextContent("calculée par SYDONIA");
     expect(within(table).getByText("Droit de sortie").closest("tr")).toHaveTextContent("Export seulement");
     expect(screen.queryByRole("button", { name: "Modifier" })).toBeNull();
     expect(screen.getByText(/Seul l'admin ClairTransit modifie un taux/)).toBeInTheDocument();
@@ -111,7 +111,8 @@ describe("Calcul d'un dossier", () => {
     expect(within(taxes).getByText("Droit de douane import").closest("tr")).toHaveTextContent("54 907 FCFA");
     expect(within(taxes).getByText("Taxe sur la valeur ajoutée").closest("tr")).toHaveTextContent("Taux inconnu.");
     expect(within(taxes).getByText("Droit d'accise").closest("tr")).toHaveTextContent("pas d'accise");
-    expect(within(taxes).getByText("Redevance informatique").closest("tr")).toHaveTextContent("Taux à saisir");
+    expect(within(taxes).getByText("Redevance informatique").closest("tr")).toHaveTextContent("calculée par SYDONIA");
+    expect(within(taxes).getByText("Taxe communautaire d'intégration").closest("tr")).toHaveTextContent("5 491 FCFAcompte 2, hors total");
     const article = within(lines).getByText("Selles fictives").closest("tr") as HTMLElement;
     expect(article).toHaveTextContent("4201.00.00");
     expect(article).toHaveTextContent("549 070");

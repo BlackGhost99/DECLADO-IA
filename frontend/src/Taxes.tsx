@@ -18,7 +18,7 @@ import { Chip, fmtAmount, fmtDate, StatCard, type Tone } from "./ui";
 
 /** Taxes à l'importation, dans l'ordre du calcul ; la redevance est globale, le droit de sortie hors import. */
 export const TAX_CODES = ["DDI", "DA", "TVA", "TCI", "CCI", "OAD", "CSS", "CAF", "RI", "DSO"] as const;
-const AMENDABLE = ["DDI", "DA", "TVA", "TCI", "CCI", "OAD", "CSS", "CAF", "RI"] as const;
+const AMENDABLE = ["DDI", "DA", "TVA", "TCI", "CCI", "OAD", "CSS", "CAF"] as const;
 const SINGLE_RATE = new Set(["TCI", "CCI", "OAD", "CSS", "CAF", "RI"]);
 const REVIEW_KINDS = ["tec_difference", "empty_tax", "national_subposition"] as const;
 
@@ -39,6 +39,7 @@ function rateRange(row: TaxOverviewRow): string {
 }
 
 function rateText(row: TaxOverviewRow) {
+  if (row.status === "sydonia") return tr("fx.bySydonia");
   if (row.status === "to_confirm") return unknown(tr("fx.toConfirmRate"));
   if (row.amendment && row.amendment.scope === "all") return pct(row.amendment.rate);
   if (row.status === "export_only") return tr("fx.exportCodes", { range: rateRange(row), n: row.values.reduce((a, [, n]) => a + n, 0) });
@@ -56,6 +57,7 @@ const STATUS: Record<TaxOverviewRow["status"], [Tone, MessageKey]> = {
   to_confirm: ["gray", "fx.st.toConfirm"],
   set: ["green", "fx.st.set"],
   export_only: ["gray", "fx.st.exportOnly"],
+  sydonia: ["gray", "fx.st.sydonia"],
 };
 
 const SOURCES: Record<TaxAmendment["source_kind"], MessageKey> = {
@@ -148,7 +150,7 @@ export function TaxesPanel() {
                     </td>
                     <td><Chip tone={tone}>{tr(label)}</Chip></td>
                     <td>
-                      {data.can_edit && row.status !== "export_only" && schedule && (
+                      {data.can_edit && row.status !== "export_only" && row.status !== "sydonia" && schedule && (
                         <button type="button" className="btn-outline-small" onClick={() => setEditing({ tax: row.code })}>
                           {tr("fx.edit")}
                         </button>
@@ -534,7 +536,7 @@ export function useCaseCalculation(caseId: string, key: unknown) {
 /** Taux d'une taxe sur toutes les lignes : un seul taux, ou « 10 % ou 18 % selon la ligne ». */
 function ratesAcross(calc: CaseCalculation, code: string): string | null {
   const taxes = calc.articles.map((a) => a.taxes.find((t) => t.code === code)).filter((t): t is CalcTax => !!t);
-  if (code === "RI") return calc.global_taxes[0]?.rate ? pct(calc.global_taxes[0].rate) : null;
+  if (code === "RI") return tr("fx.bySydonia");
   if (taxes.some((t) => t.rate === null)) return null;
   if (taxes.length && taxes.every((t) => t.rate_status === "none")) return tr("fx.noExcise");
   const distinct = [...new Set(taxes.map((t) => t.rate as string))].sort((a, b) => Number(a) - Number(b));
@@ -568,7 +570,8 @@ export function CalcTaxesTable({ calc }: { calc: CaseCalculation }) {
                 <td>{rate ?? unknown(code === "RI" ? tr("fx.toConfirmRate") : tr("fx.unknownRate"))}</td>
                 <td>{code === "RI" ? tr("fx.perDeclaration") : baseName((calc.articles[0]?.taxes.find((t) => t.code === code)?.base_kind ?? "value") as TaxBaseKind)}</td>
                 <td className="num">
-                  {amount !== null && amount !== undefined ? `${xaf(amount)} FCFA` : unknown(reason || tr("fx.unknownAmount"))}
+                  {code === "RI" ? unknown(tr("fx.bySydonia")) : amount !== null && amount !== undefined ? `${xaf(amount)} FCFA` : unknown(reason || tr("fx.unknownAmount"))}
+                  {code === "TCI" && <span className="block muted small">{tr("fx.account2")}</span>}
                 </td>
               </tr>
             );
@@ -580,7 +583,7 @@ export function CalcTaxesTable({ calc }: { calc: CaseCalculation }) {
 }
 
 export function CalcLinesTable({ calc }: { calc: CaseCalculation }) {
-  const other = ["TCI", "CCI", "OAD", "CSS", "CAF"];
+  const other = ["CCI", "OAD", "CSS", "CAF"];  // la TCI (compte 2) n'entre pas dans le total
   const sum = (taxes: CalcTax[], codes: string[]) => {
     const picked = taxes.filter((t) => codes.includes(t.code));
     return picked.some((t) => t.amount === null) ? null : String(picked.reduce((a, t) => a + Number(t.amount), 0));

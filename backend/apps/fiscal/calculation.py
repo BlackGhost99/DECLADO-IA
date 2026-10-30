@@ -206,6 +206,7 @@ def case_calculation(case) -> dict:
                 "total": _fmt(article.total),
                 "known_total": _fmt(article.known_total),
                 "unknown": article.unknown,
+                "other_accounts": {k: _fmt(v) for k, v in article.other_accounts.items()},
             }
         )
 
@@ -240,8 +241,9 @@ def case_calculation(case) -> dict:
             "total": _fmt(totals["total"]),
             "known_total": _fmt(totals["known_total"]),
             "by_tax": {k: _fmt(v) for k, v in totals["by_tax"].items()},
+            "other_accounts": {k: _fmt(v) for k, v in totals["other_accounts"].items()},
         },
-        "notes": {TaxCode.TCI: rules.NOTES[TaxCode.TCI]},
+        "notes": {TaxCode.TCI: rules.NOTES[TaxCode.TCI], TaxCode.RI: rules.NOTES[TaxCode.RI]},
     }
 
 

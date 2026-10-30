@@ -212,6 +212,8 @@ def create_amendment(*, actor, data: dict, territory: str = "GA") -> TaxAmendmen
     tax = (data.get("tax") or "").strip().upper()
     if tax not in TaxCode.values or tax in rules.EXPORT_ONLY:
         raise ApiError("VALIDATION_ERROR", "Taxe inconnue.", 400, {"field": "tax"})
+    if tax in rules.SYDONIA_TAXES:
+        raise ApiError("VALIDATION_ERROR", "Taxe calculée par SYDONIA : aucun taux à saisir.", 400, {"field": "tax"})
     scope = data.get("scope") or "code"
     hs_code = "".join(ch for ch in (data.get("hs_code") or "") if ch.isdigit())
     national = (data.get("national_code") or "").strip()
