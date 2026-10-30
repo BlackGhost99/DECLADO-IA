@@ -1661,6 +1661,29 @@ function GoodsTab({
   const checkAll = () => act(async () => {
     for (const g of targets) await api.checkCode(g.id, editionId);
   });
+  // Codes retrouvés dans le référentiel, contrôle à jour, pas encore confirmés : une décision motivée par marchandise.
+  const confirmable = targets.filter(
+    (g) =>
+      !g.decision?.is_current &&
+      g.latest_check?.is_current &&
+      g.latest_check.recognition_status === "recognized" &&
+      g.latest_check.human_confirmation === "pending",
+  );
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkReason, setBulkReason] = useState("");
+  const confirmAll = () =>
+    void act(async () => {
+      for (const g of confirmable)
+        await api.decide(g.id, {
+          action: "confirm",
+          code_check_id: g.latest_check!.id,
+          node_id: null,
+          reason: bulkReason.trim(),
+          goods_line_version: g.row_version,
+        });
+      setBulkReason("");
+      setBulkOpen(false);
+    });
 
   function toggle(id: string) {
     const next = new Set(checked);
@@ -1692,6 +1715,18 @@ function GoodsTab({
               <Icon name="search" size={18} /> {checked.size ? tr("goods.checkSelection", { n: checked.size }) : tr("goods.checkAll")}
             </button>
           )}
+          {editable && (
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={confirmable.length === 0}
+              title={confirmable.length === 0 ? tr("goods.confirmNone") : undefined}
+              aria-expanded={bulkOpen}
+              onClick={() => setBulkOpen(!bulkOpen)}
+            >
+              <Icon name="check" size={18} /> {tr("goods.confirmRecognized", { n: confirmable.length })}
+            </button>
+          )}
           <button type="button" className="btn-secondary" onClick={() => navigate("/recherche")}>
             <Icon name="book" size={18} /> {tr("goods.consultTariff")}
           </button>
@@ -1708,6 +1743,18 @@ function GoodsTab({
           </span>
         </div>
 
+        {editable && bulkOpen && confirmable.length > 0 && (
+          <form className="card decide-form bulk-confirm" onSubmit={(e) => { e.preventDefault(); confirmAll(); }}>
+            <p className="small">{tr("goods.confirmHelp", { n: confirmable.length, codes: confirmable.map((g) => g.latest_check!.node?.code_display ?? "").join(", ") })}</p>
+            <label>
+              {tr("gc.confirmReason")}
+              <input required value={bulkReason} maxLength={2000} onChange={(e) => setBulkReason(e.target.value)} placeholder={tr("gc.confirmPlaceholder")} />
+            </label>
+            <button type="submit" className="btn-primary" disabled={!bulkReason.trim()}>
+              <Icon name="check" size={18} /> {tr("goods.confirmRecognized", { n: confirmable.length })}
+            </button>
+          </form>
+        )}
         <section className="card goods-list" aria-labelledby="goods-title">
           <div className="card-head">
             <h2 id="goods-title" className="card-title">{tr("goods.listTitle", { n: goods.length })}</h2>

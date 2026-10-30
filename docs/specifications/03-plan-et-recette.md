@@ -181,6 +181,7 @@ Aucune fixture ne doit présenter un taux synthétique comme un taux gabonais r�
 | T74 | WF-02, WF-03, AUD-01 | Soumettre, retourner avec motif obligatoire, resoumettre puis valider : états, décisions journalisées en ajout seul, dossier non modifiable pendant la validation, calcul figé ensuite même si un taux change |
 | T75 | WF-02, WF-03, ACC-02 | Un déclarant soumet mais ne valide ni ne retourne (403) ; un taux modifié après la soumission bloque la validation (409) ; autre société : 404 |
 | T76 | WF-04, EXP-01, EXP-03 | Étapes du dossier : le calcul se coche quand un calcul complet a été soumis, l'export quand un fichier a été généré ; rien n'est compté fait sans cela
+| T77 | COD-03, COD-07, AUD-01 | « Confirmer les codes reconnus » : seules les marchandises dont le contrôle est à jour et le code retrouvé, non encore confirmé, sont proposées ; un motif obligatoire ; une décision attribuée et liée à son contrôle par marchandise
 
 Tests T01, T11, T20–T29, T31–T35 bloquants avant mise en service du périmètre correspondant. Les autres tests P0 restent obligatoires ; les exigences P1 peuvent être reportées explicitement dans une livraison réduite.
 

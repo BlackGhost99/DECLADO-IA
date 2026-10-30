@@ -709,3 +709,6 @@ input,select,textarea{min-height:39px;border-radius:7px;border-color:#dfe6e2}
 .export-history li:last-child { border-bottom: none; padding-bottom: 0; }
 .export-history .link-arrow { justify-content: flex-start; text-align: left; overflow-wrap: anywhere; }
 .export-history small { color: var(--muted); font-size: 0.78rem; }
+.bulk-confirm { display: grid; gap: 0.6rem; margin-bottom: 1rem; }
+.bulk-confirm label { display: grid; gap: 0.3rem; }
+.bulk-confirm .btn-primary { justify-self: start; }

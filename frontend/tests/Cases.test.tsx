@@ -164,6 +164,26 @@ describe("Dossiers", () => {
     });
   });
 
+  it("confirme en une fois les codes reconnus, avec un seul motif, une décision par marchandise", async () => {
+    document.cookie = "csrftoken=tok";
+    const fetchMock = mockApi();
+    render(<CaseDetailView caseId="c1" tab="marchandises" membership={membership} me={{ id: "u1" }} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmer les codes reconnus (1)" }));
+    expect(screen.getByText(/0101\.10\.00\./)).toBeInTheDocument();
+    const reason = screen.getAllByLabelText(/motif de la confirmation/i).find((el) => el.closest(".bulk-confirm"))!;
+    fireEvent.change(reason, { target: { value: "Codes conformes aux factures" } });
+    fireEvent.submit(reason.closest("form")!);
+    await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith("/decisions"))).toBe(true));
+    const call = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/decisions"))!;
+    expect(JSON.parse(String(call[1]!.body))).toEqual({
+      action: "confirm",
+      code_check_id: "chk1",
+      node_id: null,
+      reason: "Codes conformes aux factures",
+      goods_line_version: 3,
+    });
+  });
+
   it("réunit les manques et les codes à traiter dans les contrôles", async () => {
     mockApi();
     render(<CaseDetailView caseId="c1" tab="controles" membership={membership} me={{ id: "u1" }} />);
