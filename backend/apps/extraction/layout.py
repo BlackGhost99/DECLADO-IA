@@ -459,7 +459,7 @@ def _header_fields(pages: list[Page], table_rows: set[int], reader: _Reader) -> 
 
 # Références d'autres pièces imprimées sur la facture : elles servent au rapprochement (LEC-10).
 INVOICE_REFERENCES = {"related_bl": "Titre de transport cité", "purchase_order": "Bon de commande",
-                      "container": "Conteneur"}  # fmt: skip
+                      "container": "Conteneur", "country_of_origin": "Pays d'origine imprimé"}  # fmt: skip
 
 
 def _invoice_references(pages: list[Page], table_rows: set[int], reader: _Reader) -> dict[str, Value]:
@@ -467,6 +467,8 @@ def _invoice_references(pages: list[Page], table_rows: set[int], reader: _Reader
 
     labels = {name: KNOWN_LABELS[name] for name in INVOICE_REFERENCES}
     accept = dict.fromkeys(INVOICE_REFERENCES, _HAS_DIGIT.search)
+    # Un pays s'écrit sans chiffre : seul un nom ou un code reconnu est retenu, jamais deviné.
+    accept["country_of_origin"] = lambda text: parse_country(text).value is not None
     found = {}
     for name, hit in labelled_values(pages, labels, skip=table_rows, accept=accept).items():
         value = reader.value(hit.items, "text", INVOICE_REFERENCES[name], text=hit.text)

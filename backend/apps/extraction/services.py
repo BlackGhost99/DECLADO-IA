@@ -227,6 +227,10 @@ def execute(run_id) -> None:
         with transaction.atomic():
             if parsed.stats.get("reader", readers.INVOICE) == readers.INVOICE:
                 merge(run, parsed)
+                from apps.cases import autoprep
+
+                run.merge_report = run.merge_report | {"prepared": autoprep.after_invoice_read(run, run.invoice)}
+                run.save(update_fields=["merge_report", "updated_at"])
             else:
                 merge_fields(run, parsed)
             if outcome is not None:

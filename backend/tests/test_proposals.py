@@ -153,12 +153,12 @@ def test_proposals_become_stale_when_the_goods_change(case, edition):
 def test_short_path_after_extraction_goods_lines_then_confirm(case, edition):
     extracted(case, "facture.pdf", synthetic.simple_invoice_pdf())
     invoice = only_invoice(case)
-    resp = case["s"].post(f"/api/v1/invoices/{invoice['id']}/goods-lines", {})
-    assert resp.status_code == 201, resp.content
-    goods = resp.json()["results"]
+    # La lecture a préparé une marchandise par ligne facturée (préparation automatique).
+    goods = case["s"].get(f"/api/v1/revisions/{case['revision']}").json()["goods_lines"]
     assert [g["description"] for g in goods] == ["Chevaux reproducteurs fictifs", "Selles en cuir fictives"]
-    # Une seconde demande ne duplique rien : les lignes sont déjà rattachées.
-    assert case["s"].post(f"/api/v1/invoices/{invoice['id']}/goods-lines", {}).json()["results"] == []
+    # Le chemin court ne duplique rien : les lignes sont déjà rattachées.
+    resp = case["s"].post(f"/api/v1/invoices/{invoice['id']}/goods-lines", {})
+    assert resp.status_code == 201 and resp.json()["results"] == []
     result = check(case, goods[0], edition)
     assert result["recognition_status"] == "recognized" and result["observed_code"] == "0101.21.00"
     resp = case["s"].post(
