@@ -44,7 +44,10 @@ Nouvelle dépendance : `reportlab==4.4.10` (PDF généré sur le serveur, sans s
 - « Télécharger le dossier complet » (archive) et « Marquer comme exporté » restent désactivés ; le fichier pour SYDONIA attend la confirmation de son format.
 - Nouvelle révision : les lectures IA en ligne et le graphe documentaire ne sont pas recopiés ; relire une pièce dans la nouvelle révision repart de la pièce.
 
+## Suite : confirmation groupée des codes (T77)
+
+Onglet Marchandises, bouton « Confirmer les codes reconnus (n) » : il porte sur la sélection, ou sur toutes les marchandises sans sélection, et ne retient que les codes retrouvés dans le référentiel dont le contrôle est à jour et pas encore confirmé. Un seul motif, obligatoire, puis une décision par marchandise par l'API existante : chacune reste attribuée, motivée, liée à son contrôle et journalisée. Les codes incomplets, absents ou à revoir restent à traiter un par un.
+
 ## Prochaine étape
 
-1. Confirmer en masse les codes reconnus (un motif pour toutes les marchandises).
-2. Archive complète du dossier (pièces, exports, journal) et format SYDONIA quand il sera confirmé.
+1. Archive complète du dossier (pièces, exports, journal) et format SYDONIA quand il sera confirmé.
