@@ -50,6 +50,8 @@ describe("Console plateforme : gestion des sociétés", () => {
     expect(screen.getByText(/2 \/ 2/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Gérer" }));
     const input = await screen.findByRole("spinbutton", { name: "Limite d'utilisateurs" });
+    // La fiche chargée remplit le formulaire : attendre son arrivée avant de saisir, sinon elle écrase la saisie.
+    await screen.findByText("Admin Test");
     fireEvent.change(input, { target: { value: "5" } });
     fireEvent.change(screen.getByRole("textbox", { name: "Motif de la modification" }), {
       target: { value: "Demande du client par téléphone" },

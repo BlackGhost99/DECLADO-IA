@@ -5,6 +5,7 @@ from datetime import date
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.cases import workflow
 from apps.cases.api import CanEdit, get_case
 from apps.core.exceptions import ApiError
 
@@ -213,4 +214,8 @@ class CaseCalculationView(APIView):
 
     def get(self, request, case_id):
         case = get_case(request, case_id)
+        # Dossier validé : le calcul figé à la validation fait foi (WF-03), même si un taux change ensuite.
+        decision = workflow.validated_decision(case.current_revision)
+        if decision is not None:
+            return Response({**decision.snapshot["calculation"], "frozen": True, "frozen_at": decision.created_at})
         return Response(calculation.case_calculation(case))
