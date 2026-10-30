@@ -750,11 +750,20 @@ export interface GoodsLine {
   decision_count: number;
 }
 
+export interface RevisionDecision {
+  kind: "submitted" | "returned" | "validated";
+  kind_label: string;
+  actor: UserBrief;
+  reason: string;
+  created_at: string;
+}
+
 export interface Revision {
   id: string;
   revision_no: number;
   state: string;
   state_label: string;
+  decisions?: RevisionDecision[];
   mode: string;
   mode_label: string;
   territory: string;
@@ -932,6 +941,8 @@ export interface CalcArticle {
 
 export interface CaseCalculation {
   warning: string;
+  frozen?: boolean;
+  frozen_at?: string;
   demo: boolean;
   mode: string;
   rules_version: string;
@@ -1122,6 +1133,8 @@ export const api = {
     request<CodeRates>("GET", `/fiscal/rates?code=${encodeURIComponent(code)}${national ? `&national=${encodeURIComponent(national)}` : ""}`),
   amendRate: (body: AmendmentInput) => request<TaxAmendment>("POST", "/fiscal/amendments", body),
   caseCalculation: (caseId: string) => request<CaseCalculation>("GET", `/cases/${caseId}/calculation`),
+  workflow: (caseId: string, action: "submit" | "return" | "validate", row_version: number, reason = "") =>
+    request<CaseDetail>("POST", `/cases/${caseId}/workflow/${action}`, { row_version, reason }),
   cases: (params: Record<string, string>) =>
     request<{ results: CaseSummary[]; states: [string, string][] }>(
       "GET",

@@ -311,8 +311,8 @@ export function CaseDetailView({
           />
         )}
         {tab === "controles" && <Controls detail={detail} go={go} />}
-        {tab === "calculs" && <Calculation detail={detail} go={go} />}
-        {tab === "validation" && <ValidationPage detail={detail} go={go} />}
+        {tab === "calculs" && <Calculation detail={detail} membership={membership} act={act} go={go} />}
+        {tab === "validation" && <ValidationPage detail={detail} membership={membership} act={act} go={go} />}
         {tab === "export" && <ExportPage detail={detail} go={go} />}
         {tab === "historique" && <History caseId={detail.id} version={tick} />}
       </div>
@@ -2109,7 +2109,7 @@ function SideAlerts({ detail, go }: { detail: CaseDetail; go: (tab: string) => v
   );
 }
 
-function Calculation({ detail, go }: { detail: CaseDetail; go: (tab: string) => void }) {
+function Calculation({ detail, membership, act, go }: { detail: CaseDetail; membership: Membership; act: Act; go: (tab: string) => void }) {
   const revision = detail.revision;
   const { data: calc, failed } = useCaseCalculation(detail.id, detail);
   const totalTaxes = calc?.totals.total ?? null;
@@ -2131,6 +2131,7 @@ function Calculation({ detail, go }: { detail: CaseDetail; go: (tab: string) => 
             <h2 id="calc-title" className="card-title">{tr("calc.title")}</h2>
             <span className="calc-currency">{tr("calc.currencyNote", { cur: "" })}<strong>{calc ? "FCFA" : tr("calc.invoiceCurrency")}</strong></span>
           </div>
+          {calc?.frozen && calc.frozen_at && <p className="note-blue small">{tr("val.frozen", { date: fmtDateTime(calc.frozen_at) })}</p>}
           <div className="stats stats-4 flat calc-stats">
             <StatCard icon="box" tone="green" label={tr("calc.goodsValue")} value={goodsValue || tr("calc.unknownF")} hint={tr("calc.goodsValueHint")} />
             <StatCard icon="truck" tone="blue" label={tr("calc.fees")} value={fees || tr("calc.unknownPl")} hint={tr("calc.feesHint")} />
@@ -2188,7 +2189,7 @@ function Calculation({ detail, go }: { detail: CaseDetail; go: (tab: string) => 
       </div>
       <div className="section-side">
         <SideAlerts detail={detail} go={go} />
-        <ValidationActions detail={detail} go={go} />
+        <ValidationActions detail={detail} membership={membership} act={act} go={go} />
       </div>
     </div>
   );
@@ -2228,24 +2229,61 @@ function CalcNotes({ calc }: { calc: CaseCalculation }) {
   );
 }
 
-function ValidationActions({ detail, go }: { detail: CaseDetail; go: (tab: string) => void }) {
+export function ValidationActions({ detail, membership, act, go }: { detail: CaseDetail; membership: Membership; act: Act; go: (tab: string) => void }) {
+  const rev = detail.revision;
+  const [reason, setReason] = useState("");
+  const canSubmit = rev.is_editable && membership.roles.some((r) => r === "declarant" || r === "validator" || r === "org_admin");
+  const canDecide = rev.state === "to_validate" && membership.roles.some((r) => r === "validator" || r === "org_admin");
+  const blocking = rev.completeness.blocking.length;
+  const run = (action: "submit" | "return" | "validate") =>
+    void act(async () => {
+      await api.workflow(detail.id, action, rev.row_version, reason.trim());
+      setReason("");
+    });
   return (
     <section className="card" aria-labelledby="val-actions">
       <h2 id="val-actions" className="card-title">{tr("val.actions")}</h2>
       <div className="action-stack">
-        <button type="button" className="btn-primary btn-block btn-row" disabled>
-          <Icon name="check" /> <span>{tr("val.validateCase")}</span> <Icon name="arrowRight" />
-        </button>
-        <button type="button" className="btn-secondary btn-block btn-row" disabled>
-          <Icon name="message" /> <span>{tr("val.requestCorrection")}</span> <Icon name="arrowRight" />
-        </button>
+        {canSubmit && (
+          <button type="button" className="btn-primary btn-block btn-row" disabled={blocking > 0} onClick={() => run("submit")}>
+            <Icon name="upload" /> <span>{tr("val.submit")}<small>{blocking > 0 ? tr("pre.blockingN", { n: blocking }) : tr("val.submitHint")}</small></span> <Icon name="arrowRight" />
+          </button>
+        )}
+        {rev.state === "to_validate" && (canDecide ? (
+          <>
+            <label className="block small">
+              {tr("val.comment")}
+              <textarea rows={2} value={reason} maxLength={2000} onChange={(e) => setReason(e.target.value)} />
+            </label>
+            <button type="button" className="btn-primary btn-block btn-row" onClick={() => run("validate")}>
+              <Icon name="check" /> <span>{tr("val.validateCase")}</span> <Icon name="arrowRight" />
+            </button>
+            <button type="button" className="btn-secondary btn-block btn-row" disabled={!reason.trim()} onClick={() => run("return")}>
+              <Icon name="message" /> <span>{tr("val.requestCorrection")}<small>{tr("val.returnReason")}</small></span> <Icon name="arrowRight" />
+            </button>
+          </>
+        ) : (
+          <p className="muted small">{tr("val.waiting")} {tr("val.onlyValidator")}</p>
+        ))}
+        {rev.state === "validated" && <p className="note-blue small">{tr("val.done")}</p>}
         <button type="button" className="btn-secondary btn-block btn-row" onClick={() => go("export")}>
           <Icon name="upload" /> <span>{tr("val.prepareExport")}<small>{tr("val.prereqFiles")}</small></span> <Icon name="arrowRight" />
         </button>
       </div>
-      <p className="muted small">
-        {tr("val.circuit", { state: stateLabel(detail.revision.state, detail.revision.state_label).toLowerCase() })}
-      </p>
+      {(rev.decisions?.length ?? 0) > 0 && (
+        <>
+          <h3 className="extracted-sub">{tr("val.decisions")}</h3>
+          <ul className="small">
+            {rev.decisions!.map((d) => (
+              <li key={d.created_at + d.kind}>
+                {tr("val.decisionBy", { kind: d.kind_label, name: d.actor.full_name || d.actor.email, date: fmtDateTime(d.created_at) })}
+                {d.reason && <> : « {d.reason} »</>}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="muted small">{tr("val.circuit", { state: stateLabel(rev.state, rev.state_label) })}</p>
       <p className="note-blue small">{tr("val.internalOnly")}</p>
     </section>
   );
@@ -2260,7 +2298,7 @@ function prerequisites(detail: CaseDetail) {
   return [
     { ok: docs > 0, title: tr("pre.docs"), detail: tr("pre.docsDetail"), value: tr("step.pieces", { n: docs }), tab: "documents", link: tr("pre.seeDocs") },
     { ok: goods > 0 && decided === goods, title: tr("pre.classif"), detail: tr("pre.classifDetail"), value: `${decided} / ${goods}`, tab: "marchandises", link: tr("pre.seeClassif") },
-    { ok: null, title: tr("pre.calc"), detail: tr("pre.calcDetail"), value: tr("step.later"), tab: "calculs", link: tr("pre.seeCalc") },
+    { ok: rev.state === "validated" ? true : null, title: tr("pre.calc"), detail: tr("pre.calcDetail"), value: rev.state === "validated" ? tr("val.frozenShort") : tr("val.upToDate"), tab: "calculs", link: tr("pre.seeCalc") },
     { ok: blocking === 0, title: tr("pre.controls"), detail: tr("pre.controlsDetail"), value: blocking ? tr("pre.blockingN", { n: blocking }) : tr("sev.ok"), tab: "controles", link: tr("actions.seeControls") },
     { ok: rev.state === "validated", title: tr("pre.manager"), detail: tr("pre.managerDetail"), value: stateLabel(rev.state, rev.state_label), tab: "historique", link: tr("actions.seeHistory") },
   ] as { ok: boolean | null; title: string; detail: string; value: string; tab: string; link: string }[];
@@ -2437,7 +2475,7 @@ const CIRCUIT: [MessageKey, MessageKey, string[]][] = [
   ["circuit.internal", "circuit.internalText", ["validated", "archived"]],
 ];
 
-function ValidationPage({ detail, go }: { detail: CaseDetail; go: (tab: string) => void }) {
+function ValidationPage({ detail, membership, act, go }: { detail: CaseDetail; membership: Membership; act: Act; go: (tab: string) => void }) {
   return (
     <div className="grid-2-1">
       <div>
@@ -2456,7 +2494,7 @@ function ValidationPage({ detail, go }: { detail: CaseDetail; go: (tab: string) 
         </section>
       </div>
       <div>
-        <ValidationActions detail={detail} go={go} />
+        <ValidationActions detail={detail} membership={membership} act={act} go={go} />
         <SideAlerts detail={detail} go={go} />
       </div>
     </div>

@@ -88,6 +88,7 @@ urlpatterns = [
     path("cases", cases.CaseListView.as_view()),
     path("cases/<uuid:case_id>", cases.CaseDetailView.as_view()),
     path("cases/<uuid:case_id>/assign", cases.CaseAssignView.as_view()),
+    path("cases/<uuid:case_id>/workflow/<str:action>", cases.CaseWorkflowView.as_view()),
     path("cases/<uuid:case_id>/revisions", cases.CaseRevisionsView.as_view()),
     path("cases/<uuid:case_id>/documents", cases.CaseDocumentsView.as_view()),
     path("cases/<uuid:case_id>/documents/reuse", cases.CaseDocumentReuseView.as_view()),
