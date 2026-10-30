@@ -616,6 +616,16 @@ def _goods_line(row: Row, cells: dict[str, list[Item]], columns: list[Column], r
             if r.value is not None:
                 qty.parsed, qty.status, qty.notes = r.value, Status.OK, [f"Unité « {unit} » lue avec la quantité."]
                 fields["unit"] = Value(unit, unit, Status.OK, qty.origin, qty.span, qty.confidence, [], qty.label)
+    unit_value = fields["unit"]
+    if not qty_items and unit_value.raw:
+        # « 40 pcs » rangé sous l'unité (colonne décalée, filigrane retiré) : la quantité est le nombre.
+        number, unit = split_quantity_unit(unit_value.raw)
+        r = parse_amount(number, reader.hint) if unit else None
+        if r is not None and r.value is not None:
+            fields["quantity"] = Value(number, r.value, Status.OK, unit_value.origin, unit_value.span,
+                                       unit_value.confidence, [f"Quantité lue avec l'unité « {unit_value.raw} »."],
+                                       labels.get("quantity", "Quantité"))  # fmt: skip
+            unit_value.raw = unit_value.parsed = unit
     line = ParsedLine(fields=fields, page=page.number, span=_union([i.span for i in row.items]))
     for role, kind in (("customs_code", codemod.CUSTOMS), ("uncertain_code", codemod.AMBIGUOUS)):
         items = cells.get(role)

@@ -8,7 +8,7 @@ function renderWithLanguage(element: ReactElement) {
 }
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CaseDocument, CodeCheck, GoodsLine, Invoice, InvoiceLine } from "../src/api";
-import { Divergences, ExtractionControls, LineEditor, OriginBadge, TotalsPanel, spanText } from "../src/Extraction";
+import { Divergences, ExtractionControls, Flags, LineEditor, OriginBadge, TotalsPanel, spanText } from "../src/Extraction";
 import { ProposalsPanel, actionFor } from "../src/Proposals";
 import { decimalInput } from "../src/CaseDetail";
 
@@ -41,6 +41,15 @@ const job = (state: string) => ({ id: "j1", kind: "extraction", state, state_lab
   progress: { done: 1, total: 2 }, attempts: 1, error_code: null, error_message: null, hint: null, note: "" });
 
 describe("Extraction", () => {
+  it("dit de quelle information parle chaque signalement d'une ligne", () => {
+    renderWithLanguage(<Flags flags={[
+      { field: "origin_country", code: "MISSING", message: "Absent du document : à renseigner." },
+      { field: "source_reference", code: "MISSING", message: "Absent du document : à renseigner." },
+    ]} />);
+    expect(screen.getByText(/Origine · Absent du document/)).toBeInTheDocument();
+    expect(screen.getByText(/Réf\. fournisseur · Absent du document/)).toBeInTheDocument();
+  });
+
   it("localise une valeur par page et zone, ou par feuille et cellule", () => {
     expect(spanText(span)).toBe("p. 2 · hauteur 14–16 %");
     expect(spanText({ ...span, page: null, bbox: null, sheet: "Facture", cell_range: "F7" })).toBe("Facture!F7");

@@ -85,14 +85,26 @@ export function OriginBadge({ origin, source }: { origin?: string; source?: Fiel
   );
 }
 
+/** Libellé du champ d'une ligne, pour qu'un signalement dise de quelle information il parle. */
+const LINE_FIELD_LABELS: Record<string, MessageKey> = {
+  source_reference: "supplierRef",
+  description_raw: "description",
+  quantity: "quantity",
+  unit: "unit",
+  unit_price: "unitPrice",
+  amount: "amount",
+  origin_country: "origin",
+};
+
 export function Flags({ flags, field }: { flags?: ReviewFlag[]; field?: string }) {
   const shown = (flags ?? []).filter((f) => field === undefined || f.field === field);
   if (shown.length === 0) return null;
   return (
     <ul className="flags small">
-      {shown.map((f) => (
-        <li key={f.field + f.code + f.message}>⚠ {f.message}</li>
-      ))}
+      {shown.map((f) => {
+        const label = field === undefined ? LINE_FIELD_LABELS[f.field] : undefined;
+        return <li key={f.field + f.code + f.message}>⚠ {label ? `${tr(label)} · ` : ""}{f.message}</li>;
+      })}
     </ul>
   );
 }
