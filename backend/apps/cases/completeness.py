@@ -227,6 +227,5 @@ def evaluate(revision: CaseRevision) -> dict:
             )
         if not goods.origin_country:
             blocking.append(_item("goods_line", goods, "origin_country", "Origine à renseigner.", label))
-        if not goods.regime and not revision.regime:
-            blocking.append(_item("goods_line", goods, "regime", "Régime à renseigner (ligne ou dossier).", label))
+        # Sans régime de dossier, le manque est déjà signalé une fois pour la révision.
     return {"blocking": blocking, "warnings": warnings, "complete": not blocking}

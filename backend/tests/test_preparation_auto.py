@@ -132,3 +132,13 @@ def test_validated_revision_is_not_touched(prepared):
     rev.state = rev.State.VALIDATED
     rev.save(update_fields=["state"])
     assert autoprep.after_invoice_read(run, run.invoice) == {}
+
+
+def test_missing_regime_is_reported_once_for_the_case(world, session):
+    make_edition()
+    case = new_case(session("declarant@a.test"))  # aucun dossier antérieur : pas de régime à reprendre
+    extracted(case, "facture.pdf", synthetic.simple_invoice_pdf())
+    rev = detail(case)
+    assert rev["regime"] == "" and len(rev["goods_lines"]) == 2
+    regime = [b for b in rev["completeness"]["blocking"] if b["field"] == "regime"]
+    assert [(b["scope"], b["message"]) for b in regime] == [("revision", "Régime douanier à renseigner.")]
