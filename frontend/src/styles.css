@@ -712,3 +712,6 @@ input,select,textarea{min-height:39px;border-radius:7px;border-color:#dfe6e2}
 .bulk-confirm { display: grid; gap: 0.6rem; margin-bottom: 1rem; }
 .bulk-confirm label { display: grid; gap: 0.3rem; }
 .bulk-confirm .btn-primary { justify-self: start; }
+.tariff-import { max-width: 36rem; margin-bottom: 1.25rem; }
+.tariff-import label { display: grid; gap: 0.3rem; }
+.tariff-import .btn-primary { justify-self: start; }

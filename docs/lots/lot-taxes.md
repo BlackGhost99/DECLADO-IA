@@ -105,3 +105,7 @@ Sous Windows : `demarrer-clairtransit.ps1 -ImporterTarif <chemin du classeur>`.
 1. ~~Redevance informatique et TCI~~ : réglé le 30/10/2026 (RI par SYDONIA, TCI au compte 2).
 2. Saisir le taux de change d'une autre devise et choisir la sous-position nationale dans le dossier.
 3. Figer le calcul à la validation (lot 5) et l'exporter avec sa version.
+
+## Import depuis l'écran (30/10/2026, T78)
+
+Le gestionnaire du référentiel importe désormais le tarif depuis Référentiel > Administration tarifaire > Import Excel, sans ligne de commande. Le fichier (.xlsx ou .csv, 40 Mo au plus) passe par la quarantaine et ClamAV, puis l'importeur adapté : un classeur « Tarif CEMAC SWD » importe aussi le barème des taxes et l'active pour le Gabon. L'édition est publiée en consultation. Le script Windows (`-ImporterTarif`) reste possible et fait la même chose.

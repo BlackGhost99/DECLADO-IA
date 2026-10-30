@@ -145,6 +145,7 @@ urlpatterns = [
     path("fiscal/rates", fiscal.CodeRatesView.as_view()),
     path("fiscal/amendments", fiscal.AmendmentListView.as_view()),
     path("tariffs/editions", tariffs.EditionListView.as_view()),
+    path("tariffs/imports", tariffs.TariffImportView.as_view()),
     path("tariffs/editions/<uuid:edition_id>/publish", tariffs.PublishEditionView.as_view()),
     path("tariffs/editions/<uuid:edition_id>/withdraw", tariffs.WithdrawEditionView.as_view()),
     path("tariffs/search", tariffs.SearchView.as_view()),
