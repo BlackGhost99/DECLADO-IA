@@ -726,3 +726,48 @@ body { font-size: 15px; background: var(--bg); color: var(--text); }
   [dir="rtl"] .case-head-section .case-aside { left: 4px; }
   [dir="rtl"] .case-head-section .case-aside .menu-wrap { right: auto; left: 0; }
 }
+
+/* Taxes et règles (maquette validée le 29/10/2026) : barème, formule, lignes à revoir, modification d'un taux. */
+.tx-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: start; margin-top: 20px; }
+.tx-row > .card { min-width: 0; margin: 0; }
+.tx-row > .tx-ro { grid-column: 1 / -1; }
+@media (max-width: 1100px) { .tx-row { grid-template-columns: minmax(0, 1fr); } }
+.tx-formula { margin: 0; padding: 12px 14px; border-radius: 8px; background: var(--gray-bg); font-size: 14px; line-height: 1.6; color: var(--heading); }
+.tx-formula b { font-weight: 700; }
+.tx-todo { list-style: none; margin: 0; padding: 0; display: grid; }
+.tx-todo li { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.tx-todo li:first-child { border-top: 0; padding-top: 4px; }
+.tx-todo li > div { display: grid; min-width: 0; flex: 1 1 220px; }
+.tx-todo li > div span { font-size: 13px; color: var(--muted); }
+.tx-num { font-size: 20px; font-weight: 700; color: var(--heading); font-variant-numeric: tabular-nums; min-width: 3ch; }
+.tx-hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.tx-hist li { display: grid; gap: 2px; padding-inline-start: 14px; border-inline-start: 3px solid var(--border-strong, #cfd7d3); font-size: 13.5px; }
+.tx-hist li strong { color: var(--heading); }
+.tx-hist li.tx-on { border-inline-start-color: var(--primary); }
+.tx-fict { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--amber); margin-inline-start: 8px; vertical-align: middle; }
+.tx-ro { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; background: var(--blue-bg); color: #163f7a; font-size: 13.5px; }
+.tx-ro svg, .tx-note svg { flex: 0 0 auto; margin-top: 1px; }
+.tx-note { display: flex; gap: 8px; align-items: flex-start; margin: 0; }
+.tx-src { display: block; font-size: 12.5px; color: var(--muted); }
+.tx-diff { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--amber-bg); border: 1px solid #f1d39e; color: #6b3d06; font-size: 13.5px; }
+.tx-diff p { margin: 0; }
+.tx-lines { min-width: 640px; }
+.tx-lines td, .tx-lines th { white-space: nowrap; }
+.tx-lines td:nth-child(3) { white-space: normal; min-width: 160px; }
+.tx-prov { color: var(--amber); }
+.tx-dialog { display: grid; gap: 14px; max-width: 620px; margin: 24px auto 0; }
+.tx-dialog .nc-field input:not([type=radio]), .tx-dialog .nc-field select, .tx-dialog .nc-field textarea { width: 100%; }
+.tx-dialog fieldset { border: 0; padding: 0; }
+.tx-cur { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2, #f8faf9); font-size: 14px; }
+.tx-cur strong { font-size: 18px; color: var(--heading); }
+.tx-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.tx-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 560px) { .tx-pair, .tx-choices { grid-template-columns: minmax(0, 1fr); } }
+.tx-choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-weight: 400; cursor: pointer; }
+.tx-choice input { margin-top: 3px; width: auto; flex: 0 0 auto; padding: 0; }
+.tx-choice span { display: grid; }
+.tx-choice small { color: var(--muted); font-size: 12.5px; }
+.tx-choice-on { border-color: var(--primary); background: var(--primary-soft); }
+.tx-btns { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.calc-note-stack { display: grid; gap: 8px; margin-top: 10px; }
+.calc-note-stack .note-amber { margin: 0; }

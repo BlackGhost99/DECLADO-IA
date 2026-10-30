@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
+import { CompanyManagement } from "./CompanyManagement";
 import {
   api,
   ApiError,
@@ -7,6 +8,7 @@ import {
   type NewOrganizationInput,
   type PlatformOrganization,
 } from "./api";
+import { PlatformAIPanel } from "./PlatformAI";
 import { Icon } from "./Icon";
 import { tr } from "./i18n";
 import { ActivationLink, issuedLink, type IssuedLink, CountrySelect, countryLabel, Field, LOCALES, ProfileChoice, profileLabel } from "./Onboarding";
@@ -20,6 +22,7 @@ export function Console({ view }: { view: "home" | "requests" }) {
   const [organizations, setOrganizations] = useState<PlatformOrganization[] | null>(null);
   const [issued, setIssued] = useState<IssuedLink | null>(null);
   const [error, setError] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const load = () => {
@@ -44,14 +47,16 @@ export function Console({ view }: { view: "home" | "requests" }) {
     <>
       <PageHeader title={tr(view === "home" ? "con.title" : "con.requests")} subtitle={tr("con.subtitle")}>
         {view === "home" && (
-          <button type="button" className="btn-primary" onClick={() => formRef.current?.querySelector("input")?.focus()}>
-            <Icon name="plus" size={18} /> {tr("con.newCompany")}
+          <button type="button" className="btn-primary" aria-expanded={showCreate} onClick={() => setShowCreate((v) => !v)}>
+            <Icon name="plus" size={18} /> {tr(showCreate ? "con.closeCreate" : "con.newCompany")}
           </button>
         )}
       </PageHeader>
       {error && <p role="alert" className="error">⚠ {error}</p>}
       {issued && <ActivationLink {...issued} />}
-      <div className={view === "home" ? "onb-split" : undefined}>
+      {view === "home" && <PlatformAIPanel />}
+      {view === "home" && organizations && <CompanyStats items={organizations} />}
+      {(view === "requests" || requests === null || requests.length > 0) && (
         <Requests
           items={requests}
           full={view === "requests"}
@@ -60,19 +65,23 @@ export function Console({ view }: { view: "home" | "requests" }) {
           }
           onRefuse={(r, note) => act(() => api.refuseAccessRequest(r.id, note))}
         />
-        {view === "home" && (
+      )}
+      {view === "home" && showCreate && (
+        <div className="console-create">
           <NewCompany
             formRef={formRef}
             onCreated={(name, invitation) => {
               issue(tr("con.linkFor", { name }), invitation);
+              setShowCreate(false);
               load();
             }}
           />
-        )}
-      </div>
+        </div>
+      )}
       {view === "home" && (
-        <Organizations
+        <CompanyManagement
           items={organizations}
+          onRefresh={load}
           onState={(o, action) => act(() => api.setOrganizationState(o.id, action))}
           onRenew={(inv) =>
             act(async () => issue(tr("con.linkFor", { name: inv.full_name || inv.email }), await api.renewAdminInvitation(inv.id)))
@@ -164,79 +173,19 @@ function Requests({
   );
 }
 
-function orgState(o: PlatformOrganization): { tone: "green" | "amber" | "gray" | "red"; label: string } {
-  if (!o.active) return { tone: "gray", label: tr("con.suspended") };
-  if (o.members === 0 && o.admin_invitation) {
-    return o.admin_invitation.status === "expired"
-      ? { tone: "red", label: tr("con.invitationExpired") }
-      : { tone: "amber", label: tr("con.invitationPending") };
-  }
-  return { tone: "green", label: tr("active") };
-}
-
-function Organizations({
-  items,
-  onState,
-  onRenew,
-}: {
-  items: PlatformOrganization[] | null;
-  onState: (o: PlatformOrganization, action: "suspend" | "reactivate") => void;
-  onRenew: (invitation: Invitation) => void;
-}) {
+function CompanyStats({ items }: { items: PlatformOrganization[] }) {
+  const active = items.filter((item) => item.active).length;
+  const used = items.reduce((sum, item) => sum + item.members, 0);
+  const pending = items.reduce((sum, item) => sum + item.pending_invitations, 0);
+  const full = items.filter((item) => item.max_users !== null && item.members + item.pending_invitations >= item.max_users).length;
   return (
-    <section className="card" aria-labelledby="orgs-title">
-      <h2 id="orgs-title" className="card-title">{tr("con.companies")}</h2>
-      {items === null ? (
-        <p className="muted">{tr("loading")}</p>
-      ) : items.length === 0 ? (
-        <p className="empty">{tr("con.noCompany")}</p>
-      ) : (
-        <div className="table-wrap onb-table-wrap">
-          <table className="data onb-table">
-            <thead>
-              <tr>
-                <th scope="col">{tr("con.company")}</th>
-                <th scope="col">{tr("onb.profile")}</th>
-                <th scope="col">{tr("onb.country")}</th>
-                <th scope="col">{tr("con.users")}</th>
-                <th scope="col">{tr("status")}</th>
-                <th scope="col"><span className="visually-hidden">{tr("col.actions")}</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((o) => {
-                const state = orgState(o);
-                return (
-                  <tr key={o.id}>
-                    <td>
-                      <strong>{o.name}</strong>
-                      {o.is_demo && <span className="block small muted">{tr("demo.fictitious")}</span>}
-                    </td>
-                    <td>{profileLabel(o.primary_profile)}</td>
-                    <td>{countryLabel(o.country_code)}</td>
-                    <td className="num">{o.max_users ? `${o.members} / ${o.max_users}` : o.members}</td>
-                    <td><Chip tone={state.tone}>{state.label}</Chip></td>
-                    <td>
-                      <div className="onb-acts">
-                        {o.active && o.members === 0 && o.admin_invitation && (
-                          <button type="button" className="btn-outline-small" onClick={() => onRenew(o.admin_invitation!)}>
-                            {tr("con.newLink")}
-                          </button>
-                        )}
-                        <button type="button" className="btn-outline-small" onClick={() => onState(o, o.active ? "suspend" : "reactivate")}>
-                          {tr(o.active ? "con.suspend" : "con.reactivate")}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <p className="onb-small">{tr("con.suspendHelp")}</p>
-    </section>
+    <div className="console-stats" aria-label={tr("con.indicators")}>
+      <div className="console-stat"><span>{tr("con.totalCompanies")}</span><strong>{items.length}</strong></div>
+      <div className="console-stat"><span>{tr("con.activeCompanies")}</span><strong>{active}</strong></div>
+      <div className="console-stat"><span>{tr("con.activeUsers")}</span><strong>{used}</strong></div>
+      <div className="console-stat"><span>{tr("con.pendingInvites")}</span><strong>{pending}</strong></div>
+      <div className="console-stat"><span>{tr("con.fullCompanies")}</span><strong>{full}</strong></div>
+    </div>
   );
 }
 
