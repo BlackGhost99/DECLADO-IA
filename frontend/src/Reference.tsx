@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   api,
   ApiError,
@@ -368,12 +368,38 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
   const [editions, setEditions] = useState<Edition[] | null>(null);
   const [runs, setRuns] = useState<ImportRunInfo[] | null>(null);
   const [tab, setTab] = useState<"tarif" | "taxes" | "versions" | "import">("tarif");
+  const [file, setFile] = useState<File | null>(null);
+  const [label, setLabel] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     api.editions().then(setEditions, () => setEditions([]));
     // Les imports ne sont visibles que du gestionnaire du référentiel ; les autres n'en voient rien.
     if (canSeeImports) api.importRuns().then((p) => setRuns(p.results), () => setRuns(null));
   }, [canSeeImports]);
+  useEffect(load, [load]);
+
+  async function importTariff(e: FormEvent) {
+    e.preventDefault();
+    if (!file) return;
+    setImporting(true);
+    setImportMsg(null);
+    try {
+      const r = await api.importTariff(file, label.trim());
+      setImportMsg({
+        ok: true,
+        text: tr(r.taxes ? "ref.importDoneTaxes" : "ref.importDone", { label: r.edition.label, n: r.counts.tariff_lines ?? 0 }),
+      });
+      setFile(null);
+      setLabel("");
+      load();
+    } catch (err) {
+      setImportMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const visible = (editions ?? []).filter((e) => e.publication_state !== "withdrawn");
   const operational = visible.find((e) => e.publication_state === "operational");
@@ -485,9 +511,23 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
       {tab === "import" && (
         <section className="card" aria-labelledby="imports-title">
           <h2 id="imports-title" className="card-title">{tr("ref.importExcel")}</h2>
-          <p className="muted small">
-            {tr("ref.importText1")} {tr("ref.importText2", { cmd: "import_tariff_xlsx" })}
-          </p>
+          <p className="muted small">{tr("ref.importText1")}</p>
+          {canSeeImports && (
+            <form className="decide-form tariff-import" onSubmit={(e) => void importTariff(e)}>
+              <label>
+                {tr("ref.importFile")}
+                <input type="file" accept=".xlsx,.csv" required onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              </label>
+              <label>
+                {tr("ref.importLabel")}
+                <input value={label} maxLength={120} placeholder="Tarif CEMAC 2022 (SWD)" onChange={(e) => setLabel(e.target.value)} />
+              </label>
+              <button type="submit" className="btn-primary" disabled={!file || importing}>
+                <Icon name="upload" size={18} /> {importing ? tr("ref.importing") : tr("ref.importRun")}
+              </button>
+              {importMsg && <p className={importMsg.ok ? "note-blue small" : "note-amber small"} role="status">{importMsg.text}</p>}
+            </form>
+          )}
           {!canSeeImports ? (
             <p className="empty">{tr("ref.importsManager")}</p>
           ) : !runs || runs.length === 0 ? (

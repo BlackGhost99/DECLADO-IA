@@ -1142,6 +1142,15 @@ export const api = {
   tariffRecord: (id: string) => request<RecordDetail>("GET", `/tariffs/records/${id}`),
   editions: () => request<Edition[]>("GET", "/tariffs/editions"),
   importRuns: () => request<Page<ImportRunInfo>>("GET", "/reference-imports"),
+  importTariff: (file: File, label: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("label", label);
+    return upload<{ edition: EditionBrief; counts: Record<string, number>; taxes: { id: string; label: string; active: boolean } | null }>(
+      "/tariffs/imports",
+      form,
+    );
+  },
   taxOverview: () => request<TaxOverview>("GET", "/fiscal/taxes"),
   taxReview: (kind: string, page = 1) =>
     request<{ count: number; page: number; results: ScheduleLineInfo[] }>("GET", `/fiscal/taxes/review/${kind}?page=${page}`),

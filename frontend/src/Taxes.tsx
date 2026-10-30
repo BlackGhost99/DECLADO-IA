@@ -230,7 +230,7 @@ export function TaxesPanel() {
         </section>
         <p className="tx-ro">
           <Icon name="shield" size={18} />
-          <span>{tr("fx.readOnly")}</span>
+          <span>{tr(!data.can_edit ? "fx.readOnly" : schedule ? "fx.canEdit" : "fx.importFirst")}</span>
         </p>
       </div>
       {review && <ReviewList kind={review} />}

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from rest_framework.generics import ListAPIView
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -412,3 +413,20 @@ class WithdrawEditionView(APIView):
             edition=edition, actor=request.user, reason=str(request.data.get("reason", ""))
         )
         return Response(EditionSerializer(edition).data)
+
+
+class TariffImportView(APIView):
+    """Import d'un tarif (.xlsx ou .csv) depuis l'écran ; un classeur SWD apporte aussi les taxes."""
+
+    permission_classes = [IsReferenceManager]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        from .uploads import import_upload
+
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ApiError("VALIDATION_ERROR", "Choisissez un fichier .xlsx ou .csv.", 400)
+        return Response(
+            import_upload(actor=request.user, upload=upload, label=str(request.data.get("label", ""))), status=201
+        )
