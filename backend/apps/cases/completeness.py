@@ -41,6 +41,18 @@ def _item(scope, obj, field, message, label=""):
     return {"scope": scope, "id": str(obj.id), "label": label, "field": field, "message": message}
 
 
+PREFILLED_LABELS = {
+    "target_edition": "édition du référentiel",
+    "planned_declaration_date": "date de déclaration prévue",
+    "regime": "régime (repris du dernier dossier)",
+}
+
+
+def _origin_covered(line, revision) -> bool:
+    """Ligne rattachée : l'origine se signale une seule fois, sur la marchandise."""
+    return bool(line.goods_sources.all()) or bool(revision.origin_country)
+
+
 def evaluate(revision: CaseRevision) -> dict:
     blocking, warnings = [], []
     case = revision.case
@@ -53,6 +65,17 @@ def evaluate(revision: CaseRevision) -> dict:
     ):
         if not getattr(revision, field if field != "target_edition" else "target_edition_id"):
             blocking.append(_item("revision", revision, field, message, f"Révision {revision.revision_no}"))
+    if revision.prefilled:
+        names = ", ".join(PREFILLED_LABELS.get(f, f) for f in revision.prefilled)
+        warnings.append(
+            _item(
+                "revision",
+                revision,
+                "prefilled",
+                f"Proposé automatiquement, à confirmer : {names}.",
+                f"Révision {revision.revision_no}",
+            )
+        )
     if revision.target_edition_id and revision.target_edition.publication_state != PublicationState.OPERATIONAL:
         warnings.append(
             _item(
@@ -137,6 +160,8 @@ def evaluate(revision: CaseRevision) -> dict:
                 ("origin_country", "Origine à renseigner."),
             ):
                 if getattr(ln, field) in (None, ""):
+                    if field == "origin_country" and _origin_covered(ln, revision):
+                        continue
                     blocking.append(_item("invoice_line", ln, field, message, line_label))
             if ln.amount is not None and ln.amount < 0:
                 warnings.append(

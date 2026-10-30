@@ -785,6 +785,7 @@ export interface Revision {
   territory: string;
   planned_declaration_date: string | null;
   regime: string;
+  prefilled?: string[];
   client_reference?: string;
   transport_mode?: string;
   transport_mode_label?: string;

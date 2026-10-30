@@ -101,6 +101,8 @@ class CaseRevision(OrganizationOwnedModel):
         "tariffs.TariffEdition", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
     reason = models.TextField(blank=True)
+    # Champs remplis par la préparation automatique et pas encore confirmés par un agent.
+    prefilled = models.JSONField(default=list, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
 
     class Meta:

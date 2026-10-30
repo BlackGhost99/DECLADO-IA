@@ -265,12 +265,35 @@ def update_revision(*, org, actor, revision_id, expected: int | None, data: dict
             )
     if "target_edition_id" in data:
         revision.target_edition = edition_for(actor, data["target_edition_id"]) if data["target_edition_id"] else None
+    # Un champ enregistré par un agent, même inchangé, n'est plus une proposition automatique.
+    sent = {"target_edition" if f == "target_edition_id" else f for f in data}
+    revision.prefilled = [f for f in revision.prefilled if f not in sent]
     after = {f: _jsonable(getattr(revision, f)) for f in REVISION_FIELDS}
     bump(revision)
     revision.save()
     previous, current = _diff(before, after)
     _event(org, actor, "revision.updated", revision, revision.case, previous, current)
+    if revision.origin_country and current.get("origin_country"):
+        _origin_for_goods(org, actor, revision)
     return revision
+
+
+def _origin_for_goods(org, actor, revision):
+    """L'origine saisie pour le dossier vaut pour les marchandises qui n'en ont pas encore."""
+    goods = list(revision.goods_lines.select_for_update().filter(origin_country=""))
+    for line in goods:
+        line.origin_country = revision.origin_country
+        bump(line)
+        line.save(update_fields=["origin_country", "row_version", "updated_at"])
+    if goods:
+        _event(
+            org,
+            actor,
+            "goods_line.origin_from_case",
+            revision,
+            revision.case,
+            current={"origin_country": revision.origin_country, "goods_lines": [g.ordinal for g in goods]},
+        )
 
 
 def create_revision(*, org, actor, case_id, reason: str):
@@ -769,6 +792,7 @@ def create_goods_line(*, org, actor, revision_id, data) -> GoodsLine:
         origin_country=(
             data.get("origin_country")
             or (first.origin_country if len({ln.origin_country for ln in lines}) == 1 else "")
+            or revision.origin_country
         ).upper(),
         regime=data.get("regime", ""),
     )

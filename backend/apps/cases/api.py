@@ -283,6 +283,7 @@ def revision_payload(revision: CaseRevision) -> dict:
         "entry_office": revision.entry_office,
         "origin_country": revision.origin_country,
         "provenance_country": revision.provenance_country,
+        "prefilled": revision.prefilled,
         "priority": revision.priority,
         "priority_label": revision.get_priority_display(),
         "is_editable": revision.is_editable,

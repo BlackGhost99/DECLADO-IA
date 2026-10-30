@@ -382,12 +382,14 @@ function RevisionForm({
     planned_declaration_date: revision.planned_declaration_date ?? "",
     regime: revision.regime,
     target_edition_id: revision.target_edition?.id ?? "",
+    origin_country: revision.origin_country ?? "",
   });
   useEffect(() => {
     setForm({
       planned_declaration_date: revision.planned_declaration_date ?? "",
       regime: revision.regime,
       target_edition_id: revision.target_edition?.id ?? "",
+      origin_country: revision.origin_country ?? "",
     });
   }, [revision]);
 
@@ -397,20 +399,27 @@ function RevisionForm({
       planned_declaration_date: form.planned_declaration_date || null,
       regime: form.regime,
       target_edition_id: form.target_edition_id || null,
+      origin_country: form.origin_country.trim().toUpperCase(),
       row_version: revision.row_version,
     });
   }
 
+  const prefilled = new Set(revision.prefilled ?? []);
+  const proposed = (field: string) => (prefilled.has(field) ? <small className="prefilled-hint">{tr("form.prefilled")}</small> : null);
+
   return (
     <form onSubmit={submit}>
+      {prefilled.size > 0 && <p className="note-amber small">{tr("form.prefilledNote")}</p>}
       <fieldset disabled={!editable} className="form-grid plain-fieldset">
         <label>
           {tr("form.plannedDate")}
           <input type="date" value={form.planned_declaration_date} onChange={(e) => setForm({ ...form, planned_declaration_date: e.target.value })} />
+          {proposed("planned_declaration_date")}
         </label>
         <label>
           {tr("form.regime")}
           <input value={form.regime} onChange={(e) => setForm({ ...form, regime: e.target.value })} />
+          {proposed("regime")}
         </label>
         <label>
           {tr("form.tariffUsed")}
@@ -420,6 +429,12 @@ function RevisionForm({
               <option key={e.id} value={e.id}>{e.label}</option>
             ))}
           </select>
+          {proposed("target_edition")}
+        </label>
+        <label>
+          {tr("form.caseOrigin")}
+          <input maxLength={2} value={form.origin_country} placeholder="CN" onChange={(e) => setForm({ ...form, origin_country: e.target.value })} />
+          <small className="muted">{tr("form.caseOriginHelp")}</small>
         </label>
         <div className="form-end">
           <button type="submit" className="btn-secondary">{tr("common.save")}</button>
