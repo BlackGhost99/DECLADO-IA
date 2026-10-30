@@ -147,8 +147,8 @@ export interface Step {
 }
 
 /**
- * Avancement réel d'une révision. Calcul et export n'existent pas encore : ils restent « à venir »
- * et ne sont jamais comptés comme faits.
+ * Avancement réel d'une révision. Le calcul compte comme fait quand un calcul complet a été soumis
+ * (il est figé à la validation) ; l'export quand un fichier a été généré pour cette révision.
  */
 export function caseSteps(rev: Revision): Step[] {
   const docs = rev.documents.filter((d) => !d.replaced_by_id);
@@ -156,24 +156,29 @@ export function caseSteps(rev: Revision): Step[] {
   const goods = rev.goods_lines;
   const decided = goods.filter((g) => g.decision?.is_current).length;
   const validated = rev.state === "validated" || rev.state === "archived";
+  const submitted = rev.state === "to_validate" || validated;
+  const lastSubmission = [...(rev.decisions ?? [])].reverse().find((d) => d.kind === "submitted");
+  const calculated = submitted && !!lastSubmission?.calculated;
+  const exported = (rev.export_count ?? 0) > 0;
 
   const raw: Omit<Step, "state">[] = [
     { key: "documents", label: tr("step.documents"), detail: docs.length ? tr("step.pieces", { n: docs.length }) : tr("step.piecesHint") },
     { key: "donnees", label: tr("step.extraction"), detail: invoicesWithLines.length ? tr("step.invoicesRead", { n: invoicesWithLines.length }) : tr("step.readingPieces") },
     { key: "marchandises", label: tr("step.classification"), detail: goods.length ? tr("step.codesValidated", { done: decided, total: goods.length }) : tr("step.hsCodes") },
-    { key: "calculs", label: tr("step.calculation"), detail: tr("step.later") },
+    { key: "calculs", label: tr("step.calculation"), detail: calculated ? tr("step.calcDone") : tr("step.calcHint") },
     { key: "validation", label: tr("step.validation"), detail: stateLabel(rev.state, rev.state_label) },
-    { key: "export", label: tr("step.export"), detail: tr("step.later") },
+    { key: "export", label: tr("step.export"), detail: exported ? tr("step.exportDone") : tr("step.exportHint") },
   ];
   const done: Record<string, boolean> = {
     documents: docs.length > 0,
     donnees: invoicesWithLines.length > 0,
     marchandises: goods.length > 0 && decided === goods.length,
+    calculs: calculated,
     validation: validated,
+    export: exported,
   };
   let currentSet = false;
   return raw.map((s) => {
-    if (s.key === "calculs" || s.key === "export") return { ...s, state: "later" };
     if (done[s.key]) return { ...s, state: "done" };
     if (!currentSet) {
       currentSet = true;
@@ -224,6 +229,11 @@ export const EVENT_LABELS: Record<string, string> = {
   "case.document_attached": "Pièce ajoutée",
   "case.document_replaced": "Pièce remplacée",
   "revision.updated": "Informations du dossier modifiées",
+  "revision.submitted": "Soumis pour validation",
+  "revision.returned": "Retourné pour correction",
+  "revision.validated": "Validé en interne",
+  "revision.exported": "Export généré",
+  "revision.created": "Nouvelle révision",
   "document.stored": "Document enregistré",
   "document.extraction_requested": "Lecture demandée",
   "document.extraction_failed": "Lecture en échec",

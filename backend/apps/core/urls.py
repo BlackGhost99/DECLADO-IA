@@ -94,6 +94,8 @@ urlpatterns = [
     path("cases/<uuid:case_id>/documents/reuse", cases.CaseDocumentReuseView.as_view()),
     path("cases/<uuid:case_id>/audit", cases.CaseAuditView.as_view()),
     path("cases/<uuid:case_id>/calculation", fiscal.CaseCalculationView.as_view()),
+    path("cases/<uuid:case_id>/exports", cases.CaseExportsView.as_view()),
+    path("cases/<uuid:case_id>/exports/<uuid:export_id>/file", cases.CaseExportFileView.as_view()),
     path("case-documents/<uuid:link_id>/replace", cases.CaseDocumentReplaceView.as_view()),
     path("revisions/<uuid:revision_id>", cases.RevisionDetailView.as_view()),
     path("revisions/<uuid:revision_id>/document-checklist", CaseDocumentChecklistView.as_view()),

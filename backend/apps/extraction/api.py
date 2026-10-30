@@ -197,7 +197,12 @@ class CaseDocumentExtractionsView(APIView):
         link = CaseDocument.objects.for_organization(request.organization).filter(pk=link_id).first()
         if link is None:
             raise ApiError(*services.NOT_FOUND)
-        runs = link.extraction_runs.select_related("job", "created_by")
+        runs = list(link.extraction_runs.select_related("job", "created_by"))
+        # Révision suivante (WF-04) : les lectures de la pièce dans les révisions précédentes restent visibles.
+        source = link.copied_from
+        while not runs and source is not None:
+            runs = list(source.extraction_runs.select_related("job", "created_by"))
+            source = source.copied_from
         return Response({"results": [run_summary(r) for r in runs]})
 
     def post(self, request, link_id):

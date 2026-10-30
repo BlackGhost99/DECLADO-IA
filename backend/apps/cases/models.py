@@ -139,6 +139,8 @@ class CaseDocument(OrganizationOwnedModel):
     # Remplacement : l'ancien rattachement reste visible et pointe vers son successeur.
     replaced_by = models.OneToOneField("self", null=True, blank=True, on_delete=models.PROTECT, related_name="replaces")
     idempotency_key = models.CharField(max_length=100, blank=True)
+    # Nouvelle révision (WF-04) : rattachement repris de la révision précédente, avec ses lectures.
+    copied_from = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
 
     class Meta:
         verbose_name = "pièce du dossier"
@@ -167,6 +169,8 @@ class Invoice(OrganizationOwnedModel):
     # Provenance de chaque valeur : « extracted », « inferred » (lue puis déduite) ou « manual » (saisie/corrigée).
     field_origins = models.JSONField(default=dict, blank=True)
     review_flags = models.JSONField(default=list, blank=True)
+    # Nouvelle révision (WF-04) : facture reprise de la révision précédente, avec ses lectures.
+    copied_from = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
 
     class Meta:
         verbose_name = "facture"
@@ -203,6 +207,7 @@ class InvoiceLine(OrganizationOwnedModel):
     extraction_key = models.CharField(max_length=40, blank=True)
     field_origins = models.JSONField(default=dict, blank=True)
     review_flags = models.JSONField(default=list, blank=True)
+    copied_from = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
 
     class Meta:
         verbose_name = "ligne facturée"
@@ -401,4 +406,42 @@ class RevisionDecision(OrganizationOwnedModel):
     def save(self, *args, **kwargs):
         if not self._state.adding:
             raise ValueError("Une décision de validation n'est jamais réécrite : en enregistrer une nouvelle.")
+        super().save(*args, **kwargs)
+
+
+class CaseExport(OrganizationOwnedModel):
+    """EXP-01 à EXP-03 : fichier exporté d'une révision, conservé tel que généré (ajout seul).
+
+    Le marquage est fixé à la génération : « brouillon » tant que la révision n'est pas validée,
+    « validé en interne » ensuite. Jamais une acceptation par la Douane.
+    """
+
+    class Format(models.TextChoices):
+        PDF = "pdf", "Récapitulatif PDF"
+        XLSX = "xlsx", "Détail Excel"
+
+    class Marking(models.TextChoices):
+        DRAFT = "draft", "Brouillon"
+        VALIDATED = "validated", "Validé en interne"
+
+    revision = models.ForeignKey(CaseRevision, on_delete=models.PROTECT, related_name="exports")
+    format = models.CharField(max_length=10, choices=Format.choices)
+    marking = models.CharField(max_length=20, choices=Marking.choices)
+    filename = models.CharField(max_length=120)
+    object_key = models.CharField(max_length=200, unique=True, editable=False)
+    sha256 = models.CharField(max_length=64)
+    bytes = models.PositiveBigIntegerField()
+    # Empreinte du calcul exporté : celle de la décision de validation quand le dossier est validé.
+    calculation_fingerprint = models.CharField(max_length=64)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.filename
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("Un export n'est jamais réécrit : en générer un nouveau.")
         super().save(*args, **kwargs)

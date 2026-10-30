@@ -671,9 +671,18 @@ def invoice_totals(invoice: Invoice) -> dict:
     return _totals_json([ln.amount for ln in invoice.lines.all()], charges, invoice.declared_total)
 
 
+def lineage(obj) -> list:
+    """Identifiants d'une facture ou ligne et de celles dont elle est la copie (révisions précédentes, WF-04)."""
+    ids = []
+    while obj is not None:
+        ids.append(obj.pk)
+        obj = obj.copied_from
+    return ids
+
+
 def latest_run_for_invoice(invoice: Invoice) -> ExtractionRun | None:
     return (
-        ExtractionRun.objects.filter(invoice=invoice, status=ExtractionRun.Status.SUCCEEDED)
+        ExtractionRun.objects.filter(invoice_id__in=lineage(invoice), status=ExtractionRun.Status.SUCCEEDED)
         .order_by("-created_at")
         .first()
     )

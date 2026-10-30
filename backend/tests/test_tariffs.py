@@ -407,3 +407,12 @@ def test_publish_command_publishes_a_draft_in_consultation_only(world, csv_editi
     assert session("declarant@a.test").get("/api/v1/tariffs/search", q="01011000").json()["results"]
     with pytest.raises(CommandError, match="brouillon"):
         call_command("publish_tariff_edition", label="Jeu F CSV")
+
+
+def test_publish_command_falls_back_to_any_reference_manager(world, csv_edition):
+    from django.core.management import call_command
+
+    User.objects.create_user(email="ref@test.test", password=PASSWORD, is_reference_manager=True)
+    call_command("publish_tariff_edition", label="Jeu F CSV")
+    csv_edition.refresh_from_db()
+    assert csv_edition.publication_state == "consultation"
