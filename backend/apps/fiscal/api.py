@@ -80,6 +80,8 @@ class TaxesOverviewView(APIView):
             amendment = general.get(code)
             if code in rules.EXPORT_ONLY:
                 status = "export_only"
+            elif code in rules.SYDONIA_TAXES:
+                status = "sydonia"
             elif code in rules.GLOBAL_TAXES:
                 status = "set" if amendment else "to_confirm"
             else:

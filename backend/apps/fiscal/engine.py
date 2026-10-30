@@ -24,10 +24,13 @@ class TaxAmount:
 
 @dataclass
 class Article:
+    """`total` et `known_total` : compte 1 seulement ; `other_accounts` : taxes versées à part (TCI)."""
+
     amounts: list[TaxAmount]
     total: Decimal | None
     known_total: Decimal
     unknown: list[str] = field(default_factory=list)
+    other_accounts: dict[str, Decimal | None] = field(default_factory=dict)
 
 
 def _base(kind: str, value: Decimal | None, amounts: dict[str, Decimal | None]) -> Decimal | None:
@@ -67,15 +70,20 @@ def compute_article(value: Decimal | None, rates: dict[str, Decimal | None], rea
 
 
 def _article(lines: list[TaxAmount]) -> Article:
-    unknown = [t.code for t in lines if t.amount is None]
-    known = sum((t.amount for t in lines if t.amount is not None), ZERO)
-    return Article(lines, None if unknown else known, known, unknown)
+    main = [t for t in lines if rules.RULES[t.code].account == 1]
+    unknown = [t.code for t in main if t.amount is None]
+    known = sum((t.amount for t in main if t.amount is not None), ZERO)
+    others = {t.code: t.amount for t in lines if rules.RULES[t.code].account != 1}
+    return Article(lines, None if unknown else known, known, unknown, others)
 
 
 def compute_global(total_value: Decimal | None, rates: dict[str, Decimal | None]) -> list[TaxAmount]:
     """Taxes globales de la déclaration (redevance informatique), sur la valeur totale."""
     out = []
     for code in rules.GLOBAL_TAXES:
+        if code in rules.SYDONIA_TAXES:
+            out.append(TaxAmount(code, rules.VALUE, None, None, None, "Calculée par SYDONIA."))
+            continue
         rate = rates.get(code)
         if rate is None or total_value is None:
             reason = "Taux à saisir par l'admin ClairTransit." if rate is None else "Valeur en douane inconnue."
@@ -88,10 +96,9 @@ def compute_global(total_value: Decimal | None, rates: dict[str, Decimal | None]
 
 
 def declaration_total(articles: list[Article], global_taxes: list[TaxAmount]) -> dict:
-    known = sum((a.known_total for a in articles), ZERO) + sum(
-        (t.amount for t in global_taxes if t.amount is not None), ZERO
-    )
-    complete = all(a.total is not None for a in articles) and all(t.amount is not None for t in global_taxes)
+    ours = [t for t in global_taxes if t.code not in rules.SYDONIA_TAXES]
+    known = sum((a.known_total for a in articles), ZERO) + sum((t.amount for t in ours if t.amount is not None), ZERO)
+    complete = all(a.total is not None for a in articles) and all(t.amount is not None for t in ours)
     by_tax: dict[str, Decimal | None] = {}
     for article in articles:
         for t in article.amounts:
@@ -100,4 +107,15 @@ def declaration_total(articles: list[Article], global_taxes: list[TaxAmount]) ->
             by_tax[t.code] = None if t.amount is None else by_tax.get(t.code, ZERO) + t.amount
     for t in global_taxes:
         by_tax[t.code] = t.amount
-    return {"total": known if complete and articles else None, "known_total": known, "by_tax": by_tax}
+    accounts: dict[str, Decimal | None] = {}
+    for article in articles:
+        for code, amount in article.other_accounts.items():
+            if code in accounts and accounts[code] is None:
+                continue
+            accounts[code] = None if amount is None else accounts.get(code, ZERO) + amount
+    return {
+        "total": known if complete and articles else None,
+        "known_total": known,
+        "by_tax": by_tax,
+        "other_accounts": accounts,
+    }

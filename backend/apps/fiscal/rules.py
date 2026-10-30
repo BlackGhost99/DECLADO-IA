@@ -10,7 +10,7 @@ from decimal import ROUND_CEILING, Decimal
 
 from .models import TaxCode
 
-RULES_VERSION = "2022-swd-1"
+RULES_VERSION = "2022-swd-2"  # 2 : TCI au compte 2 hors total, RI calculée par SYDONIA
 
 VALUE = "value"  # valeur en douane
 VALUE_DDI = "value_ddi"  # valeur + DDI
@@ -32,13 +32,15 @@ class TaxRule:
     verified: bool = True
     # Vide dans la feuille = pas de taxe (seul le droit d'accise : il ne frappe que certains produits).
     empty_means_none: bool = False
+    # Compte de paiement : le total de l'article ne compte que le compte 1 (déclarant, 30/10/2026).
+    account: int = 1
 
 
 ARTICLE_TAXES = (
     TaxRule(TaxCode.DDI, VALUE, "DDI"),
     TaxRule(TaxCode.DA, VALUE_DDI, "DAC", verified=False, empty_means_none=True),
     TaxRule(TaxCode.TVA, VALUE_DDI_DA, "TVA"),
-    TaxRule(TaxCode.TCI, VALUE, "TCI"),
+    TaxRule(TaxCode.TCI, VALUE, "TCI", account=2),
     TaxRule(TaxCode.CCI, VALUE, "CCI"),
     TaxRule(TaxCode.OAD, VALUE, "OAD"),
     TaxRule(TaxCode.CSS, VALUE_DDI_DA, "CSS"),
@@ -48,16 +50,20 @@ RULES = {r.code: r for r in ARTICLE_TAXES}
 # Colonnes de taux de la feuille SWD, dans l'ordre (DSO : droit de sortie, hors calcul import).
 SHEET_COLUMNS = ("DDI", "DSO", "DAC", "TVA", "TCI", "CCI", "OAD", "CSS", "CAF")
 COLUMN_TAX = dict(zip(SHEET_COLUMNS, ("DDI", "DSO", "DA", "TVA", "TCI", "CCI", "OAD", "CSS", "CAF"), strict=True))
-# Taxe globale de la déclaration : son taux n'est dans aucune source fournie, l'admin le saisit.
+# Taxe globale de la déclaration, calculée par SYDONIA selon ses propres critères (montant non fixe) :
+# ClairTransit ne la calcule pas et ne la compte pas dans le total.
 GLOBAL_TAXES = (TaxCode.RI,)
+SYDONIA_TAXES = (TaxCode.RI,)
 EXPORT_ONLY = (TaxCode.DSO,)
 
 NOTES = {
     TaxCode.TCI: (
-        "Sur la déclaration vérifiée, la TCI a un mode de paiement distinct et n'entre pas dans le total "
-        "de l'article. Sa prise en compte dans le total reste à confirmer."
+        "Taxe spéciale versée sur un compte distinct (compte 2) : affichée à part, hors du total de l'article."
     ),
-    TaxCode.RI: "Taxe globale de la déclaration. Taux et base à confirmer : inconnu tant qu'il n'est pas saisi.",
+    TaxCode.RI: (
+        "Redevance pour l'usage de SYDONIA, calculée par SYDONIA selon ses propres critères (montant non fixe) : "
+        "ClairTransit ne la calcule pas et ne la compte pas dans le total."
+    ),
     TaxCode.DSO: "Droit de sortie : ne s'applique pas à une importation.",
 }
 

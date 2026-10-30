@@ -824,7 +824,7 @@ export interface TaxOverviewRow {
   empty: number;
   values: [string, number][];
   empty_means_none: boolean;
-  status: "verified" | "from_schedule" | "to_confirm" | "set" | "export_only";
+  status: "verified" | "from_schedule" | "to_confirm" | "set" | "export_only" | "sydonia";
   amendment: TaxAmendment | null;
   note: string;
 }
@@ -945,7 +945,7 @@ export interface CaseCalculation {
   articles: CalcArticle[];
   total_value: string | null;
   global_taxes: CalcTax[];
-  totals: { total: string | null; known_total: string | null; by_tax: Record<string, string | null> };
+  totals: { total: string | null; known_total: string | null; by_tax: Record<string, string | null>; other_accounts?: Record<string, string | null> };
   notes: Record<string, string>;
 }
 

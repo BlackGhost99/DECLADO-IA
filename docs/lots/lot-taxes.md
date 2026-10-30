@@ -91,8 +91,8 @@ Sous Windows : `demarrer-clairtransit.ps1 -ImporterTarif <chemin du classeur>`.
 
 ## Limites
 
-- **Redevance informatique** : taux et base inconnus. Tant que l'admin ne l'a pas saisie, le total de la déclaration est « incomplet » (somme connue affichée).
-- **TCI** : comptée dans le total ; sur la déclaration vérifiée, elle était à part (mode de paiement 2). La question est en attente.
+- **Redevance informatique** : calculée par SYDONIA selon ses propres critères, montant non fixe (réponse d'un déclarant, 30/10/2026). ClairTransit ne la calcule pas, ne la compte pas dans le total et n'accepte pas de taux saisi pour elle.
+- **TCI** : versée sur un compte à part (compte 2) ; elle est affichée à part et n'entre pas dans le total de l'article (30/10/2026). Le total de l'article de la déclaration vérifiée, 173 234, est retrouvé. Version des règles : `2022-swd-2`.
 - **Calcul non figé** : il est refait à chaque ouverture du dossier. L'enregistrement d'un calcul validé, avec sa version, vient avec le circuit de validation (lot 5).
 - **Exonérations et régimes** : les exonérations conditionnelles (TAX-04 au sens des exemptions), les régimes particuliers et l'origine ne sont pas encore modélisés. La TVA à 0 % du barème est appliquée telle que lue.
 - **Sous-position nationale** : elle n'est pas encore choisie dans le dossier. Un code à sous-positions aux taux différents reste inconnu pour ces taxes.
@@ -102,6 +102,6 @@ Sous Windows : `demarrer-clairtransit.ps1 -ImporterTarif <chemin du classeur>`.
 
 ## Prochaine étape
 
-1. Obtenir le taux et la base de la redevance informatique, ainsi que la règle de la TCI.
+1. ~~Redevance informatique et TCI~~ : réglé le 30/10/2026 (RI par SYDONIA, TCI au compte 2).
 2. Saisir le taux de change d'une autre devise et choisir la sous-position nationale dans le dossier.
 3. Figer le calcul à la validation (lot 5) et l'exporter avec sa version.
