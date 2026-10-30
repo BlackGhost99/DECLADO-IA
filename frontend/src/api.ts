@@ -1167,6 +1167,12 @@ export const api = {
     request<InvoiceLine>("POST", `/invoices/${invoiceId}/lines`, data),
   updateLine: (lineId: string, data: Record<string, unknown>) =>
     request<InvoiceLine>("PATCH", `/invoice-lines/${lineId}`, data),
+  updateInvoice: (invoiceId: string, data: Record<string, unknown>, row_version: number) =>
+    request<Invoice>("PATCH", `/invoices/${invoiceId}`, { ...data, row_version }),
+  confirmInvoiceField: (invoiceId: string, field: string, row_version: number) =>
+    request<Invoice>("POST", `/invoices/${invoiceId}/fields/${field}/confirm`, { row_version }),
+  updateCase: (caseId: string, data: { importer_id: string | null }, row_version: number) =>
+    request<CaseDetail>("PATCH", `/cases/${caseId}`, { ...data, row_version }),
   addGoods: (revisionId: string, invoice_line_ids: string[]) =>
     request<GoodsLine>("POST", `/revisions/${revisionId}/goods-lines`, { invoice_line_ids }),
   updateGoods: (id: string, data: Record<string, unknown>) => request<GoodsLine>("PATCH", `/goods-lines/${id}`, data),

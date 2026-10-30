@@ -231,6 +231,7 @@ export const EVENT_LABELS: Record<string, string> = {
   "extraction.divergence_resolved": "Divergence tranchée",
   "invoice.created": "Facture ajoutée",
   "invoice.updated": "Facture modifiée",
+  "invoice.field_confirmed": "Valeur de facture confirmée",
   "invoice.extracted": "Facture lue",
   "invoice_line.created": "Ligne ajoutée",
   "invoice_line.updated": "Ligne corrigée",
