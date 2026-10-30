@@ -12,6 +12,7 @@ import {
   type DocumentField,
   type FieldSource,
   type GoodsLine,
+  type Importer,
   type Invoice,
   type Me,
   type Membership,
@@ -285,7 +286,7 @@ export function CaseDetailView({
           <Overview detail={detail} editions={editions} editable={editable} act={act} go={go} />
         )}
         {tab === "documents" && (
-          <DocumentsTab caseId={detail.id} revision={rev} importer={detail.importer?.name ?? null} editable={editable} onChange={reload} go={go} />
+          <DocumentsTab caseId={detail.id} caseVersion={detail.row_version} revision={rev} importer={detail.importer?.name ?? null} editable={editable} onChange={reload} go={go} />
         )}
         {tab === "donnees" && <Invoices revision={rev} editable={editable} act={act} />}
         {tab === "marchandises" && (
@@ -487,6 +488,7 @@ function DocGlyph({ usage, mime }: { usage: string; mime: string }) {
 
 function DocumentsTab({
   caseId,
+  caseVersion,
   revision,
   importer,
   editable,
@@ -494,6 +496,7 @@ function DocumentsTab({
   go,
 }: {
   caseId: string;
+  caseVersion: number;
   revision: Revision;
   importer: string | null;
   editable: boolean;
@@ -573,7 +576,7 @@ function DocumentsTab({
 
         <div className="doc-side">
           {selected ? (
-            <ExtractedPanel link={selected} revision={revision} importer={importer} editable={editable} onChange={onChange} onSource={setHighlight} go={go} />
+            <ExtractedPanel link={selected} caseId={caseId} caseVersion={caseVersion} revision={revision} importer={importer} editable={editable} onChange={onChange} onSource={setHighlight} go={go} />
           ) : (
             <section className="card" aria-labelledby="extracted-title">
               <h2 id="extracted-title" className="card-title">{tr("tab.data")}</h2>
@@ -784,6 +787,7 @@ function fieldStatus(value: unknown, origin: string | undefined, flagged: boolea
   if (value === null || value === undefined || value === "") return { tone: "gray", label: tr("field.unknown") };
   if (flagged) return { tone: "amber", label: tr("field.toVerify") };
   if (origin === "manual") return { tone: "blue", label: tr("field.typed") };
+  if (origin === "confirmed") return { tone: "green", label: tr("field.confirmed") };
   return { tone: "green", label: tr("field.extracted") };
 }
 
@@ -1042,8 +1046,10 @@ export function TypeNote({ link, editable, onChange }: { link: CaseDocument; edi
   );
 }
 
-function ExtractedPanel({
+export function ExtractedPanel({
   link,
+  caseId,
+  caseVersion,
   revision,
   importer,
   editable,
@@ -1052,6 +1058,8 @@ function ExtractedPanel({
   go,
 }: {
   link: CaseDocument;
+  caseId: string;
+  caseVersion: number;
   revision: Revision;
   importer: string | null;
   editable: boolean;
@@ -1071,6 +1079,45 @@ function ExtractedPanel({
   const buyer = invoice?.buyer_name ?? "";
   const proposals = new Map((run?.ai?.proposals ?? []).map((p) => [p.field === "buyer_name" ? "importer" : p.field, p]));
   const [aiError, setAiError] = useState<string | null>(null);
+  const [entering, setEntering] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [importers, setImporters] = useState<Importer[]>([]);
+  const [importerId, setImporterId] = useState("");
+
+  async function save(action: () => Promise<unknown>) {
+    setBusy(true);
+    setAiError(null);
+    try {
+      await action();
+      setEntering(null);
+      setLinking(false);
+      await onChange();
+    } catch (err) {
+      setAiError(errorText(err, tr("ai.decisionFailed")));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Valeur saisie au format de l'API : date ISO, montant décimal, devise en majuscules. */
+  function entered(field: string): Record<string, unknown> {
+    if (field === "declared_total") return { declared_total: decimalInput(draft) };
+    if (field === "currency") return { currency: draft.trim().toUpperCase() };
+    return { [field]: draft.trim() || (field === "invoice_date" ? null : "") };
+  }
+
+  function startLink() {
+    setLinking(true);
+    setAiError(null);
+    api.importers().then((p) => setImporters(p.results), () => setImporters([]));
+  }
+
+  async function linkImporter() {
+    const id = importerId === "new" ? (await api.createImporter({ name: buyer })).id : importerId;
+    await api.updateCase(caseId, { importer_id: id }, caseVersion);
+  }
 
   async function acceptProposal(field: string) {
     if (!run) return;
@@ -1156,6 +1203,8 @@ function ExtractedPanel({
                     </div>
                   );
                 }
+                const canFix = editable && invoice && field !== "importer" && !busy && entering !== field;
+                const raw = invoice ? String((invoice as unknown as Record<string, unknown>)[field] ?? "") : "";
                 return (
                   <div key={field} className="field-row">
                     <dt>{label}</dt>
@@ -1177,6 +1226,48 @@ function ExtractedPanel({
                         <SourceLink source={invoice.field_sources?.[field]} onSource={onSource} />
                       )}
                       <Flags flags={invoice.review_flags} field={field} />
+                      {canFix && (flagged || !value) && (
+                        <span className="ia-note-row">
+                          {value && (
+                            <button type="button" className="btn-small" onClick={() => void save(() => api.confirmInvoiceField(invoice.id, field, invoice.row_version))}>
+                              {tr("field.confirm")}
+                            </button>
+                          )}
+                          <button type="button" className="source-link" onClick={() => { setEntering(field); setDraft(raw); setAiError(null); }}>
+                            <Icon name="edit" size={13} /> {value ? tr("ai.correct") : tr("ai.enter")}
+                          </button>
+                        </span>
+                      )}
+                      {entering === field && (
+                        <form className="ia-entry" onSubmit={(e) => { e.preventDefault(); void save(() => api.updateInvoice(invoice.id, entered(field), invoice.row_version)); }}>
+                          <input
+                            aria-label={`${tr("ai.value")} : ${label}`}
+                            type={field === "invoice_date" ? "date" : "text"}
+                            inputMode={field === "declared_total" ? "decimal" : undefined}
+                            maxLength={field === "currency" ? 3 : 200}
+                            value={draft}
+                            required
+                            onChange={(e) => setDraft(e.target.value)}
+                          />
+                          <button type="submit" className="btn-small" disabled={busy || !draft.trim()}>{tr("save")}</button>
+                          <button type="button" className="btn-small" onClick={() => setEntering(null)}>{tr("cancel")}</button>
+                        </form>
+                      )}
+                      {field === "importer" && !importer && editable && (linking ? (
+                        <form className="ia-entry" onSubmit={(e) => { e.preventDefault(); void save(linkImporter); }}>
+                          <select aria-label={tr("field.linkChoose")} value={importerId} required onChange={(e) => setImporterId(e.target.value)}>
+                            <option value="">{tr("field.linkChoose")}</option>
+                            {buyer && !importers.some((i) => sameName(i.name, buyer)) && <option value="new">{tr("field.linkCreate", { name: buyer })}</option>}
+                            {importers.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                          </select>
+                          <button type="submit" className="btn-small" disabled={busy || !importerId}>{tr("save")}</button>
+                          <button type="button" className="btn-small" onClick={() => setLinking(false)}>{tr("cancel")}</button>
+                        </form>
+                      ) : (
+                        <span className="ia-note-row">
+                          <button type="button" className="btn-small" onClick={startLink}>{tr("field.link")}</button>
+                        </span>
+                      ))}
                     </dd>
                     <Chip tone={status.tone} icon={status.tone === "amber" ? "alert" : status.tone === "green" ? "checkCircle" : undefined}>{status.label}</Chip>
                   </div>
@@ -1215,7 +1306,12 @@ function ExtractedPanel({
             </thead>
             <tbody>
               {invoice.lines.slice(0, PREVIEW_LINES).map((ln) => {
-                const status = fieldStatus(ln.description_raw || ln.amount, ln.entry_origin, (ln.review_flags ?? []).length > 0);
+                // Une fois la marchandise décidée (code confirmé), c'est cette décision qui fait foi.
+                const goods = ln.goods_line_ids.map((id) => revision.goods_lines.find((g) => g.id === id));
+                const decided = goods.length > 0 && goods.every((g) => g?.decision?.is_current);
+                const status = decided
+                  ? { tone: "green" as Tone, label: tr("field.confirmed") }
+                  : fieldStatus(ln.description_raw || ln.amount, ln.entry_origin, (ln.review_flags ?? []).length > 0);
                 const code = ln.codes.find((c) => c.code_kind === "customs") ?? ln.codes[0];
                 return (
                   <tr key={ln.id}>
