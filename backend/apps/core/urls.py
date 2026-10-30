@@ -103,6 +103,7 @@ urlpatterns = [
     path("revisions/<uuid:revision_id>/invoices", cases.InvoiceCreateView.as_view()),
     path("revisions/<uuid:revision_id>/goods-lines", cases.GoodsLineCreateView.as_view()),
     path("invoices/<uuid:invoice_id>", cases.InvoiceDetailView.as_view()),
+    path("invoices/<uuid:invoice_id>/fields/<str:field>/confirm", cases.InvoiceFieldConfirmView.as_view()),
     path("invoices/<uuid:invoice_id>/lines", cases.InvoiceLineCreateView.as_view()),
     path("invoices/<uuid:invoice_id>/goods-lines", cases.InvoiceGoodsLinesView.as_view()),
     path("invoice-lines/<uuid:line_id>", cases.InvoiceLineDetailView.as_view()),

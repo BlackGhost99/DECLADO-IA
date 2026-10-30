@@ -753,6 +753,20 @@ class InvoiceDetailView(APIView):
         return Response(invoice_payload(inv))
 
 
+class InvoiceFieldConfirmView(APIView):
+    permission_classes = [CanEdit]
+
+    def post(self, request, invoice_id, field):
+        inv = services.confirm_invoice_field(
+            org=request.organization,
+            actor=request.user,
+            invoice_id=invoice_id,
+            expected=expected_version(request),
+            field=field,
+        )
+        return Response(invoice_payload(inv))
+
+
 class InvoiceLineCreateView(APIView):
     permission_classes = [CanEdit]
 
