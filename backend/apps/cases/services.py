@@ -553,6 +553,30 @@ def update_invoice(*, org, actor, invoice_id, expected, data) -> Invoice:
     return invoice
 
 
+@transaction.atomic
+def confirm_invoice_field(*, org, actor, invoice_id, expected, field) -> Invoice:
+    """Valeur lue confirmée telle quelle : le signalement « à vérifier » est levé, la relecture la garde."""
+    if field not in INVOICE_FIELDS:
+        raise ApiError("VALIDATION_ERROR", "Ce champ de facture ne se confirme pas.", 400)
+    invoice = _get(
+        Invoice.objects.for_organization(org).select_for_update(of=("self",)).select_related("revision__case"),
+        invoice_id,
+    )
+    check_version(invoice, expected)
+    _require_editable(invoice.revision)
+    if getattr(invoice, field) in (None, ""):
+        raise ApiError("VALIDATION_ERROR", "Valeur absente : à saisir, pas à confirmer.", 400)
+    previous = invoice.field_origins.get(field)
+    invoice.field_origins[field] = "confirmed"
+    invoice.review_flags = [f for f in invoice.review_flags if f.get("field") != field]
+    bump(invoice)
+    invoice.save()
+    # Seul le nom du champ est journalisé, pas le texte de la facture.
+    _event(org, actor, "invoice.field_confirmed", invoice, invoice.revision.case,
+           {"field": field, "origin": previous}, {"field": field, "origin": "confirmed"})  # fmt: skip
+    return invoice
+
+
 def _observe(
     org,
     actor,

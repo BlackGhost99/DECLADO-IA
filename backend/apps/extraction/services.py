@@ -342,9 +342,13 @@ def _origin_label(value: Value) -> str:
     return "inferred" if value.origin == Origin.INFERRED else "extracted"
 
 
+# « manual » : valeur saisie ou corrigée ; « confirmed » : valeur lue, confirmée telle quelle par un agent.
+HUMAN_ORIGINS = ("manual", "confirmed")
+
+
 def _is_human(entity, field: str, created: bool) -> bool:
     origin = entity.field_origins.get(field)
-    if origin == "manual":
+    if origin in HUMAN_ORIGINS:
         return True
     # Valeur présente sans provenance d'extraction : saisie avant la lecture, donc humaine.
     return origin is None and not created and not _empty(getattr(entity, field))
@@ -397,7 +401,7 @@ def _merge_field(run, entity, field, value: Value, obs, report, *, invoice, line
 def _flags(fields: dict[str, Value], entity, extra: list[dict]) -> list[dict]:
     flags = []
     for name, value in fields.items():
-        if entity.field_origins.get(name) == "manual":
+        if entity.field_origins.get(name) in HUMAN_ORIGINS:
             continue
         if value.status != Status.OK:
             message = " ".join(value.notes) or STATUS_MESSAGES.get(value.status, "À vérifier.")
