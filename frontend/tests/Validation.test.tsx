@@ -59,4 +59,17 @@ describe("Circuit de validation (T73 à T75)", () => {
     expect(screen.queryByRole("button", { name: /Valider le dossier/ })).toBeNull();
     expect(screen.getByText(/en attente d'un validateur/)).toBeInTheDocument();
   });
+
+  it("un dossier validé se rouvre en nouvelle révision, avec un motif obligatoire (WF-04)", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() => json(201, {}));
+    show(detail("validated"), ["validator"]);
+    const button = screen.getByRole("button", { name: /Créer une nouvelle révision/ });
+    expect(button).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Motif de la nouvelle révision"), { target: { value: "Facture rectifiée" } });
+    fireEvent.click(button);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [url, init] = fetchMock.mock.calls.find(([, i]) => (i as RequestInit | undefined)?.method === "POST")!;
+    expect(String(url)).toMatch(/\/cases\/c1\/revisions$/);
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({ reason: "Facture rectifiée" });
+  });
 });

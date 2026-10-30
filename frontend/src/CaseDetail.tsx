@@ -5,6 +5,7 @@ import {
   type AuditEntry,
   type CaseCalculation,
   type CaseDetail,
+  type CaseExport,
   type AIProposal,
   type AIState,
   type CaseDocument,
@@ -313,7 +314,7 @@ export function CaseDetailView({
         {tab === "controles" && <Controls detail={detail} go={go} />}
         {tab === "calculs" && <Calculation detail={detail} membership={membership} act={act} go={go} />}
         {tab === "validation" && <ValidationPage detail={detail} membership={membership} act={act} go={go} />}
-        {tab === "export" && <ExportPage detail={detail} go={go} />}
+        {tab === "export" && <ExportPage detail={detail} act={act} go={go} />}
         {tab === "historique" && <History caseId={detail.id} version={tick} />}
       </div>
     </div>
@@ -807,7 +808,12 @@ const PREVIEW_LINES = 3;
 
 const AMOUNT_FIELDS = new Set(["insured_value", "premium_total", "freight_total"]);
 
-const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
+/** Nom comparé sans casse, accents ni ponctuation : « Société Alpha SARL » = « SOCIETE ALPHA S.A.R.L ». */
+const nameKey = (v: string) =>
+  v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+const sameName = (a: string, b: string) => nameKey(a) === nameKey(b);
+/** Nom de l'acheteur sans l'adresse qui suit souvent sur la facture (« Alpha SA, BP 12 Libreville »). */
+const buyerShortName = (v: string) => v.split(/[,\n]/)[0].trim();
 
 /** Valeur lue affichée : date et montant mis en forme, texte tel qu'imprimé sinon. */
 function shownValue(field: DocumentField): string {
@@ -1077,6 +1083,7 @@ export function ExtractedPanel({
   const currency = invoice?.currency ? ` (${invoice.currency})` : "";
   const pieceName = link.document_type ? typeLabel(link.document_type) : usageLabel(link.usage, link.usage_label);
   const buyer = invoice?.buyer_name ?? "";
+  const buyerName = buyerShortName(buyer);
   const proposals = new Map((run?.ai?.proposals ?? []).map((p) => [p.field === "buyer_name" ? "importer" : p.field, p]));
   const [aiError, setAiError] = useState<string | null>(null);
   const [entering, setEntering] = useState<string | null>(null);
@@ -1111,11 +1118,19 @@ export function ExtractedPanel({
   function startLink() {
     setLinking(true);
     setAiError(null);
-    api.importers().then((p) => setImporters(p.results), () => setImporters([]));
+    api.importers().then(
+      (p) => {
+        setImporters(p.results);
+        // L'importateur dont le nom correspond à l'acheteur lu est proposé d'office.
+        const match = p.results.find((i) => sameName(i.name, buyerName));
+        if (match) setImporterId(match.id);
+      },
+      () => setImporters([]),
+    );
   }
 
   async function linkImporter() {
-    const id = importerId === "new" ? (await api.createImporter({ name: buyer })).id : importerId;
+    const id = importerId === "new" ? (await api.createImporter({ name: buyerName })).id : importerId;
     await api.updateCase(caseId, { importer_id: id }, caseVersion);
   }
 
@@ -1214,7 +1229,7 @@ export function ExtractedPanel({
                         importer ? (
                           <>
                             <span className="source-link source-static">{tr("field.caseRecord")}</span>
-                            {buyer && !sameName(buyer, importer) && <span className="block small muted">{tr("field.buyerDiffers", { name: buyer })}</span>}
+                            {buyer && !sameName(buyerName, importer) && <span className="block small muted">{tr("field.buyerDiffers", { name: buyer })}</span>}
                           </>
                         ) : buyer && (
                           <>
@@ -1257,7 +1272,7 @@ export function ExtractedPanel({
                         <form className="ia-entry" onSubmit={(e) => { e.preventDefault(); void save(linkImporter); }}>
                           <select aria-label={tr("field.linkChoose")} value={importerId} required onChange={(e) => setImporterId(e.target.value)}>
                             <option value="">{tr("field.linkChoose")}</option>
-                            {buyer && !importers.some((i) => sameName(i.name, buyer)) && <option value="new">{tr("field.linkCreate", { name: buyer })}</option>}
+                            {buyerName && !importers.some((i) => sameName(i.name, buyerName)) && <option value="new">{tr("field.linkCreate", { name: buyerName })}</option>}
                             {importers.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
                           </select>
                           <button type="submit" className="btn-small" disabled={busy || !importerId}>{tr("save")}</button>
@@ -2166,6 +2181,12 @@ function Calculation({ detail, membership, act, go }: { detail: CaseDetail; memb
               <div><dt>{tr("calc.freightInsurance")}</dt><dd>{freightInsurance ? `${xaf(freightInsurance)} FCFA` : unknown(tr("calc.toConfirm"))}</dd></div>
               <div><dt>{tr("calc.customsValueCap")}</dt><dd>{calc?.total_value ? `${xaf(calc.total_value)} FCFA` : unknown(tr("calc.notCalculatedF"))}</dd></div>
               <div><dt>{tr("calc.totalTaxesShort")}</dt><dd>{totalTaxes !== null ? `${xaf(totalTaxes)} FCFA` : unknown(tr("calc.notCalculatedM"))}</dd></div>
+              {calc?.totals.other_accounts && "TCI" in calc.totals.other_accounts && (
+                <div>
+                  <dt>{tr("calc.tciAccount2")}</dt>
+                  <dd>{calc.totals.other_accounts.TCI !== null ? `${xaf(calc.totals.other_accounts.TCI)} FCFA` : unknown(tr("calc.notCalculatedF"))}</dd>
+                </div>
+              )}
             </dl>
             <div className="total-band">
               <span>{tr("calc.totalToPay")}</span>
@@ -2234,6 +2255,7 @@ export function ValidationActions({ detail, membership, act, go }: { detail: Cas
   const [reason, setReason] = useState("");
   const canSubmit = rev.is_editable && membership.roles.some((r) => r === "declarant" || r === "validator" || r === "org_admin");
   const canDecide = rev.state === "to_validate" && membership.roles.some((r) => r === "validator" || r === "org_admin");
+  const canRevise = membership.roles.some((r) => r === "declarant" || r === "validator" || r === "org_admin");
   const blocking = rev.completeness.blocking.length;
   const run = (action: "submit" | "return" | "validate") =>
     void act(async () => {
@@ -2266,6 +2288,27 @@ export function ValidationActions({ detail, membership, act, go }: { detail: Cas
           <p className="muted small">{tr("val.waiting")} {tr("val.onlyValidator")}</p>
         ))}
         {rev.state === "validated" && <p className="note-blue small">{tr("val.done")}</p>}
+        {rev.state === "validated" && canRevise && (
+          <>
+            <label className="block small">
+              {tr("val.revisionReason")}
+              <textarea rows={2} value={reason} maxLength={2000} onChange={(e) => setReason(e.target.value)} />
+            </label>
+            <button
+              type="button"
+              className="btn-secondary btn-block btn-row"
+              disabled={!reason.trim()}
+              onClick={() =>
+                void act(async () => {
+                  await api.createRevision(detail.id, reason.trim());
+                  setReason("");
+                })
+              }
+            >
+              <Icon name="edit" /> <span>{tr("val.newRevision")}<small>{tr("val.newRevisionHint")}</small></span> <Icon name="arrowRight" />
+            </button>
+          </>
+        )}
         <button type="button" className="btn-secondary btn-block btn-row" onClick={() => go("export")}>
           <Icon name="upload" /> <span>{tr("val.prepareExport")}<small>{tr("val.prereqFiles")}</small></span> <Icon name="arrowRight" />
         </button>
@@ -2340,13 +2383,15 @@ function Prerequisites({ detail, kind, go }: { detail: CaseDetail; kind: "valida
 }
 
 function auditCsv(events: AuditEntry[]): string {
-  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  // Une cellule commençant par =, +, - ou @ serait lue comme une formule par un tableur.
+  const esc = (v: string) => `"${(/^[=+\-@\t\r]/.test(v) ? `'${v}` : v).replace(/"/g, '""')}"`;
   const rows = events.map((e) => [e.at, eventLabel(e.event_type), e.event_type, e.actor ?? tr("activity.system")].map(esc).join(";"));
   return [tr("csv.header"), ...rows].join("\n");
 }
 
-function saveFile(name: string, content: string, type: string) {
-  const url = URL.createObjectURL(new Blob(["﻿" + content], { type }));
+function saveFile(name: string, content: string | Blob, type: string) {
+  const blob = typeof content === "string" ? new Blob(["﻿" + content], { type }) : content;
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = name;
@@ -2354,10 +2399,18 @@ function saveFile(name: string, content: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-function ExportPage({ detail, go }: { detail: CaseDetail; go: (tab: string) => void }) {
+function ExportPage({ detail, act, go }: { detail: CaseDetail; act: Act; go: (tab: string) => void }) {
   const rev = detail.revision;
   const docs = rev.documents.filter((d) => !d.replaced_by_id);
   const currencies = [...new Set(rev.invoices.map((i) => i.currency).filter(Boolean))].join(", ");
+  const [exports, setExports] = useState<CaseExport[] | null>(null);
+  const validated = rev.state === "validated" || rev.state === "archived";
+  const stem = `${detail.reference}_r${rev.revision_no}${validated ? "" : "_brouillon"}`;
+
+  const loadExports = useCallback(() => {
+    api.caseExports(detail.id).then((r) => setExports(r.results), () => setExports([]));
+  }, [detail.id]);
+  useEffect(loadExports, [loadExports, rev.row_version]);
 
   async function downloadAudit() {
     const r = await api.caseAudit(detail.id);
@@ -2367,6 +2420,14 @@ function ExportPage({ detail, go }: { detail: CaseDetail; go: (tab: string) => v
     const { url } = await api.documentLink(id);
     window.location.assign(url);
   }
+  async function downloadExport(e: CaseExport) {
+    saveFile(e.filename, await api.exportFile(detail.id, e.id), "");
+  }
+  const generate = (formats: ("pdf" | "xlsx")[]) =>
+    void act(async () => {
+      for (const f of formats) await downloadExport(await api.createExport(detail.id, f));
+      loadExports();
+    });
 
   return (
     <div className="grid-2-1">
@@ -2395,14 +2456,14 @@ function ExportPage({ detail, go }: { detail: CaseDetail; go: (tab: string) => v
             <div className="final-doc">
               <span className="doc-type doc-pdf">PDF</span>
               <strong>{tr("export.summary")}</strong>
-              <small>{detail.reference}.pdf · {tr("export.soon").toLowerCase()}</small>
-              <button type="button" className="btn-secondary btn-block" disabled><Icon name="download" size={16} /> {tr("common.download")}</button>
+              <small>{stem}.pdf</small>
+              <button type="button" className="btn-secondary btn-block" onClick={() => generate(["pdf"])}><Icon name="download" size={16} /> {tr("common.download")}</button>
             </div>
             <div className="final-doc">
               <span className="doc-type doc-xls">XLS</span>
               <strong>{tr("export.dutyDetail")}</strong>
-              <small>{detail.reference}_calcul.xlsx · {tr("export.soon").toLowerCase()}</small>
-              <button type="button" className="btn-secondary btn-block" disabled><Icon name="download" size={16} /> {tr("common.download")}</button>
+              <small>{stem}.xlsx</small>
+              <button type="button" className="btn-secondary btn-block" onClick={() => generate(["xlsx"])}><Icon name="download" size={16} /> {tr("common.download")}</button>
             </div>
             <div className="final-doc">
               <span className="doc-type doc-img">CSV</span>
@@ -2432,8 +2493,8 @@ function ExportPage({ detail, go }: { detail: CaseDetail; go: (tab: string) => v
         <section className="card" aria-labelledby="export-actions">
           <h2 id="export-actions" className="card-title">{tr("export.actions")}</h2>
           <div className="action-stack">
-            <button type="button" className="btn-primary btn-block btn-row" disabled>
-              <Icon name="upload" /> <span>{tr("export.generate")}</span> <Icon name="arrowRight" />
+            <button type="button" className="btn-primary btn-block btn-row" onClick={() => generate(["pdf", "xlsx"])}>
+              <Icon name="upload" /> <span>{tr("export.generate")}<small>{tr("export.generateHint", { n: rev.revision_no })}</small></span> <Icon name="arrowRight" />
             </button>
             <button type="button" className="btn-secondary btn-block btn-row" disabled>
               <Icon name="download" /> <span>{tr("export.downloadAll")}</span> <Icon name="arrowRight" />
@@ -2442,13 +2503,29 @@ function ExportPage({ detail, go }: { detail: CaseDetail; go: (tab: string) => v
               <Icon name="check" /> <span>{tr("export.markExported")}</span> <Icon name="arrowRight" />
             </button>
           </div>
-          <p className="note-blue small">
-            {tr("export.nextVersion")}
-          </p>
+          <p className={validated ? "note-blue small" : "note-amber small"}>{tr(validated ? "export.validatedNote" : "export.draftNote")}</p>
+          <p className="note-blue small">{tr("export.nextVersion")}</p>
         </section>
         <section className="card" aria-labelledby="export-history">
           <h2 id="export-history" className="card-title">{tr("export.history")}</h2>
-          <p className="empty">{tr("export.noExport")}</p>
+          {exports === null ? (
+            <p className="muted">{tr("loading")}</p>
+          ) : exports.length === 0 ? (
+            <p className="empty">{tr("export.noExport")}</p>
+          ) : (
+            <ul className="export-history">
+              {exports.map((e) => (
+                <li key={e.id}>
+                  <button type="button" className="link-arrow" onClick={() => void act(() => downloadExport(e))}>
+                    <Icon name="download" size={14} /> {e.filename}
+                  </button>
+                  <small>
+                    {tr("export.revisionN", { n: e.revision_no })} · {e.marking_label} · {fmtDateTime(e.created_at)} · {e.created_by}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
         <section className="card" aria-labelledby="export-info">
           <h2 id="export-info" className="card-title">{tr("export.moreInfo")}</h2>

@@ -274,16 +274,10 @@ def update_revision(*, org, actor, revision_id, expected: int | None, data: dict
 
 
 def create_revision(*, org, actor, case_id, reason: str):
-    """WF-04 : une nouvelle révision part d'une révision validée. La validation arrive au lot 5."""
-    case = lock_case(org, case_id)
-    if case.current_revision.state != CaseRevision.State.VALIDATED:
-        raise ApiError(
-            "REVISION_NOT_VALIDATED",
-            "Une nouvelle révision se crée après validation interne ; la révision courante reste modifiable.",
-            409,
-            {"current_state": case.current_revision.state},
-        )
-    raise ApiError("NOT_IMPLEMENTED", "Création de révision après validation : prévue au lot 5.", 501)
+    """WF-04 : nouvelle révision d'un dossier validé (voir revisions.py)."""
+    from . import revisions
+
+    return revisions.create_revision(org=org, actor=actor, case_id=case_id, reason=reason)
 
 
 # --- Pièces ----------------------------------------------------------------------------

@@ -756,6 +756,21 @@ export interface RevisionDecision {
   actor: UserBrief;
   reason: string;
   created_at: string;
+  calculated?: boolean;
+}
+
+export interface CaseExport {
+  id: string;
+  revision_no: number;
+  format: "pdf" | "xlsx";
+  format_label: string;
+  marking: "draft" | "validated";
+  marking_label: string;
+  filename: string;
+  bytes: number;
+  sha256: string;
+  created_at: string;
+  created_by: string;
 }
 
 export interface Revision {
@@ -764,6 +779,7 @@ export interface Revision {
   state: string;
   state_label: string;
   decisions?: RevisionDecision[];
+  export_count?: number;
   mode: string;
   mode_label: string;
   territory: string;
@@ -1135,6 +1151,7 @@ export const api = {
   caseCalculation: (caseId: string) => request<CaseCalculation>("GET", `/cases/${caseId}/calculation`),
   workflow: (caseId: string, action: "submit" | "return" | "validate", row_version: number, reason = "") =>
     request<CaseDetail>("POST", `/cases/${caseId}/workflow/${action}`, { row_version, reason }),
+  createRevision: (caseId: string, reason: string) => request<CaseDetail>("POST", `/cases/${caseId}/revisions`, { reason }),
   cases: (params: Record<string, string>) =>
     request<{ results: CaseSummary[]; states: [string, string][] }>(
       "GET",
@@ -1147,6 +1164,14 @@ export const api = {
   updateRevision: (id: string, data: Record<string, unknown>) => request<Revision>("PATCH", `/revisions/${id}`, data),
   auditEvents: () => request<Page<OrgAuditEvent>>("GET", "/audit-events"),
   caseAudit: (id: string) => request<{ results: AuditEntry[] }>("GET", `/cases/${id}/audit`),
+  caseExports: (id: string) => request<{ results: CaseExport[] }>("GET", `/cases/${id}/exports`),
+  createExport: (id: string, format: "pdf" | "xlsx") => request<CaseExport>("POST", `/cases/${id}/exports`, { format }),
+  exportFile: async (caseId: string, exportId: string): Promise<Blob> => {
+    const path = `/cases/${caseId}/exports/${exportId}/file`;
+    const response = watchSession(path, await fetch(`${BASE}${path}`, { credentials: "same-origin" }));
+    if (!response.ok) return parse<Blob>(response);
+    return response.blob();
+  },
   documentLimits: () => request<{ max_bytes: number; accepted: string[] }>("GET", "/documents/limits"),
   /** usage : « auto » pour reconnaître le type d'après le titre ; documentType : type choisi par l'agent. */
   uploadDocument: (caseId: string, file: File, usage: string, duplicateAction = "", idempotencyKey = "", documentType = "") => {

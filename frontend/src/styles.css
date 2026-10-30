@@ -451,6 +451,7 @@ details > summary { cursor: pointer; font-weight: 600; color: var(--heading); pa
 .action-stack { display: grid; gap: 0.6rem; margin-bottom: 0.8rem; }
 .btn-row { display: grid !important; grid-template-columns: auto 1fr auto; text-align: left; align-items: center; gap: 0.7rem; padding: 0.85rem 1rem; }
 .btn-row small { display: block; font-weight: 400; color: var(--muted); font-size: 0.8rem; }
+.btn-primary.btn-row small { color: rgba(255, 255, 255, 0.86); }
 .prereq-value.ok { color: var(--green); }
 .export-file { display: flex; gap: 1rem; align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem; }
 .export-file .recap { flex: 1; }
@@ -703,3 +704,8 @@ input,select,textarea{min-height:39px;border-radius:7px;border-color:#dfe6e2}
 .ia-entry { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
 .ia-entry input { flex: 1 1 10rem; min-width: 0; }
 .extracted-card .ia-panel-note { margin: 10px 14px; }
+.export-history { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.65rem; }
+.export-history li { display: grid; gap: 0.15rem; padding-bottom: 0.55rem; border-bottom: 1px solid var(--border); }
+.export-history li:last-child { border-bottom: none; padding-bottom: 0; }
+.export-history .link-arrow { justify-content: flex-start; text-align: left; overflow-wrap: anywhere; }
+.export-history small { color: var(--muted); font-size: 0.78rem; }

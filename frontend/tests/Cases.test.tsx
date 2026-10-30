@@ -134,8 +134,13 @@ describe("Dossiers", () => {
     mockApi();
     render(<CaseDetailView caseId="c1" tab="apercu" membership={membership} me={{ id: "u1" }} />);
     expect(await screen.findByText("Importateur à renseigner.", { exact: false })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Étape 4 : Calcul" }).closest("li")).toHaveTextContent("à venir");
-    expect(screen.getByRole("button", { name: "Étape 6 : Export" }).closest("li")).toHaveTextContent("à venir");
+    // Rien n'est compté comme fait sans calcul soumis ni fichier généré.
+    const calc = screen.getByRole("button", { name: "Étape 4 : Calcul" }).closest("li")!;
+    const exp = screen.getByRole("button", { name: "Étape 6 : Export" }).closest("li")!;
+    expect(calc).toHaveTextContent("droits et taxes à vérifier");
+    expect(exp).toHaveTextContent("PDF et Excel");
+    expect(calc.className).not.toContain("step-done");
+    expect(exp.className).not.toContain("step-done");
   });
 
   it("affiche le contrôle du code présent et envoie une confirmation motivée liée au contrôle", async () => {

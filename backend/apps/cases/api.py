@@ -139,7 +139,9 @@ def line_payload(line: InvoiceLine) -> dict:
         "field_origins": line.field_origins,
         "review_flags": line.review_flags,
         "field_sources": extraction.field_sources(
-            line.field_observations.select_related("source_span") if line.extraction_key else []
+            FieldObservation.objects.filter(invoice_line_id__in=extraction.lineage(line)).select_related("source_span")
+            if line.extraction_key
+            else []
         ),
         "corrections": [correction_payload(c) for c in line.corrections.select_related("actor")],
     }
@@ -194,7 +196,9 @@ def invoice_payload(inv: Invoice) -> dict:
         "field_origins": inv.field_origins,
         "review_flags": inv.review_flags,
         "field_sources": extraction.field_sources(
-            FieldObservation.objects.filter(invoice=inv, invoice_line__isnull=True).select_related("source_span")
+            FieldObservation.objects.filter(
+                invoice_id__in=extraction.lineage(inv), invoice_line__isnull=True
+            ).select_related("source_span")
         ),
         "divergences": [
             divergence_payload(d)
@@ -289,9 +293,11 @@ def revision_payload(revision: CaseRevision) -> dict:
                 "actor": user_brief(d.actor),
                 "reason": d.reason,
                 "created_at": d.created_at,
+                "calculated": ((d.snapshot.get("calculation") or {}).get("totals") or {}).get("total") is not None,
             }
             for d in revision.decisions.select_related("actor")
         ],
+        "export_count": revision.exports.count(),
         "row_version": revision.row_version,
         "target_edition": None
         if edition is None
@@ -556,13 +562,73 @@ class CaseWorkflowView(APIView):
         return Response(case_payload(get_case(request, case_id), detail=True))
 
 
-class CaseRevisionsView(APIView):
-    permission_classes = [CanEdit]
+CanExport = require_roles(Role.DECLARANT, Role.VALIDATOR, Role.ORG_ADMIN, safe_methods_open=True)
+
+
+class CaseExportsView(APIView):
+    """EXP-01 à EXP-03 : exports de toutes les révisions du dossier ; POST génère celui de la courante."""
+
+    permission_classes = [CanExport]
+
+    def get(self, request, case_id):
+        from . import exports
+        from .models import CaseExport
+
+        case = get_case(request, case_id)
+        rows = (
+            CaseExport.objects.for_organization(request.organization)
+            .filter(revision__case=case)
+            .select_related("revision", "created_by")
+        )
+        return Response({"results": [exports.export_payload(e) for e in rows]})
 
     def post(self, request, case_id):
-        services.create_revision(
-            org=request.organization, actor=request.user, case_id=case_id, reason=str(request.data.get("reason", ""))
+        from . import exports
+
+        get_case(request, case_id)
+        export = exports.create_export(
+            org=request.organization, actor=request.user, case_id=case_id, fmt=str(request.data.get("format", ""))
         )
+        return Response(exports.export_payload(export), status=201)
+
+
+class CaseExportFileView(APIView):
+    """Octets d'un export conservé, bornés à la société."""
+
+    permission_classes = [CanExport]
+
+    def get(self, request, case_id, export_id):
+        from .models import CaseExport
+
+        case = get_case(request, case_id)
+        export = (
+            CaseExport.objects.for_organization(request.organization).filter(pk=export_id, revision__case=case).first()
+        )
+        if export is None:
+            raise ApiError(*services.NOT_FOUND)
+        mime = "application/pdf" if export.format == CaseExport.Format.PDF else XLSX
+        response = FileResponse(
+            get_storage().open(export.object_key), content_type=mime, as_attachment=True, filename=export.filename
+        )
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class CaseRevisionsView(APIView):
+    """WF-04 : nouvelle révision d'un dossier validé, avec un motif ; l'ancienne reste consultable."""
+
+    permission_classes = [CanDecide]
+
+    def post(self, request, case_id):
+        get_case(request, case_id)  # 404 hors de la société, avant tout verrou
+        services.create_revision(
+            org=request.organization,
+            actor=request.user,
+            case_id=case_id,
+            reason=str(request.data.get("reason", ""))[:2000],
+        )
+        return Response(case_payload(get_case(request, case_id), detail=True), status=201)
 
 
 def get_revision(request, revision_id) -> CaseRevision:

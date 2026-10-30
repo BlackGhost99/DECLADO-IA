@@ -20,11 +20,9 @@ Demande : le bouton « Valider le dossier » était grisé. Décision de l'utili
 
 ## Limites
 
-- **Nouvelle révision après validation** (WF-04, DEV-027) : pas encore faite. Un dossier validé reste en lecture seule.
-- **Exports PDF/XLSX** (EXP-01 à EXP-03, DEV-026) : pas encore faits.
+- Nouvelle révision après validation (WF-04) et exports PDF/XLSX (EXP-01 à EXP-03) : faits dans le lot suivant, voir `lot-6-exports-revisions.md`.
 - Les points bloquants viennent du contrôle de complétude existant : importateur, date prévue, régime, champs de facture et de ligne (origine comprise), codes confirmés.
 
 ## Prochaine étape
 
-1. TCI hors total de l'article (compte 2) et RI « calculée par SYDONIA ».
-2. Nouvelle révision après validation, puis exports.
+Faite : TCI au compte 2 et RI par SYDONIA (#44), puis `lot-6-exports-revisions.md`.

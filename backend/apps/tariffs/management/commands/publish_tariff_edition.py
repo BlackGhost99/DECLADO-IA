@@ -14,7 +14,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--label", required=True, help="Libellé de l'édition, tel que donné à l'import")
-        parser.add_argument("--actor", help="E-mail du gestionnaire (par défaut : le premier exploitant gestionnaire)")
+        parser.add_argument(
+            "--actor",
+            help="E-mail du gestionnaire (par défaut : un exploitant gestionnaire, sinon tout gestionnaire)",
+        )
         parser.add_argument(
             "--mode",
             choices=[PublicationState.CONSULTATION, PublicationState.OPERATIONAL],
@@ -29,7 +32,10 @@ class Command(BaseCommand):
         actor = (
             managers.filter(email=opts["actor"].lower()).first()
             if opts["actor"]
-            else (managers.filter(is_platform_operator=True).order_by("created_at").first())
+            else (
+                managers.filter(is_platform_operator=True).order_by("created_at").first()
+                or managers.order_by("created_at").first()
+            )
         )
         if actor is None:
             raise CommandError("Aucun gestionnaire du référentiel : terminez d'abord la mise en service.")
