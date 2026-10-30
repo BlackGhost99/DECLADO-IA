@@ -370,3 +370,35 @@ class ClassificationProposal(OrganizationOwnedModel):
 
     class Meta:
         ordering = ["proposal_set", "rank"]
+
+
+class RevisionDecision(OrganizationOwnedModel):
+    """WF-01 à WF-03 : soumission, retour pour correction et validation interne d'une révision.
+
+    Ajout seul. L'empreinte couvre le calcul et les données soumises : une validation sur un calcul
+    qui a changé depuis la soumission est refusée. « Validé » reste une validation interne.
+    """
+
+    class Kind(models.TextChoices):
+        SUBMITTED = "submitted", "Soumis pour validation"
+        RETURNED = "returned", "Retourné pour correction"
+        VALIDATED = "validated", "Validé en interne"
+
+    revision = models.ForeignKey(CaseRevision, on_delete=models.PROTECT, related_name="decisions")
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    reason = models.TextField(blank=True)
+    fingerprint = models.CharField(max_length=64)
+    # Calcul et contrôles au moment de la décision : le calcul validé est figé ici.
+    snapshot = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.revision} · {self.get_kind_display()}"
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("Une décision de validation n'est jamais réécrite : en enregistrer une nouvelle.")
+        super().save(*args, **kwargs)

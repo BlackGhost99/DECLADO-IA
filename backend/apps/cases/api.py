@@ -282,6 +282,16 @@ def revision_payload(revision: CaseRevision) -> dict:
         "priority": revision.priority,
         "priority_label": revision.get_priority_display(),
         "is_editable": revision.is_editable,
+        "decisions": [
+            {
+                "kind": d.kind,
+                "kind_label": d.get_kind_display(),
+                "actor": user_brief(d.actor),
+                "reason": d.reason,
+                "created_at": d.created_at,
+            }
+            for d in revision.decisions.select_related("actor")
+        ],
         "row_version": revision.row_version,
         "target_edition": None
         if edition is None
@@ -518,6 +528,32 @@ class CaseAssignView(APIView):
             assignee_id=assignee,
         )
         return Response(case_payload(get_case(request, case_id)))
+
+
+CanDecide = require_roles(Role.DECLARANT, Role.VALIDATOR, Role.ORG_ADMIN)
+
+
+class CaseWorkflowView(APIView):
+    """WF-01 à WF-03 : soumettre, retourner pour correction (motif) ou valider en interne."""
+
+    permission_classes = [CanDecide]
+
+    def post(self, request, case_id, action):
+        from . import workflow
+
+        get_case(request, case_id)  # 404 hors de la société, avant tout verrou
+        common = {"org": request.organization, "actor": request.user, "case_id": case_id,
+                  "expected": expected_version(request)}  # fmt: skip
+        reason = str(request.data.get("reason", ""))[:2000]
+        if action == "submit":
+            workflow.submit(**common)
+        elif action == "return":
+            workflow.return_for_correction(**common, membership=request.membership, reason=reason)
+        elif action == "validate":
+            workflow.validate(**common, membership=request.membership, reason=reason)
+        else:
+            raise ApiError(*services.NOT_FOUND)
+        return Response(case_payload(get_case(request, case_id), detail=True))
 
 
 class CaseRevisionsView(APIView):

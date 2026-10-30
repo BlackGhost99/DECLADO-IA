@@ -176,6 +176,9 @@ Aucune fixture ne doit présenter un taux synthétique comme un taux gabonais r�
 | T69 | TAX-01, TAX-04 | Modification d'un taux : refusée à une société (403) ; motif, date d'effet et référence obligatoires ; ajout seul, journalisé ; l'ancien taux reste appliqué avant la date d'effet ; la dernière modification l'emporte ; redevance informatique saisie pour tous les codes |
 | T70 | TAX-02, TAX-05, TAX-06, TAX-07 | Calcul d'un dossier : base 549 070 et DDI 10 % d'une déclaration réelle retrouvés au franc (54 907, 108 716, 5 491, 2 197, 275, 6 040, 1 099) ; code non confirmé, devise sans taux ou redevance non saisie : taxe inconnue, total absent, somme connue affichée ; FOB sans pièce de fret ni d'assurance : provisoire ; mode du dossier rendu |
 | T71 | ACC-02 | Calcul d'un dossier d'une autre société : 404 ; sans connexion : refusé |
+| T73 | WF-01 | Soumission refusée (409) avec la liste des points bloquants tant que les contrôles obligatoires échouent ; bouton « Soumettre » désactivé avec leur nombre
+| T74 | WF-02, WF-03, AUD-01 | Soumettre, retourner avec motif obligatoire, resoumettre puis valider : états, décisions journalisées en ajout seul, dossier non modifiable pendant la validation, calcul figé ensuite même si un taux change |
+| T75 | WF-02, WF-03, ACC-02 | Un déclarant soumet mais ne valide ni ne retourne (403) ; un taux modifié après la soumission bloque la validation (409) ; autre société : 404 |
 
 Tests T01, T11, T20–T29, T31–T35 bloquants avant mise en service du périmètre correspondant. Les autres tests P0 restent obligatoires ; les exigences P1 peuvent être reportées explicitement dans une livraison réduite.
 
