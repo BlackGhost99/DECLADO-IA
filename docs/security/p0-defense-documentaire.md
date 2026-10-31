@@ -65,6 +65,18 @@ règles CEMAC/nationales datées, vérifiées et publiées.
 - En production : ClamAV relié au backend, signatures à jour, volumes
   persistants, limitation réseau et contrôle de restauration sauvegarde.
 
+### Preuve sur le poste (Windows)
+
+- `python manage.py verifier_antivirus` : version et date des signatures de
+  clamd, essai EICAR (reconstitué en mémoire, jamais écrit sur le disque, pour
+  que Windows Defender ne le supprime pas) qui doit être refusé, contenu sain
+  qui doit être accepté. Code de sortie non nul sinon.
+- Le script `scripts/windows/demarrer-clairtransit.ps1` lance ce contrôle à
+  chaque démarrage (section « Contrôle de l'antivirus »).
+- `-ImporterTarif` : le fichier passe par ClamAV
+  (`verifier_antivirus --seulement-fichiers --fichier ...`) avant toute
+  lecture ; auparavant les commandes d'import lisaient le fichier directement.
+
 ### Données déjà présentes
 
 Les documents stockés avant activation de ClamAV ne comportent pas de
