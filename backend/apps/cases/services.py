@@ -215,6 +215,11 @@ def update_case(*, org, actor, case_id, expected: int | None, data: dict) -> Cus
     after = {"title": case.title, "importer": str(case.importer_id) if case.importer_id else None}
     bump(case)
     case.save()
+    revision = case.current_revision
+    if "importer_id" in data and "importer" in revision.prefilled:
+        # Importateur enregistré par un agent : ce n'est plus une proposition automatique.
+        revision.prefilled = [f for f in revision.prefilled if f != "importer"]
+        revision.save(update_fields=["prefilled"])
     previous, current = _diff(before, after)
     _event(org, actor, "case.updated", case, case, previous, current)
     return case
@@ -245,7 +250,14 @@ def assign_case(*, org, actor, membership, case_id, expected: int | None, assign
     return case
 
 
-REVISION_FIELDS = ("planned_declaration_date", "regime", "territory", "target_edition", *PREPARATION_FIELDS)
+REVISION_FIELDS = (
+    "planned_declaration_date",
+    "regime",
+    "territory",
+    "target_edition",
+    "exchange_rates",
+    *PREPARATION_FIELDS,
+)
 
 
 @transaction.atomic
@@ -263,6 +275,11 @@ def update_revision(*, org, actor, revision_id, expected: int | None, data: dict
                 if data[field] is not None
                 else ("" if field != "planned_declaration_date" else None),
             )
+    if "exchange_rates" in data:
+        revision.exchange_rates = {
+            cur: {"rate": format(Decimal(str(v["rate"])).normalize(), "f"), "source": (v.get("source") or "").strip()}
+            for cur, v in sorted(data["exchange_rates"].items())
+        }
     if "target_edition_id" in data:
         revision.target_edition = edition_for(actor, data["target_edition_id"]) if data["target_edition_id"] else None
     # Un champ enregistré par un agent, même inchangé, n'est plus une proposition automatique.

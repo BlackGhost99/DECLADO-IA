@@ -807,6 +807,7 @@ export interface Revision {
   planned_declaration_date: string | null;
   regime: string;
   prefilled?: string[];
+  exchange_rates?: Record<string, { rate: string; source: string }>;
   client_reference?: string;
   transport_mode?: string;
   transport_mode_label?: string;
@@ -990,6 +991,8 @@ export interface CaseCalculation {
   date_is_planned: boolean;
   provisional: boolean;
   provisional_reasons: string[];
+  exchange_rates?: Record<string, { rate: string; source: string }>;
+  missing_rates?: string[];
   pieces: Record<"freight" | "insurance", { document_id: string; title: string; amount: string | null; currency: string; xaf: string | null }[]>;
   articles: CalcArticle[];
   total_value: string | null;

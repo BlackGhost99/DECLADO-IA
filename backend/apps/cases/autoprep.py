@@ -6,6 +6,7 @@ seulement pour ce qui est encore vide :
 - la date de déclaration prévue : aujourd'hui ;
 - le régime : celui du dernier dossier de la société ;
 - l'origine du dossier : seulement si la facture l'imprime (« Country of origin », « Made in ») ;
+- l'importateur : le client de la société dont le nom est exactement celui de l'acheteur lu ;
 - une marchandise par ligne facturée libre, puis le contrôle de son code.
 
 Rien n'est inventé : sans preuve dans la pièce, l'origine reste vide. La date, le régime et
@@ -19,6 +20,7 @@ import re
 from django.db import transaction
 from django.utils import timezone
 
+from apps.clients.models import Importer, normalize_name
 from apps.extraction.numbers import parse_country
 from apps.tariffs import services as tariffs
 from apps.tariffs.models import PublicationState
@@ -49,6 +51,15 @@ def last_regime(revision: CaseRevision) -> str:
         .first()
     )
     return previous.regime if previous else ""
+
+
+def known_importer(org, buyer_name: str):
+    """Le client de la société au nom identique (casse, accents et ponctuation ignorés), s'il est unique."""
+    key = normalize_name(buyer_name)
+    if not key:
+        return None
+    found = list(Importer.objects.for_organization(org).filter(normalized_name=key)[:2])
+    return found[0] if len(found) == 1 else None
 
 
 def printed_origin(run) -> tuple[str, str]:
@@ -109,6 +120,15 @@ def _prepare(run, invoice) -> dict:
         if code:
             revision.origin_country = code
             filled["origin_country"] = code
+    case = revision.case
+    if case.importer_id is None and invoice.buyer_name:
+        importer = known_importer(org, invoice.buyer_name)
+        if importer is not None:
+            case.importer = importer
+            case.row_version += 1
+            case.save(update_fields=["importer", "row_version", "updated_at"])
+            filled["importer"] = importer.name
+            proposed.append("importer")
     if filled:
         revision.prefilled = sorted(set(proposed))
         revision.row_version += 1

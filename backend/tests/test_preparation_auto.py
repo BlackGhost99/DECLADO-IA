@@ -142,3 +142,43 @@ def test_missing_regime_is_reported_once_for_the_case(world, session):
     assert rev["regime"] == "" and len(rev["goods_lines"]) == 2
     regime = [b for b in rev["completeness"]["blocking"] if b["field"] == "regime"]
     assert [(b["scope"], b["message"]) for b in regime] == [("revision", "Régime douanier à renseigner.")]
+
+
+def test_controls_do_not_repeat_what_is_already_reported(prepared):
+    """Code déjà contrôlé sur la marchandise, réf. facultative, origine du dossier : pas de doublon."""
+    case = prepared["case"]
+    extracted(case, "codes.pdf", synthetic.code_cases_pdf())
+    rev = detail(case)
+    warnings = rev["completeness"]["warnings"]
+    assert not [w for w in warnings if w["scope"] == "invoice_line" and w["field"].startswith("code:")]
+    assert not [w for w in warnings if w["field"] == "source_reference"]
+    for w in warnings:
+        if w["message"].startswith("À vérifier") and w["scope"] == "invoice_line":
+            assert w["message"].startswith("À vérifier (")
+
+
+def test_buyer_matching_a_known_client_becomes_the_proposed_importer(prepared, world):
+    """Nom identique (casse et ponctuation ignorées) d'un client de la société : proposé, à confirmer.
+    Un acheteur inconnu n'est jamais créé : il est seulement cité dans le manque à combler."""
+    case = prepared["case"]
+    header = synthetic._header_block() + [(300, 56, "Client : IMPORTATEUR A.")]
+    extracted(case, "facture.pdf", synthetic.simple_invoice_pdf(header=header))
+    s = case["s"]
+    body = s.get(f"/api/v1/cases/{case['id']}").json()
+    assert body["importer"]["id"] == str(world["importer_a"].id)
+    rev = detail(case)
+    assert "importer" in rev["prefilled"]
+    assert not [b for b in rev["completeness"]["blocking"] if b["field"] == "importer"]
+    resp = s.patch(
+        f"/api/v1/cases/{case['id']}",
+        {"importer_id": str(world["importer_a"].id), "row_version": body["row_version"]},
+    )
+    assert resp.status_code == 200, resp.content
+    assert "importer" not in detail(case)["prefilled"]
+
+    other = new_case(s)
+    header = synthetic._header_block() + [(300, 56, "Client : Acheteur Inconnu SA")]
+    extracted(other, "facture.pdf", synthetic.simple_invoice_pdf(header=header))
+    assert s.get(f"/api/v1/cases/{other['id']}").json()["importer"] is None
+    [missing] = [b for b in detail(other)["completeness"]["blocking"] if b["field"] == "importer"]
+    assert "Acheteur Inconnu SA" in missing["message"]

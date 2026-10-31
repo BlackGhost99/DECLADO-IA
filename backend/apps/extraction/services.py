@@ -412,10 +412,17 @@ def _merge_field(run, entity, field, value: Value, obs, report, *, invoice, line
     return True
 
 
+# Absence sans anomalie : la réf. fournisseur est facultative ; l'origine d'une ligne se reprend de
+# celle du dossier, et son manque reste signalé une fois, par le contrôle de complétude.
+QUIET_MISSING = {"source_reference", "origin_country"}
+
+
 def _flags(fields: dict[str, Value], entity, extra: list[dict]) -> list[dict]:
     flags = []
     for name, value in fields.items():
         if entity.field_origins.get(name) in HUMAN_ORIGINS:
+            continue
+        if value.status == Status.MISSING and name in QUIET_MISSING:
             continue
         if value.status != Status.OK:
             message = " ".join(value.notes) or STATUS_MESSAGES.get(value.status, "À vérifier.")

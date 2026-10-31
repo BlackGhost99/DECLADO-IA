@@ -66,6 +66,7 @@ TEXT = {
     "rules_version": "Règles de calcul",
     "taxes_version": "Version des taux",
     "schedule": "Barème",
+    "exchange_rate": "Taux de change {cur} (saisi pour le dossier)",
     "decisions": "Décisions",
     "generated": "Généré le {date} par {actor}",
     "fingerprint": "Empreinte du calcul",
@@ -162,6 +163,13 @@ def _context(case, revision, actor):
         (TEXT["rules_version"], calc.get("rules_version") or ""),
         (TEXT["taxes_version"], str(calc.get("taxes_version") or "")),
         (TEXT["schedule"], (calc.get("schedule") or {}).get("label") or TEXT["unknown"]),
+        *[
+            (
+                TEXT["exchange_rate"].format(cur=cur),
+                f"1 {cur} = {item['rate']} FCFA" + (f" ({item['source']})" if item.get("source") else ""),
+            )
+            for cur, item in sorted((calc.get("exchange_rates") or {}).items())
+        ],
         (TEXT["fingerprint"], fingerprint),
     ]
     return {

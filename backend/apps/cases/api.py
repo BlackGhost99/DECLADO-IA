@@ -1,3 +1,6 @@
+import re
+from decimal import Decimal
+
 from django.conf import settings
 from django.db.models import Prefetch, Q
 from django.http import FileResponse
@@ -18,6 +21,7 @@ from apps.documents.storage import get_storage
 from apps.extraction import services as extraction
 from apps.extraction.codes import FINDING_MESSAGES
 from apps.extraction.models import FieldObservation
+from apps.fiscal.calculation import FIXED_RATES
 from apps.organizations.models import Role
 from apps.organizations.permissions import HasActiveOrganization, require_roles
 from apps.regulations.doc_types import mismatch_of, type_of
@@ -284,6 +288,7 @@ def revision_payload(revision: CaseRevision) -> dict:
         "origin_country": revision.origin_country,
         "provenance_country": revision.provenance_country,
         "prefilled": revision.prefilled,
+        "exchange_rates": revision.exchange_rates,
         "priority": revision.priority,
         "priority_label": revision.get_priority_display(),
         "is_editable": revision.is_editable,
@@ -367,6 +372,11 @@ class CaseInput(serializers.Serializer):
     priority = serializers.ChoiceField(choices=CaseRevision.Priority.choices, required=False)
 
 
+class ExchangeRateInput(serializers.Serializer):
+    rate = serializers.DecimalField(max_digits=18, decimal_places=6, min_value=Decimal("0.000001"))
+    source = serializers.CharField(required=False, allow_blank=True, max_length=200)
+
+
 class RevisionInput(serializers.Serializer):
     planned_declaration_date = serializers.DateField(required=False, allow_null=True)
     regime = serializers.CharField(required=False, allow_blank=True, max_length=60)
@@ -380,6 +390,16 @@ class RevisionInput(serializers.Serializer):
     origin_country = serializers.RegexField(r"^[A-Za-z]{2}$|^$", required=False, allow_blank=True)
     provenance_country = serializers.RegexField(r"^[A-Za-z]{2}$|^$", required=False, allow_blank=True)
     priority = serializers.ChoiceField(choices=CaseRevision.Priority.choices, required=False)
+    # Devise → taux saisi ; une devise absente du dictionnaire envoyé est retirée.
+    exchange_rates = serializers.DictField(child=ExchangeRateInput(), required=False)
+
+    def validate_exchange_rates(self, value):
+        for currency in value:
+            if not re.fullmatch(r"[A-Z]{3}", currency):
+                raise serializers.ValidationError(f"Devise « {currency} » : code ISO à trois lettres majuscules.")
+            if currency in FIXED_RATES:
+                raise serializers.ValidationError(f"{currency} : parité fixe, aucun taux à saisir.")
+        return value
 
 
 class InvoiceInput(serializers.Serializer):

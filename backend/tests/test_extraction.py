@@ -457,3 +457,35 @@ def test_other_company_sees_no_run_job_divergence_or_extraction(case, session):
     assert b.post(f"/api/v1/divergences/{divergence['id']}/resolve", {"resolution": "accept"}).status_code == 404
     assert BackgroundJob.objects.filter(organization__name="Société B").count() == 0
     assert CodeObservation.objects.filter(organization__name="Société B").count() == 0
+
+
+def test_freight_included_is_shown_but_never_added(case):
+    """« Freight included » : le fret est déjà compris dans les prix, il ne crée aucun écart."""
+    items = synthetic._header_block() + synthetic._row(120, synthetic.HEADER)
+    top = 136
+    for line in synthetic.SIMPLE_LINES:
+        items += synthetic._row(top, line)
+        top += 14
+    items += [(synthetic.COLS["desc"], top + 6, "Freight included"), (synthetic.COLS["amount"], top + 6, "1 850,00")]
+    items += [(synthetic.COLS["desc"], top + 20, "Total facture"), (synthetic.COLS["amount"], top + 20, "4 205,00")]
+    _link, run = extracted(case, "fret-inclus.pdf", synthetic.pdf_from_pages([items]))
+    totals = only_invoice(case)["totals_check"]
+    assert totals["status"] == "match" and totals["components"]["fees"] == "0"
+    assert [s["label"][:16] for s in totals["subtotals_not_added"]] == ["Freight included"]
+    assert [c["kind"] for c in run["charges"]] == ["included", "total"]
+
+
+def test_label_centred_between_name_and_address_reads_the_name(case):
+    """« Bill to » imprimé entre le nom (au-dessus) et l'adresse (en dessous) : le nom est retenu."""
+    items = synthetic._header_block() + [
+        (110, 104, "Gamma Fictive SARL"),
+        (30, 116, "Bill to"),
+        (110, 128, "Zone fictive, Libreville"),
+    ]
+    items += synthetic._row(150, synthetic.HEADER)
+    top = 166
+    for line in synthetic.SIMPLE_LINES:
+        items += synthetic._row(top, line)
+        top += 14
+    extracted(case, "facture.pdf", synthetic.pdf_from_pages([items]))
+    assert only_invoice(case)["buyer_name"] == "Gamma Fictive SARL"

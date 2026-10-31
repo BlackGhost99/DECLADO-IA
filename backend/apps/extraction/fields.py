@@ -68,6 +68,29 @@ def _close_below(upper: Row, lower: Row) -> bool:
     return min(box[1] for box in b) - max(box[3] for box in a) <= 2.5 * height
 
 
+def _straddled(rows, r, tails, phrase, right, gap, all_labels):
+    """Cellule de deux lignes centrée sur son libellé (« Bill to » entre le nom et l'adresse) :
+    sa première ligne est au-dessus du libellé. Seulement si les deux lignes sont alignées, à droite
+    du libellé, et qu'aucune n'appartient à un autre libellé de leur rangée."""
+    if r == 0 or r + 1 >= len(rows):
+        return None
+    above, below = rows[r - 1], rows[r + 1]
+    if not (_close_below(above, rows[r]) and _close_below(tails.get(id(rows[r]), rows[r]), below)):
+        return None
+
+    def cell(row):
+        parts = _phrases(row.items, gap)
+        if any(_is_label(o, all_labels) for o in parts):
+            return None
+        inside = [o for o in parts if phrase[-1].x1 <= o[0].x0 < right]
+        return inside[0] if len(inside) == 1 and len(parts) == 1 else None
+
+    top, bottom = cell(above), cell(below)
+    if top is None or bottom is None or abs(top[0].x0 - bottom[0].x0) > gap:
+        return None
+    return top
+
+
 def _wrapped_labels(page: Page, index: dict[str, str]) -> tuple[dict[tuple[int, float], str], dict[int, Row]]:
     """Libellé de colonne coupé sur deux lignes (« MEASUREMEN » puis « T ») : texte complet par
     (rangée, début de cellule), et rangée de ces fins de libellé sous chaque rangée de libellés."""
@@ -149,6 +172,10 @@ def labelled_values(
                 # Sinon, sous le libellé : dans la rangée suivante, entre les cellules voisines du libellé.
                 left = phrases[p - 1][-1].x1 if p > 0 else float("-inf")
                 right = phrases[p + 1][0].x0 if p + 1 < len(phrases) else float("inf")
+                first = _straddled(rows, r, tails, phrase, right, page.merge_gap, all_labels)
+                if first is not None and ok(_text(first)):
+                    found[field] = Found(first, _text(first), label, page.number)
+                    continue
                 if r + 1 >= len(rows) or not _close_below(tails.get(id(row), row), rows[r + 1]):
                     continue
                 below = _phrases(rows[r + 1].items, page.merge_gap)

@@ -31,8 +31,17 @@ WARNING = (
 )
 
 
-def to_xaf(amount: Decimal | None, currency: str) -> Decimal | None:
-    rate = FIXED_RATES.get((currency or "").upper())
+def rate_for(currency: str, entered: dict | None = None) -> Decimal | None:
+    """Parité fixe (XAF, EUR), sinon taux saisi par l'agent pour ce dossier ; jamais deviné."""
+    code = (currency or "").upper()
+    if code in FIXED_RATES:
+        return FIXED_RATES[code]
+    item = (entered or {}).get(code)
+    return Decimal(item["rate"]) if item and item.get("rate") else None
+
+
+def to_xaf(amount: Decimal | None, currency: str, entered: dict | None = None) -> Decimal | None:
+    rate = rate_for(currency, entered)
     if amount is None or rate is None:
         return None
     return amount * rate
@@ -48,7 +57,7 @@ def _fmt(value: Decimal | None) -> str | None:
     return format(value.quantize(Decimal("0.01")).normalize(), "f")
 
 
-def piece_amount(case_document: CaseDocument, field: str) -> dict:
+def piece_amount(case_document: CaseDocument, field: str, entered: dict | None = None) -> dict:
     """Montant retenu sur une pièce de fret ou d'assurance : saisie de l'agent, sinon lecture."""
     run = (
         ExtractionRun.objects.filter(case_document=case_document, status=ExtractionRun.Status.SUCCEEDED)
@@ -73,13 +82,13 @@ def piece_amount(case_document: CaseDocument, field: str) -> dict:
         "title": case_document.document.original_name if case_document.document_id else "",
         "amount": amount,
         "currency": currency,
-        "xaf": to_xaf(amount, currency),
+        "xaf": to_xaf(amount, currency, entered),
     }
 
 
 def _pieces(revision: CaseRevision, usage: str, field: str) -> list[dict]:
     docs = revision.documents.filter(usage=usage, replaced_by__isnull=True).select_related("document")
-    return [piece_amount(d, field) for d in docs]
+    return [piece_amount(d, field, revision.exchange_rates) for d in docs]
 
 
 def _apportion(total: Decimal, weights: dict, eligible: set) -> dict:
@@ -125,7 +134,7 @@ def case_calculation(case) -> dict:
             continue
         for src in sources:
             inv = src.invoice_line.invoice
-            xaf = to_xaf(src.assigned_value, inv.currency)
+            xaf = to_xaf(src.assigned_value, inv.currency, revision.exchange_rates)
             if xaf is None:
                 total = None
                 note = (
@@ -231,6 +240,15 @@ def case_calculation(case) -> dict:
         "date": on.isoformat(),
         "date_is_planned": revision.planned_declaration_date is not None,
         "currency_note": "1 EUR = 655,957 XAF (parité fixe). Autres devises : taux de change à saisir.",
+        "exchange_rates": revision.exchange_rates,
+        "missing_rates": sorted(
+            {
+                cur.upper()
+                for cur in [inv.currency for inv in invoices.values()]
+                + [p["currency"] for found in pieces.values() for p in found]
+                if cur and rate_for(cur, revision.exchange_rates) is None
+            }
+        ),
         "provisional": provisional,
         "provisional_reasons": reasons,
         "pieces": {k: [_piece_json(p) for p in v] for k, v in pieces.items()},

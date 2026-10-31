@@ -341,6 +341,27 @@ def test_unknown_currency_gives_an_unknown_value_not_zero(world, schedule, editi
     assert "taux de change à saisir" in article["value"]["notes"][0]
 
 
+def test_exchange_rate_entered_by_an_agent_values_the_line_and_is_journaled(world, schedule, edition, session):
+    """Taux saisi pour le dossier, avec sa source : jamais deviné, l'euro garde sa parité fixe."""
+    case = make_case(session, edition)
+    goods = goods_with_code(case, amount="1000", currency="USD")
+    confirm(case, goods, edition)
+    s, url = case["s"], f"/api/v1/revisions/{case['revision']}"
+    assert s.get(f"/api/v1/cases/{case['id']}/calculation").json()["missing_rates"] == ["USD"]
+    version = s.get(url).json()["row_version"]
+    for bad in ({"usd": {"rate": "600"}}, {"EUR": {"rate": "650"}}, {"USD": {"rate": "0"}}):
+        assert s.patch(url, {"exchange_rates": bad, "row_version": version}).status_code == 400
+    resp = s.patch(
+        url, {"exchange_rates": {"USD": {"rate": "600.50", "source": "Cours fictif du 30/10"}}, "row_version": version}
+    )
+    assert resp.status_code == 200, resp.content
+    assert resp.json()["exchange_rates"] == {"USD": {"rate": "600.5", "source": "Cours fictif du 30/10"}}
+    body = s.get(f"/api/v1/cases/{case['id']}/calculation").json()
+    assert body["missing_rates"] == [] and body["articles"][0]["value"]["xaf"] == "600500"
+    event = AuditEvent.objects.filter(event_type="revision.updated").latest("at")
+    assert event.current["exchange_rates"]["USD"]["rate"] == "600.5"
+
+
 def test_t71_other_company_cannot_read_the_calculation(world, schedule, edition, session):
     case = make_case(session, edition)
     goods_with_code(case, amount="1000")

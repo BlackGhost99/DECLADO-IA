@@ -1676,26 +1676,33 @@ function GoodsTab({
   const checkAll = () => act(async () => {
     for (const g of targets) await api.checkCode(g.id, editionId);
   });
+  // Code incomplet dont le tarif n'offre qu'une subdivision : elle est proposée, l'agent la confirme.
+  const onlySubdivision = (g: GoodsLine) => {
+    const subs = g.latest_check?.findings.find((f) => f.code === "SUBDIVISIONS_REQUIRED")?.details?.subdivisions ?? [];
+    return subs.length === 1 ? subs[0] : null;
+  };
   // Codes retrouvés dans le référentiel, contrôle à jour, pas encore confirmés : une décision motivée par marchandise.
   const confirmable = targets.filter(
     (g) =>
       !g.decision?.is_current &&
       g.latest_check?.is_current &&
-      g.latest_check.recognition_status === "recognized" &&
-      g.latest_check.human_confirmation === "pending",
+      ((g.latest_check.recognition_status === "recognized" && g.latest_check.human_confirmation === "pending") ||
+        (g.latest_check.recognition_status === "incomplete" && onlySubdivision(g) !== null)),
   );
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkReason, setBulkReason] = useState("");
   const confirmAll = () =>
     void act(async () => {
-      for (const g of confirmable)
+      for (const g of confirmable) {
+        const sub = onlySubdivision(g);
         await api.decide(g.id, {
-          action: "confirm",
+          action: sub ? "complete" : "confirm",
           code_check_id: g.latest_check!.id,
-          node_id: null,
+          node_id: sub ? sub.id : null,
           reason: bulkReason.trim(),
           goods_line_version: g.row_version,
         });
+      }
       setBulkReason("");
       setBulkOpen(false);
     });
@@ -1760,7 +1767,7 @@ function GoodsTab({
 
         {editable && bulkOpen && confirmable.length > 0 && (
           <form className="card decide-form bulk-confirm" onSubmit={(e) => { e.preventDefault(); confirmAll(); }}>
-            <p className="small">{tr("goods.confirmHelp", { n: confirmable.length, codes: confirmable.map((g) => g.latest_check!.node?.code_display ?? "").join(", ") })}</p>
+            <p className="small">{tr("goods.confirmHelp", { n: confirmable.length, codes: confirmable.map((g) => onlySubdivision(g)?.code_display ?? g.latest_check!.node?.code_display ?? "").join(", ") })}</p>
             <label>
               {tr("gc.confirmReason")}
               <input required value={bulkReason} maxLength={2000} onChange={(e) => setBulkReason(e.target.value)} placeholder={tr("gc.confirmPlaceholder")} />
@@ -1971,6 +1978,9 @@ function GoodsCard({
   const check: CodeCheck | null = goods.latest_check;
   const decision = goods.decision;
   const subdivisions = check?.findings.find((f) => f.code === "SUBDIVISIONS_REQUIRED")?.details?.subdivisions ?? [];
+  // Une seule subdivision : elle est présélectionnée, l'agent la vérifie et confirme avec un motif.
+  const onlyOne = subdivisions.length === 1 ? subdivisions[0].id : "";
+  const chosenSubdivision = subdivision || onlyOne;
   const f = goodsFigures(goods, lines);
   const status = goodsStatus(goods);
   const shownCode = decision?.selected_code_display ?? check?.node?.code_display ?? check?.observed_code ?? "";
@@ -1985,7 +1995,7 @@ function GoodsCard({
       await api.decide(goods.id, {
         action,
         code_check_id: check.id,
-        node_id: action === "complete" ? subdivision : null,
+        node_id: action === "complete" ? chosenSubdivision : null,
         reason,
         goods_line_version: goods.row_version,
       });
@@ -2101,12 +2111,13 @@ function GoodsCard({
         <form className="decide-form" onSubmit={(e) => { e.preventDefault(); decide("complete"); }}>
           <label>
             {tr("gc.subdivision")}
-            <select required value={subdivision} onChange={(e) => setSubdivision(e.target.value)}>
+            <select required value={chosenSubdivision} onChange={(e) => setSubdivision(e.target.value)}>
               <option value="">{tr("gc.choose")}</option>
               {subdivisions.map((s) => (
                 <option key={s.id} value={s.id}>{s.code_display} {s.label}</option>
               ))}
             </select>
+            {onlyOne && <small className="muted">{tr("gc.onlySubdivision")}</small>}
           </label>
           <label>
             {tr("gc.reason")}
@@ -2196,6 +2207,8 @@ function Calculation({ detail, membership, act, go }: { detail: CaseDetail; memb
   const goodsValue = invoiceSum(revision, (i) => i.totals_check?.components.goods);
   const fees = invoiceSum(revision, (i) => i.totals_check?.components.fees);
   const incoterms = [...new Set(revision.invoices.map((i) => i.incoterm).filter(Boolean))].join(", ");
+  // CIF ou CIP sur toutes les factures : fret et assurance sont déjà dans les prix, rien à ajouter.
+  const inPrice = revision.invoices.length > 0 && revision.invoices.every((i) => ["CIF", "CIP"].includes((i.incoterm ?? "").toUpperCase().split(" ")[0]));
   const goods = revision.goods_lines;
   const codes = goods.map((g) => g.decision?.is_current ? g.decision.selected_code_display : null).filter(Boolean);
   const origins = [...new Set(goods.map((g) => g.origin_country).filter(Boolean))].join(", ");
@@ -2232,6 +2245,13 @@ function Calculation({ detail, membership, act, go }: { detail: CaseDetail; memb
             </strong>
           </div>
           {calc && <CalcNotes calc={calc} />}
+          {calc && (
+            <ExchangeRates
+              revision={revision}
+              missing={calc.missing_rates ?? []}
+              onSave={(rates) => act(() => api.updateRevision(revision.id, { exchange_rates: rates, row_version: revision.row_version }))}
+            />
+          )}
           {calc && calc.articles.length > 0 && <CalcLinesTable calc={calc} />}
           <div className="calc-bottom">
           <section aria-labelledby="recap-title">
@@ -2240,7 +2260,7 @@ function Calculation({ detail, membership, act, go }: { detail: CaseDetail; memb
               <div><dt>{tr("calc.goodsValueLines")}</dt><dd>{goodsValue || unknown()}</dd></div>
               <div><dt>{tr("calc.fees")}</dt><dd>{fees || unknown()}</dd></div>
               <div><dt>{tr("calc.printedInvoiceTotal")}</dt><dd>{total || unknown()}</dd></div>
-              <div><dt>{tr("calc.freightInsurance")}</dt><dd>{freightInsurance ? `${xaf(freightInsurance)} FCFA` : unknown(tr("calc.toConfirm"))}</dd></div>
+              <div><dt>{tr("calc.freightInsurance")}</dt><dd>{freightInsurance ? `${xaf(freightInsurance)} FCFA` : inPrice ? tr("calc.inPrice", { inc: incoterms }) : unknown(tr("calc.toConfirm"))}</dd></div>
               <div><dt>{tr("calc.customsValueCap")}</dt><dd>{calc?.total_value ? `${xaf(calc.total_value)} FCFA` : unknown(tr("calc.notCalculatedF"))}</dd></div>
               <div><dt>{tr("calc.totalTaxesShort")}</dt><dd>{totalTaxes !== null ? `${xaf(totalTaxes)} FCFA` : unknown(tr("calc.notCalculatedM"))}</dd></div>
               {calc?.totals.other_accounts && "TCI" in calc.totals.other_accounts && (
@@ -2275,6 +2295,44 @@ function Calculation({ detail, membership, act, go }: { detail: CaseDetail; memb
         <ValidationActions detail={detail} membership={membership} act={act} go={go} />
       </div>
     </div>
+  );
+}
+
+type Rates = Record<string, { rate: string; source: string }>;
+
+/** Taux de change saisis par l'agent pour le dossier : l'outil n'en devine ni n'en télécharge aucun. */
+function ExchangeRates({ revision, missing, onSave }: { revision: Revision; missing: string[]; onSave: (rates: Rates) => Promise<unknown> }) {
+  const saved: Rates = revision.exchange_rates ?? {};
+  const currencies = [...new Set([...missing, ...Object.keys(saved)])].sort();
+  const [draft, setDraft] = useState<Rates>({});
+  if (!currencies.length) return null;
+  const value = (cur: string) => draft[cur] ?? saved[cur] ?? { rate: "", source: "" };
+  const set = (cur: string, patch: Partial<{ rate: string; source: string }>) => setDraft({ ...draft, [cur]: { ...value(cur), ...patch } });
+  const save = () => {
+    const next: Rates = {};
+    for (const cur of currencies) {
+      const v = value(cur);
+      if (v.rate.trim()) next[cur] = { rate: v.rate.trim().replace(",", "."), source: v.source.trim() };
+    }
+    void onSave(next).then(() => setDraft({}));
+  };
+  return (
+    <form className={`exchange-rates ${missing.length ? "note-amber" : "note-blue"} small`} onSubmit={(e) => { e.preventDefault(); save(); }}>
+      <p><Icon name="info" size={15} /> {missing.length ? tr("fx.ratesMissing", { cur: missing.join(", ") }) : tr("fx.ratesEntered")}</p>
+      {currencies.map((cur) => (
+        <div key={cur} className="exchange-row">
+          <label>
+            {tr("fx.rateLabel", { cur })}
+            <input inputMode="decimal" disabled={!revision.is_editable} value={value(cur).rate} onChange={(e) => set(cur, { rate: e.target.value })} placeholder="0,00" />
+          </label>
+          <label>
+            {tr("fx.rateSource")}
+            <input disabled={!revision.is_editable} maxLength={200} value={value(cur).source} onChange={(e) => set(cur, { source: e.target.value })} placeholder={tr("fx.rateSourceHint")} />
+          </label>
+        </div>
+      ))}
+      {revision.is_editable && <button type="submit" className="btn-secondary">{tr("fx.rateSave")}</button>}
+    </form>
   );
 }
 
