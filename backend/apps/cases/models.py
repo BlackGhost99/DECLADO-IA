@@ -471,6 +471,7 @@ class CaseExport(OrganizationOwnedModel):
     class Format(models.TextChoices):
         PDF = "pdf", "Récapitulatif PDF"
         XLSX = "xlsx", "Détail Excel"
+        DAU = "dau", "Projet de déclaration (modèle DAU)"
 
     class Marking(models.TextChoices):
         DRAFT = "draft", "Brouillon"

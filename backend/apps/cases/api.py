@@ -627,7 +627,7 @@ class CaseExportFileView(APIView):
         )
         if export is None:
             raise ApiError(*services.NOT_FOUND)
-        mime = "application/pdf" if export.format == CaseExport.Format.PDF else XLSX
+        mime = XLSX if export.format == CaseExport.Format.XLSX else "application/pdf"
         response = FileResponse(
             get_storage().open(export.object_key), content_type=mime, as_attachment=True, filename=export.filename
         )

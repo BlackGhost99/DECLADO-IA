@@ -783,7 +783,7 @@ export interface RevisionDecision {
 export interface CaseExport {
   id: string;
   revision_no: number;
-  format: "pdf" | "xlsx";
+  format: "pdf" | "xlsx" | "dau";
   format_label: string;
   marking: "draft" | "validated";
   marking_label: string;
@@ -1199,7 +1199,7 @@ export const api = {
   auditEvents: () => request<Page<OrgAuditEvent>>("GET", "/audit-events"),
   caseAudit: (id: string) => request<{ results: AuditEntry[] }>("GET", `/cases/${id}/audit`),
   caseExports: (id: string) => request<{ results: CaseExport[] }>("GET", `/cases/${id}/exports`),
-  createExport: (id: string, format: "pdf" | "xlsx") => request<CaseExport>("POST", `/cases/${id}/exports`, { format }),
+  createExport: (id: string, format: "pdf" | "xlsx" | "dau") => request<CaseExport>("POST", `/cases/${id}/exports`, { format }),
   exportFile: async (caseId: string, exportId: string): Promise<Blob> => {
     const path = `/cases/${caseId}/exports/${exportId}/file`;
     const response = watchSession(path, await fetch(`${BASE}${path}`, { credentials: "same-origin" }));

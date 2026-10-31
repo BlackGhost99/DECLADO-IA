@@ -120,3 +120,20 @@ def test_t27_new_revision_after_validation_keeps_the_validated_one(world, schedu
     assert AuditEvent.objects.filter(event_type="revision.created").count() == 1
     # Une révision non validée ne se double pas.
     assert case["s"].post(url, {"reason": "encore"}).status_code == 409
+
+
+def test_t82_dau_project_is_prefilled_from_the_case_and_never_claims_acceptance(world, schedule, edition, session):
+    """Projet au modèle DAU : cases remplies depuis le dossier, cases de la Douane vides, mention claire."""
+    case, _ = ready_case(session, edition)
+    complete(case, world, edition)
+    body, content = export(case, "dau")
+    assert body["format"] == "dau" and body["filename"].endswith("_r1_DAU_brouillon.pdf")
+    assert content.startswith(b"%PDF")
+    text = " ".join(pdf_text(content).replace("\u00a0", " ").split())
+    assert "DÉCLARATION EN DOUANE" in text and "IMPORTATION" in text
+    assert "Importateur A" in text and "Fournisseur fictif" in text  # cases 11 et 5
+    assert "4201.00.00" in text  # case 37, code confirmé par l'agent
+    assert "549 070" in text and "54 907" in text  # case 30 (CIF) et DDI de la case 46
+    assert "ne vaut pas déclaration" in text and "BROUILLON" in text
+    assert "GA/____/____/________" in text  # numéro attribué par SYDONIA, jamais inventé
+    assert session("declarant@b.test").post(f"/api/v1/cases/{case['id']}/exports", {"format": "dau"}).status_code == 404
