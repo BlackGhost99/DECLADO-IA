@@ -26,7 +26,7 @@ State = CaseRevision.State
 
 # Libellés de sortie regroupés ici : une autre langue de sortie s'ajoutera sans toucher au rendu.
 TEXT = {
-    "title": "Récapitulatif de préparation douanière",
+    "title": "Annexe : récapitulatif de préparation douanière",
     "draft_mark": "BROUILLON",
     "draft_banner": "Brouillon : non validé en interne. Ne pas transmettre comme dossier définitif.",
     "validated_banner": (
@@ -199,17 +199,17 @@ def _tax_totals(calc) -> list[tuple[str, str, str]]:
 # --- PDF -------------------------------------------------------------------------------
 
 
-def build_pdf(ctx) -> bytes:
+def _summary_story(ctx) -> list:
+    """Annexe du projet de déclaration : identification, droits et taxes, sources et décisions."""
     from xml.sax.saxutils import escape
 
     import reportlab
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
 
     fonts = Path(reportlab.__file__).parent / "fonts"
     if "Vera" not in pdfmetrics.getRegisteredFontNames():
@@ -220,7 +220,7 @@ def build_pdf(ctx) -> bytes:
     base = ParagraphStyle("base", fontName="Vera", fontSize=8.5, leading=11)
     small = ParagraphStyle("small", parent=base, fontSize=7.5, leading=9.5, textColor=colors.HexColor("#4a5860"))
     h1 = ParagraphStyle("h1", parent=base, fontName="Vera-Bold", fontSize=15, leading=19, textColor=green)
-    h2 = ParagraphStyle("h2", parent=base, fontName="Vera-Bold", fontSize=10.5, leading=14, spaceBefore=8)
+    h2 = ParagraphStyle("h2", parent=base, fontName="Vera-Bold", fontSize=10.5, leading=13, spaceBefore=5)
     banner = ParagraphStyle(
         "banner", parent=base, fontName="Vera-Bold", backColor=colors.HexColor("#fff4e0"), borderPadding=5
     )
@@ -236,8 +236,8 @@ def build_pdf(ctx) -> bytes:
             ("FONT", (0, 0), (-1, -1), "Vera", 8),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("LINEBELOW", (0, 0), (-1, -1), 0.25, colors.HexColor("#d9e0e4")),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ]
         if header:
             style += [
@@ -304,39 +304,14 @@ def build_pdf(ctx) -> bytes:
         story.append(p("—", base))
     story += [Spacer(1, 8), p(ctx["generated"], small)]
 
-    draft = ctx["marking"] == CaseExport.Marking.DRAFT
+    return story
 
-    def decorate(canvas, doc):
-        canvas.saveState()
-        if draft:
-            canvas.setFont("Vera-Bold", 80)
-            canvas.setFillColor(colors.Color(0.85, 0.2, 0.15, alpha=0.12))
-            canvas.translate(A4[0] / 2, A4[1] / 2)
-            canvas.rotate(45)
-            canvas.drawCentredString(0, 0, TEXT["draft_mark"])
-            canvas.restoreState()
-            canvas.saveState()
-        canvas.setFont("Vera", 7)
-        canvas.setFillColor(colors.HexColor("#6b7780"))
-        footer = f"{ctx['identification'][0][1]} · {TEXT['revision']} {ctx['identification'][1][1]}"
-        footer += f" · {CaseExport.Marking(ctx['marking']).label} · {doc.page}"
-        canvas.drawString(20 * mm, 10 * mm, footer)
-        canvas.restoreState()
 
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=20 * mm,
-        rightMargin=20 * mm,
-        topMargin=16 * mm,
-        bottomMargin=18 * mm,
-        title=f"{TEXT['title']} {ctx['identification'][0][1]}",
-        author=ctx["identification"][2][1],
-        invariant=1,
-    )
-    doc.build(story, onFirstPage=decorate, onLaterPages=decorate)
-    return buffer.getvalue()
+def build_pdf(ctx) -> bytes:
+    """Export PDF du dossier : la déclaration au modèle DAU, puis le récapitulatif en annexe."""
+    from . import dau
+
+    return dau.build(ctx, annex=_summary_story(ctx))
 
 
 # --- XLSX ------------------------------------------------------------------------------
@@ -451,9 +426,7 @@ def build_xlsx(ctx) -> bytes:
 
 
 def build_dau(ctx) -> bytes:
-    from . import dau
-
-    return dau.build(ctx)
+    return build_pdf(ctx)
 
 
 BUILDERS = {CaseExport.Format.PDF: build_pdf, CaseExport.Format.XLSX: build_xlsx, CaseExport.Format.DAU: build_dau}
@@ -471,7 +444,7 @@ def create_export(*, org, actor, case_id, fmt: str) -> CaseExport:
     case = services.lock_case(org, case_id)
     revision = case.current_revision
     ctx = _context(case, revision, actor)
-    if fmt == CaseExport.Format.DAU:
+    if fmt in (CaseExport.Format.PDF, CaseExport.Format.DAU):
         from . import dau
 
         ctx["dau"] = dau.data(case, revision, ctx["calc"])

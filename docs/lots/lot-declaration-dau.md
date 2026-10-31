@@ -26,3 +26,9 @@
 ## Prochaine étape
 
 - Lire masses et colis sur le B/L et la packing list pour remplir les cases 23 à 26, 35, 39 et 40.
+
+## Mise à jour du 31/10/2026 : l'export du dossier sort directement au modèle DAU
+
+- L'export PDF du dossier (bouton « Générer l'export » et carte de l'onglet Export) produit maintenant la déclaration au modèle DAU en page 1, suivie du récapitulatif de préparation en annexe (identification, marchandises, droits et taxes avec leurs libellés, total compte 1, TCI compte 2, RI par SYDONIA, sources, taux de change, empreinte, décisions).
+- Page 1 : case 7 avec la révision, case 33 avec la mention de validation interne (ou de brouillon, de démonstration, de simulation historique), case 43 avec la valeur en devise puis la valeur en douane en FCFA.
+- Le format `dau` reste accepté pour les exports déjà générés ; il produit le même document.

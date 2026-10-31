@@ -2526,7 +2526,7 @@ function ExportPage({ detail, act, go }: { detail: CaseDetail; act: Act; go: (ta
   const [exports, setExports] = useState<CaseExport[] | null>(null);
   const validated = rev.state === "validated" || rev.state === "archived";
   const stem = `${detail.reference}_r${rev.revision_no}${validated ? "" : "_brouillon"}`;
-  const lastDau = (exports ?? []).find((e) => e.format === "dau" && e.revision_no === rev.revision_no) ?? null;
+  const lastDau = (exports ?? []).find((e) => e.format !== "xlsx" && e.revision_no === rev.revision_no) ?? null;
 
   const loadExports = useCallback(() => {
     api.caseExports(detail.id).then((r) => setExports(r.results), () => setExports([]));
@@ -2562,13 +2562,13 @@ function ExportPage({ detail, act, go }: { detail: CaseDetail; act: Act; go: (ta
           <div className="export-file">
             <span className="export-icon"><Icon name="fileSheet" size={34} /></span>
             <dl className="recap">
-              <div><dt>{tr("export.fileName")}</dt><dd>{lastDau?.filename ?? `${detail.reference}_r${rev.revision_no}_DAU${validated ? "" : "_brouillon"}.pdf`}</dd></div>
+              <div><dt>{tr("export.fileName")}</dt><dd>{lastDau?.filename ?? `${stem}.pdf`}</dd></div>
               <div><dt>{tr("export.format")}</dt><dd>{tr("export.dauFormat")}</dd></div>
               <div><dt>{tr("export.generatedOn")}</dt><dd>{lastDau ? fmtDateTime(lastDau.created_at) : "—"}</dd></div>
               <div><dt>{tr("export.generatedBy")}</dt><dd>{lastDau?.created_by ?? "—"}</dd></div>
             </dl>
           </div>
-          <button type="button" className="btn-primary btn-block" onClick={() => generate(["dau"])}>
+          <button type="button" className="btn-primary btn-block" onClick={() => generate(["pdf"])}>
             <Icon name="download" size={16} /> {tr("export.dauGenerate")}
           </button>
           <p className="muted small">{tr("export.dauNote")}</p>
