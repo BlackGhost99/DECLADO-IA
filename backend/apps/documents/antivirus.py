@@ -73,3 +73,33 @@ def open_stream():
         yield Stream(conn)
     finally:
         conn.close()
+
+
+def scan_file(path) -> None:
+    """Scan a local file (e.g. a tariff given to the startup script) the same way as an upload."""
+    with open_stream() as scanner, open(path, "rb") as source:
+        while chunk := source.read(1024 * 1024):
+            scanner.feed(chunk)
+        scanner.verdict()
+
+
+def version() -> str:
+    """clamd's engine and signature version, e.g. 'ClamAV 1.5.4/27800/Fri Oct 30 08:00:00 2026'."""
+    try:
+        with socket.create_connection(
+            (settings.CLAMAV_HOST, settings.CLAMAV_PORT), timeout=settings.CLAMAV_CONNECT_TIMEOUT
+        ) as conn:
+            conn.settimeout(settings.CLAMAV_SCAN_TIMEOUT)
+            conn.sendall(b"zVERSION\0")
+            reply = bytearray()
+            while b"\0" not in reply and len(reply) < 1024:
+                part = conn.recv(1024)
+                if not part:
+                    break
+                reply.extend(part)
+    except (OSError, TimeoutError, ValueError) as exc:
+        raise ScanUnavailable("ClamAV indisponible ou analyse interrompue.") from exc
+    text = bytes(reply).split(b"\0", 1)[0].decode("ascii", "replace").strip()
+    if not text.startswith("ClamAV"):
+        raise ScanUnavailable("ClamAV n'a pas donné sa version.")
+    return text
