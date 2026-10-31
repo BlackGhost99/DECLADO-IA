@@ -25,6 +25,16 @@ def _items(text: str) -> list[dict]:
     return items
 
 
+def _object(text: str) -> dict:
+    try:
+        data = json.loads(text)
+    except (TypeError, ValueError) as exc:
+        raise ai.AIProviderError("AI_BAD_OUTPUT", "Réponse de l'IA hors du format attendu : ignorée.") from exc
+    if not isinstance(data, dict):
+        raise ai.AIProviderError("AI_BAD_OUTPUT", "Réponse de l'IA hors du format attendu : ignorée.")
+    return data
+
+
 class AnthropicProvider:
     """Claude, par le SDK officiel « anthropic » : sortie structurée (output_config.format)."""
 
@@ -38,17 +48,26 @@ class AnthropicProvider:
         self.model = model
 
     def complete_fields(self, *, text, piece, fields):
+        prompt = ai.user_prompt(text=text, piece=piece, fields=fields)
+        completion = self._generate(ai.SYSTEM_PROMPT, prompt, ai.completion_schema([f.name for f in fields]))
+        completion.items = _items(completion.extra.pop("text"))
+        return completion
+
+    def choose_code(self, *, description, candidates):
+        prompt = ai.choice_prompt(description=description, candidates=candidates)
+        completion = self._generate(ai.CLASSIFY_PROMPT, prompt, ai.choice_schema([c["node_id"] for c in candidates]))
+        completion.items = [_object(completion.extra.pop("text"))]
+        return completion
+
+    def _generate(self, system: str, prompt: str, schema: dict) -> ai.Completion:
         sdk = self._sdk
         try:
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=MAX_OUTPUT_TOKENS,
-                system=ai.SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": ai.user_prompt(text=text, piece=piece, fields=fields)}],
-                output_config={
-                    "effort": "low",
-                    "format": {"type": "json_schema", "schema": ai.completion_schema([f.name for f in fields])},
-                },
+                system=system,
+                messages=[{"role": "user", "content": prompt}],
+                output_config={"effort": "low", "format": {"type": "json_schema", "schema": schema}},
             )
         except sdk.AuthenticationError as exc:
             raise ai.AIProviderError("AI_KEY_REJECTED", "Clé du fournisseur d'IA refusée : la vérifier.") from exc
@@ -66,11 +85,12 @@ class AnthropicProvider:
         text_out = next((b.text for b in response.content if b.type == "text"), "")
         usage = response.usage
         return ai.Completion(
-            items=_items(text_out),
+            items=[],
             model=response.model or self.model,
             input_tokens=usage.input_tokens,
             output_tokens=usage.output_tokens,
             stop_reason=response.stop_reason or "",
+            extra={"text": text_out},
         )
 
 
@@ -88,17 +108,29 @@ class GeminiProvider:
         self.model = model
 
     def complete_fields(self, *, text, piece, fields):
+        prompt = ai.user_prompt(text=text, piece=piece, fields=fields)
+        completion = self._generate(ai.SYSTEM_PROMPT, prompt, ai.completion_schema([f.name for f in fields]))
+        completion.items = _items(completion.extra.pop("text"))
+        return completion
+
+    def choose_code(self, *, description, candidates):
+        prompt = ai.choice_prompt(description=description, candidates=candidates)
+        completion = self._generate(ai.CLASSIFY_PROMPT, prompt, ai.choice_schema([c["node_id"] for c in candidates]))
+        completion.items = [_object(completion.extra.pop("text"))]
+        return completion
+
+    def _generate(self, system: str, prompt: str, schema: dict) -> ai.Completion:
         from google.genai import errors
 
         types = self._types
         try:
             response = self.client.models.generate_content(
                 model=self.model,
-                contents=ai.user_prompt(text=text, piece=piece, fields=fields),
+                contents=prompt,
                 config=types.GenerateContentConfig(
-                    system_instruction=ai.SYSTEM_PROMPT,
+                    system_instruction=system,
                     response_mime_type="application/json",
-                    response_json_schema=ai.completion_schema([f.name for f in fields]),
+                    response_json_schema=schema,
                     temperature=0,
                     max_output_tokens=MAX_OUTPUT_TOKENS,
                 ),
@@ -119,10 +151,11 @@ class GeminiProvider:
         if usage is not None and usage.candidates_token_count is not None:
             output = usage.candidates_token_count + (usage.thoughts_token_count or 0)
         return ai.Completion(
-            items=_items(response.text),
+            items=[],
             model=self.model,
             input_tokens=usage.prompt_token_count if usage is not None else None,
             output_tokens=output,
+            extra={"text": response.text},
         )
 
 

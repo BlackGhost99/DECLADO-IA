@@ -126,3 +126,27 @@ def _prepare(run, invoice) -> dict:
     if filled or goods:
         services._event(org, actor, "revision.prepared_automatically", revision, revision.case, None, report)
     return report
+
+
+def classify_after_reading(run) -> int:
+    """Hors transaction, après la lecture : l'IA départage les codes incomplets ou absents.
+
+    Seulement si la société a activé l'IA en ligne en mode automatique ; chaque échec est journalisé
+    et laisse la marchandise telle quelle, avec ses propositions."""
+    from . import ai_choice
+    from .models import GoodsLine
+
+    if run.invoice_id is None or not ai_choice.available(run.organization, auto=True):
+        return 0
+    goods = GoodsLine.objects.filter(sources__invoice_line__invoice_id=run.invoice_id).distinct()
+    asked = 0
+    for line in goods.order_by("ordinal"):
+        check = services.latest_check(line)
+        if check is None or check.state not in ai_choice.NEEDS_CODE or services.current_decision(line):
+            continue
+        try:
+            if ai_choice.choose(org=run.organization, actor=run.created_by, goods_id=line.id, trigger="auto"):
+                asked += 1
+        except Exception:
+            logger.exception("Choix de code par l'IA pour la marchandise %s : échec", line.id)
+    return asked

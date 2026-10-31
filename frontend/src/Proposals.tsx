@@ -1,7 +1,7 @@
 // Aide au classement (COD-04 à COD-06) : recherche dans le référentiel, sans IA. Chaque piste dit
 // pourquoi elle est là ; le choix reste une décision humaine motivée, liée au contrôle courant.
 import { useEffect, useState } from "react";
-import { api, type CodeCheck, type GoodsLine, type Proposal, type ProposalSet } from "./api";
+import { api, type AIChoice, type CodeCheck, type GoodsLine, type Proposal, type ProposalSet } from "./api";
 import { errorText } from "./ui";
 import { fill, useI18n } from "./i18n";
 
@@ -31,6 +31,20 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
     );
   }, [goods.id, goods.row_version]);
 
+  const [asking, setAsking] = useState(false);
+
+  async function askAI() {
+    setError(null);
+    setAsking(true);
+    try {
+      setSet(await api.aiChoice(goods.id));
+    } catch (err) {
+      setError(errorText(err, t("searchUnavailable")));
+    } finally {
+      setAsking(false);
+    }
+  }
+
   async function ask(explicit: boolean) {
     setError(null);
     try {
@@ -40,7 +54,7 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
     }
   }
 
-  function choose(p: Proposal) {
+  function choose(p: Pick<Proposal, "id" | "node_id" | "code">, why = reason) {
     if (!check) return;
     void act(() =>
       api.decide(goods.id, {
@@ -48,13 +62,15 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
         code_check_id: check.id,
         node_id: p.node_id,
         proposal_id: p.id,
-        reason,
+        reason: why,
         goods_line_version: goods.row_version,
       }),
     );
   }
 
   const usable = Boolean(editable && check?.is_current && set?.is_current && set.edition_id === check?.target_edition_id);
+  const choice = set?.is_current ? set.ai_choice ?? null : null;
+  const canAskAI = Boolean(editable && !recognized && set?.ai_available && set.is_current && set.proposals.length > 0);
 
   return (
     <div className="evidence small" aria-label={t("classificationHelp")}>
@@ -79,6 +95,14 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
             {t("proposalWarning")}
             {!set.is_current && ` ${t("rerunSearch")}`}
           </p>
+          {choice && <AIChoiceBox choice={choice} usable={usable} onKeep={() => choice.proposal_id && choice.node_id && choice.code && choose({ id: choice.proposal_id, node_id: choice.node_id, code: choice.code }, reason.trim() || fill(t("prop.aiReasonDefault"), { reason: choice.reason }))} />}
+          {canAskAI && (
+            <p>
+              <button type="button" className="btn-small" disabled={asking} onClick={() => void askAI()}>
+                {asking ? t("prop.aiAsking") : t("prop.aiAsk")}
+              </button>
+            </p>
+          )}
           {set.questions.length > 0 && (
             <ul>
               {set.questions.map((q) => (
@@ -91,6 +115,7 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
               {set.proposals.map((p) => (
                 <li key={p.id}>
                   <span className="code">{p.code_display || p.code}</span> {p.label}
+                  {choice?.proposal_id === p.id && <strong className="ai-badge"> · {t("prop.aiBadge")}</strong>}
                   <div className="muted">{p.full_path}</div>
                   <ul>
                     {p.reasons.map((r) => (
@@ -126,6 +151,24 @@ export function ProposalsPanel({ goods, editionId, editable, act }: { goods: Goo
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/** Choix de l'IA parmi les propositions : toujours une proposition, que l'agent retient ou non. */
+function AIChoiceBox({ choice, usable, onKeep }: { choice: AIChoice; usable: boolean; onKeep: () => void }) {
+  const { t } = useI18n();
+  if (choice.status === "failed") return <p className="note-amber">{fill(t("prop.aiFailed"), { error: choice.error_message })}</p>;
+  if (choice.status !== "sent") return <p className="muted">{fill(t("prop.aiNotSent"), { status: choice.status_label })}</p>;
+  if (choice.rejected.length > 0) return <p className="note-amber">{fill(t("prop.aiRejected"), { reason: choice.rejected[0].reason })}</p>;
+  if (!choice.code) return <p className="note-amber">{fill(t("prop.aiInsufficient"), { reason: choice.reason })}</p>;
+  return (
+    <div className="note-blue ai-choice" role="note">
+      <p><strong>{fill(t("prop.aiChoice"), { code: choice.code_display || choice.code, label: choice.label ?? "" })}</strong></p>
+      {choice.reason && <p>{fill(t("prop.aiWhy"), { reason: choice.reason })}</p>}
+      {choice.evidence && <p className="muted">{fill(t("prop.aiEvidence"), { evidence: choice.evidence })}</p>}
+      <p className="muted small">{t("prop.aiNote")}</p>
+      {usable && <button type="button" className="btn-primary btn-small" onClick={onKeep}>{t("prop.aiKeep")}</button>}
     </div>
   );
 }

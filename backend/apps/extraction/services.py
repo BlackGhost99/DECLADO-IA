@@ -245,9 +245,19 @@ def execute(run_id) -> None:
                 document.save(update_fields=["detected_locale", "language_detection", "updated_at"])
     except ApiError as exc:
         _fail(run, exc.error_code, str(exc.detail))
+        return
     except Exception:
         logger.exception("Extraction %s : échec de l'enregistrement", run.id)
         _fail(run, "INTERNAL_ERROR", "Erreur inattendue pendant l'enregistrement : relancer.")
+        return
+    if parsed.stats.get("reader", readers.INVOICE) == readers.INVOICE:
+        from apps.cases import autoprep
+
+        # IA en ligne, après l'enregistrement et hors transaction : choix des codes à départager.
+        try:
+            autoprep.classify_after_reading(run)
+        except Exception:
+            logger.exception("Extraction %s : choix des codes par l'IA impossible", run.id)
 
 
 def _fail(run: ExtractionRun, code: str, message: str, details: dict | None = None) -> None:

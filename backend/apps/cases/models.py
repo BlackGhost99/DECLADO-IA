@@ -379,6 +379,53 @@ class ClassificationProposal(OrganizationOwnedModel):
         ordering = ["proposal_set", "rank"]
 
 
+class AIClassification(OrganizationOwnedModel):
+    """Choix de l'IA parmi les propositions d'un ensemble (CLA-IA) : journal append-only.
+
+    L'IA ne reçoit que la désignation et les lignes candidates du tarif ; elle ne peut choisir
+    qu'une proposition existante, avec un passage de la désignation qui la justifie. Le choix
+    reste une proposition : seul un agent décide le code.
+    """
+
+    class Status(models.TextChoices):
+        SENT = "sent", "Envoyée"
+        CLIENT_REFUSED = "client_refused", "Non envoyée : le client refuse"
+        CAP_REACHED = "cap_reached", "Non envoyée : plafond du mois atteint"
+        FAILED = "failed", "Échec du fournisseur"
+
+    proposal_set = models.ForeignKey(ProposalSet, on_delete=models.PROTECT, related_name="ai_choices")
+    goods_line = models.ForeignKey(GoodsLine, on_delete=models.PROTECT, related_name="+")
+    status = models.CharField(max_length=20, choices=Status.choices)
+    trigger = models.CharField(max_length=20)  # auto, on_demand
+    provider = models.CharField(max_length=40, blank=True)
+    model = models.CharField(max_length=80, blank=True)
+    free_tier = models.BooleanField(default=False)
+    chosen = models.ForeignKey(
+        ClassificationProposal, null=True, blank=True, on_delete=models.PROTECT, related_name="ai_choices"
+    )
+    reason = models.TextField(blank=True)
+    evidence = models.CharField(max_length=200, blank=True)
+    rejected = models.JSONField(default=list, blank=True)  # [{"reason"}] réponses écartées par le contrôle
+    sent_chars = models.PositiveIntegerField(default=0)
+    input_tokens = models.PositiveIntegerField(null=True, blank=True)
+    output_tokens = models.PositiveIntegerField(null=True, blank=True)
+    cost_estimate = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)  # $, inconnu ≠ 0
+    latency_ms = models.PositiveIntegerField(null=True, blank=True)
+    error_code = models.CharField(max_length=40, blank=True)
+    error_message = models.CharField(max_length=300, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        verbose_name = "choix de code par l'IA"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["organization", "created_at"])]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("Le journal de l'IA n'est jamais modifié.")
+        super().save(*args, **kwargs)
+
+
 class RevisionDecision(OrganizationOwnedModel):
     """WF-01 à WF-03 : soumission, retour pour correction et validation interne d'une révision.
 

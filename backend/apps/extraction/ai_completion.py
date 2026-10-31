@@ -72,11 +72,15 @@ def month_start(now: datetime | None = None) -> datetime:
 
 
 def sent_this_month(org) -> int:
-    return (
-        AICompletion.objects.for_organization(org)
-        .filter(status=AICompletion.Status.SENT, created_at__gte=month_start())
-        .count()
+    """Demandes parties ce mois : compléments de pièces et choix de code comptent ensemble."""
+    from apps.cases.models import AIClassification
+
+    since = month_start()
+    pieces = AICompletion.objects.for_organization(org).filter(status=AICompletion.Status.SENT, created_at__gte=since)
+    codes = AIClassification.objects.for_organization(org).filter(
+        status=AIClassification.Status.SENT, created_at__gte=since
     )
+    return pieces.count() + codes.count()
 
 
 def client_refuses(link: CaseDocument) -> bool:
