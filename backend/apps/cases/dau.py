@@ -51,6 +51,7 @@ TEXT = {
     "by_line": "variable",
     "account2": "c. 2",
     "total": "TOTAL",
+    "revision": "révision {n}",
 }
 
 
@@ -195,7 +196,9 @@ def data(case, revision, calc) -> dict:
         "regime": revision.regime,
         "office": revision.entry_office,
         "exporter": "\n".join(suppliers),
-        "references": " · ".join(x for x in (case.reference, revision.client_reference) if x),
+        "references": " · ".join(
+            x for x in (case.reference, TEXT["revision"].format(n=revision.revision_no), revision.client_reference) if x
+        ),
         "destination": revision.territory,
         "consignee": "\n".join(x for x in (importer.name, importer.address) if x) if importer else "",
         "consignee_id": nif,
@@ -256,10 +259,16 @@ def taxes(calc) -> list[dict]:
     return out
 
 
+def _values(g: dict) -> str:
+    """Case 43 : la valeur facturée en devise, puis la valeur en douane de l'article en FCFA si elle est connue."""
+    return "\n".join(x for x in (g["value"], g.get("customs_value")) if x)
+
+
 # --- Rendu ------------------------------------------------------------------------------
 
 
-def build(ctx) -> bytes:
+def build(ctx, annex=None) -> bytes:
+    """Page 1 : les cases du DAU. Pages suivantes : l'annexe fournie (récapitulatif du calcul)."""
     from xml.sax.saxutils import escape
 
     import reportlab
@@ -269,7 +278,7 @@ def build(ctx) -> bytes:
     from reportlab.lib.units import mm
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     fonts = Path(reportlab.__file__).parent / "fonts"
     if "Vera" not in pdfmetrics.getRegisteredFontNames():
@@ -326,8 +335,8 @@ def build(ctx) -> bytes:
                     ("LINEABOVE", (0, 0), (-1, 0), 0.4, line),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
                     ("FONT", (0, 0), (-1, -1), "Vera", 7.4),
-                    ("TOPPADDING", (0, 0), (-1, -1), 2),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
                     ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white]),
                 ]
             )
@@ -366,7 +375,7 @@ def build(ctx) -> bytes:
         extra=[("LEFTPADDING", (2, 1), (3, 1), 0), ("RIGHTPADDING", (2, 1), (3, 1), 0),
                ("TOPPADDING", (2, 1), (3, 1), 0), ("BOTTOMPADDING", (2, 1), (3, 1), 0)],
     )  # fmt: skip
-    story += [header, Spacer(1, 2.5 * mm)]
+    story += [header, Spacer(1, 1.8 * mm)]
 
     parties = frame(
         [
@@ -396,7 +405,7 @@ def build(ctx) -> bytes:
         extra=[("LEFTPADDING", (2, 2), (3, 4), 0), ("RIGHTPADDING", (2, 2), (3, 4), 0),
                ("TOPPADDING", (2, 2), (3, 4), 0), ("BOTTOMPADDING", (2, 2), (3, 4), 0)],
     )  # fmt: skip
-    story += [parties, Spacer(1, 2.5 * mm)]
+    story += [parties, Spacer(1, 1.8 * mm)]
 
     story.append(
         frame(
@@ -415,14 +424,16 @@ def build(ctx) -> bytes:
             spans=[((0, 0), (2, 0)), ((3, 0), (3, 1)), ((4, 0), (4, 1))],
         )
     )  # fmt: skip
-    story.append(Spacer(1, 2.5 * mm))
+    story.append(Spacer(1, 1.8 * mm))
 
     containers = [[c, "", "", ""] for c in d["containers"]]
     transport = [[t["type"], t["reference"], t["date"]] for t in d["transport"]]
+    mention = "\n".join([*ctx.get("banners", []), TEXT["project"]])
+    note = ParagraphStyle("note", parent=value_style, fontSize=6.4, leading=7.6)
     side = Table(
         [
             [grid("32  Documents de transport", ["Type", "Référence", "Date"], transport, [26, 42, 22], min_rows=2)],
-            [frame([[box("33", "Mention spéciale", TEXT["project"])]], [90])],
+            [frame([[box("33", "Mention spéciale", mention, note)]], [90])],
         ],
         hAlign="LEFT",
         colWidths=[90 * mm],
@@ -435,21 +446,22 @@ def build(ctx) -> bytes:
         colWidths=[90 * mm, 90 * mm],
     )  # fmt: skip
     pair.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), *FLAT]))
-    story += [pair, Spacer(1, 2.5 * mm)]
+    story += [pair, Spacer(1, 1.8 * mm)]
 
     header = ["N°", "35 Marques, nombre et nature des colis", "36 Désignation des marchandises",
               "37 Code SH", "38 Origine", "39 Masse brute (kg)", "40 Masse nette (kg)",
-              "41 Quantité\n42 Unité", f"43 Valeur en devises ({d['currency'] or '?'})", "44 Régime"]  # fmt: skip
+              "41 Quantité\n42 Unité", f"43 Valeur ({d['currency'] or '?'})\nen douane (FCFA)",
+              "44 Régime"]  # fmt: skip
     rows = [
         [g["no"], "", g["description"], g["code"], g["origin"], "", "",
-         f"{g['quantity']} {g['unit']}".strip(), g["value"], g["regime"]]
+         f"{g['quantity']} {g['unit']}".strip(), _values(g), g["regime"]]
         for g in d["goods"]
     ]  # fmt: skip
     story.append(
         grid("34  Articles et marchandises", header, rows, [8, 18, 42, 21, 13, 13, 13, 15, 21, 16],
              numeric=(7, 8), min_rows=3)
     )  # fmt: skip
-    story.append(Spacer(1, 2.5 * mm))
+    story.append(Spacer(1, 1.8 * mm))
 
     docs = [[x["code"], x["reference"], x["date"], "", ""] for x in d["documents"]]
     tax_rows = [[t["code"], t["base"], t["rate"], t["amount"]] for t in d["taxes"]]
@@ -457,7 +469,7 @@ def build(ctx) -> bytes:
     bottom = Table(
         [[grid("45  Documents produits, certificats et autorisations",
                ["Code", "Référence", "Date", "Autorité émettrice", "Description"], docs, [17, 23, 20, 20, 20],
-               min_rows=3),
+               min_rows=2),
           grid("46  Calcul des impositions (préparation)", ["Type", "Assiette", "Taux", "Montant"], tax_rows,
                [17, 22, 17, 24], numeric=(1, 3), min_rows=4, total=total)]],
         hAlign="LEFT",
@@ -476,6 +488,8 @@ def build(ctx) -> bytes:
         spans=[((0, 0), (0, 1)), ((1, 0), (1, 1))],
     )  # fmt: skip
     story.append(customs)
+    if annex:
+        story += [PageBreak(), *annex]
 
     draft = ctx["marking"] == CaseExport.Marking.DRAFT
     reference = ctx["identification"][0][1]
