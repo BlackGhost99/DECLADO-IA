@@ -971,6 +971,10 @@ def record_decision(*, org, actor, goods_id, data) -> ClassificationDecision:
                 "INVALID_PROPOSAL", "La proposition ne correspond pas à cette marchandise et à ce code.", 422
             )
         evidence.append({"proposal_id": str(proposal.id), "producer": proposal.proposal_set.producer})
+        # Proposition retenue après un choix de l'IA : la décision en garde la trace.
+        picked = proposal.ai_choices.first()
+        if picked is not None:
+            evidence.append({"kind": "ai_choice", "ai_choice_id": str(picked.id), "model": picked.model})
     if action == ClassificationDecision.Action.CONFIRM:
         if check.state != CodeCheck.State.RECOGNIZED:
             raise ApiError(

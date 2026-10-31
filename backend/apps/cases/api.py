@@ -1033,3 +1033,18 @@ class ProposalView(APIView):
             explicit=data.get("explicit", False),
         )
         return Response(proposals.payload(proposal_set), status=201)
+
+
+class AIChoiceView(APIView):
+    """CLA-IA : l'IA choisit parmi les propositions, sur demande de l'agent ; jamais une décision."""
+
+    permission_classes = [CanEdit]
+
+    def post(self, request, goods_id):
+        from . import ai_choice
+
+        goods = get_goods(request, goods_id)
+        choice = ai_choice.choose(org=request.organization, actor=request.user, goods_id=goods.id)
+        if choice is None:
+            raise ApiError("NO_CANDIDATES", "Aucune ligne du tarif à départager : préciser la désignation.", 422)
+        return Response(proposals.payload(choice.proposal_set), status=201)

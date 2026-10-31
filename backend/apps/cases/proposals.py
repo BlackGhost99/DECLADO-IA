@@ -237,6 +237,8 @@ def payload(proposal_set: ProposalSet) -> dict:
         "query": proposal_set.query,
         "producer": proposal_set.producer,
         "is_ai": False,
+        "ai_choice": _ai_choice(proposal_set),
+        "ai_available": _ai_available(proposal_set),
         "questions": proposal_set.questions,
         "is_current": proposal_set.input_hash
         == _digest(proposal_set.goods_line, proposal_set.edition_id, proposal_set.query),
@@ -259,3 +261,15 @@ def payload(proposal_set: ProposalSet) -> dict:
             for p in proposal_set.proposals.select_related("node")
         ],
     }
+
+
+def _ai_choice(proposal_set: ProposalSet):
+    from . import ai_choice
+
+    return ai_choice.payload(proposal_set.ai_choices.select_related("chosen__node").first())
+
+
+def _ai_available(proposal_set: ProposalSet) -> bool:
+    from . import ai_choice
+
+    return ai_choice.available(proposal_set.organization)

@@ -114,6 +114,7 @@ urlpatterns = [
     path("goods-lines/<uuid:goods_id>/code-checks", cases.CodeCheckView.as_view()),
     path("goods-lines/<uuid:goods_id>/decisions", cases.DecisionView.as_view()),
     path("goods-lines/<uuid:goods_id>/proposals", cases.ProposalView.as_view()),
+    path("goods-lines/<uuid:goods_id>/ai-choice", cases.AIChoiceView.as_view()),
     path("case-documents/<uuid:link_id>/extractions", extraction.CaseDocumentExtractionsView.as_view()),
     path("extraction-runs/<uuid:run_id>", extraction.ExtractionRunView.as_view()),
     path("case-documents/<uuid:link_id>/ai-completion", extraction.CaseDocumentAICompletionView.as_view()),

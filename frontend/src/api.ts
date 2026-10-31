@@ -628,6 +628,25 @@ export interface Proposal {
   retrieval_score: number | null;
 }
 
+export interface AIChoice {
+  id: string;
+  status: "sent" | "client_refused" | "cap_reached" | "failed";
+  status_label: string;
+  proposal_id: string | null;
+  node_id: string | null;
+  code: string | null;
+  code_display: string | null;
+  label: string | null;
+  insufficient: boolean;
+  reason: string;
+  evidence: string;
+  rejected: { reason: string }[];
+  model: string;
+  free_tier: boolean;
+  error_message: string;
+  created_at: string;
+}
+
 export interface ProposalSet {
   id: string;
   goods_line_id: string;
@@ -637,6 +656,8 @@ export interface ProposalSet {
   query: string;
   producer: string;
   is_ai: boolean;
+  ai_choice?: AIChoice | null;
+  ai_available?: boolean;
   questions: string[];
   is_current: boolean;
   created_at: string;
@@ -1256,6 +1277,7 @@ export const api = {
   resolveGraphConflict: (id: string, reason: string) =>
     request<{ id: string }>("POST", "/document-intelligence/conflicts/" + id + "/resolve", { reason }),
   proposals: (goodsId: string) => request<{ results: ProposalSet[] }>("GET", `/goods-lines/${goodsId}/proposals`),
+  aiChoice: (goodsId: string) => request<ProposalSet>("POST", `/goods-lines/${goodsId}/ai-choice`, {}),
   propose: (goodsId: string, data: { edition_id?: string; query?: string; explicit?: boolean }) =>
     request<ProposalSet>("POST", `/goods-lines/${goodsId}/proposals`, data),
   scanBatches: (caseId: string) =>
