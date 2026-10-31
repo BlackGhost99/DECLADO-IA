@@ -80,6 +80,7 @@ class RowKind:
     HEADER = "header"
     REPEATED_HEADER = "repeated_header"
     CARRIED = "carried"  # report / à reporter
+    INCLUDED = "included"  # « Freight included » : déjà compris dans les prix, jamais ajouté
 
 
 @dataclass

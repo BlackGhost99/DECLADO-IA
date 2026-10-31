@@ -716,3 +716,9 @@ input,select,textarea{min-height:39px;border-radius:7px;border-color:#dfe6e2}
 .prefilled-hint { color: #8a5a00; font-weight: 600; }
 .tariff-import label { display: grid; gap: 0.3rem; }
 .tariff-import .btn-primary { justify-self: start; }
+
+/* Taux de change saisis pour le dossier (onglet Calculs). */
+.exchange-rates { display: grid; gap: 0.5rem; margin: 0.6rem 0; }
+.exchange-row { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.exchange-row label { display: grid; gap: 0.2rem; flex: 1 1 12rem; min-width: 0; }
+.exchange-rates button { justify-self: start; }

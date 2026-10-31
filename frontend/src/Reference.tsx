@@ -437,8 +437,8 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
           icon="file"
           tone="green"
           label={tr("ref.activeVersion")}
-          value={operational ? operational.label : tr("ref.noneF")}
-          hint={operational ? tr("ref.inForce") : tr("ref.allConsultation")}
+          value={operational ? operational.label : latest ? latest.label : tr("ref.noneF")}
+          hint={operational ? tr("ref.inForce") : latest ? tr("ref.consultationOnly") : tr("ref.allConsultation")}
         />
         <StatCard icon="clock" tone="blue" label={tr("ref.lastUpdate")} value={latest?.published_at ? fmtDate(latest.published_at) : "—"} hint={latest?.label} />
         <StatCard

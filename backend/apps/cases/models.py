@@ -103,6 +103,9 @@ class CaseRevision(OrganizationOwnedModel):
     reason = models.TextField(blank=True)
     # Champs remplis par la préparation automatique et pas encore confirmés par un agent.
     prefilled = models.JSONField(default=list, blank=True)
+    # Taux de change saisis par un agent pour ce dossier : {"USD": {"rate": "605.5", "source": "…"}}.
+    # Jamais déduits ni téléchargés ; l'euro et le franc CFA ont une parité fixe et n'y figurent pas.
+    exchange_rates = models.JSONField(default=dict, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
 
     class Meta:

@@ -105,6 +105,8 @@ _FEE = re.compile(
     r"|port(?!\s+(?:de|d'|du|des|of|a|à)\b))\b"
 )
 _FOOTER = re.compile(r"^(page \d+|\d+ ?/ ?\d+$)")
+# « Freight included », « Fret inclus » : un frais déjà compris dans les prix, affiché, jamais ajouté.
+_INCLUDED = re.compile(r"\b(included|inclus|incluse|inclues|compris|comprise|incluido|incluida)\b")
 _TOTAL = re.compile(r"\b(total|net a payer|montant du|amount due|grand total)\b")
 
 _HEADER_PATTERNS = {
@@ -329,7 +331,7 @@ def _classify(row_text: str, cells: dict[str, list[Item]], header_like: bool) ->
     if _DISCOUNT.match(first) or _DISCOUNT.match(key):
         return RowKind.DISCOUNT
     if _FEE.match(first) and not cells.get("quantity"):
-        return RowKind.FEE
+        return RowKind.INCLUDED if _INCLUDED.search(key) else RowKind.FEE
     if _TOTAL.search(key) and not cells.get("quantity"):
         return RowKind.TOTAL
     return RowKind.GOODS
@@ -724,7 +726,7 @@ def totals_check(goods_amounts: list[Decimal | None], charges: list[dict], print
     subtotals = [
         {"label": c["label"], "amount": c["amount"], "page": c.get("page")}
         for c in charges
-        if c["kind"] in (RowKind.SUBTOTAL, RowKind.CARRIED)
+        if c["kind"] in (RowKind.SUBTOTAL, RowKind.CARRIED, RowKind.INCLUDED)
     ]
     return {
         "status": status,

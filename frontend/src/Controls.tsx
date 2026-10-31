@@ -85,7 +85,8 @@ export function controlItems(detail: CaseDetail): ControlItem[] {
   }
 
   // Les divergences sont détaillées plus bas, facture par facture.
-  for (const b of rev.completeness.blocking.filter((x) => x.scope !== "divergence")) {
+  // Le code de chaque marchandise est détaillé plus bas, avec ses étapes.
+  for (const b of rev.completeness.blocking.filter((x) => x.scope !== "divergence" && !(x.scope === "goods_line" && x.field === "code"))) {
     items.push({
       id: `missing-${b.id}-${b.field}`,
       category: tr("ctl.catMissingInfo"),
@@ -98,7 +99,9 @@ export function controlItems(detail: CaseDetail): ControlItem[] {
       steps: [tr("ctl.openSection"), tr("ctl.fillFrom", { label: b.label }), tr("ctl.saveGone")],
     });
   }
-  for (const w of rev.completeness.warnings) {
+  // L'écart de total et l'édition de consultation sont détaillés plus bas : pas de doublon.
+  const gapInvoices = new Set(rev.invoices.filter((inv) => inv.totals_check?.status === "gap").map((inv) => inv.id));
+  for (const w of rev.completeness.warnings.filter((x) => !(x.scope === "invoice" && x.field === "declared_total" && gapInvoices.has(x.id)) && !(x.field === "target_edition" && rev.target_edition?.warning))) {
     items.push({
       id: `warn-${w.id}-${w.field}-${w.message}`,
       category: tr("ctl.catReview"),
@@ -170,19 +173,7 @@ export function controlItems(detail: CaseDetail): ControlItem[] {
         });
       }
     }
-    const flagged = [...(inv.review_flags ?? []), ...inv.lines.flatMap((ln) => ln.review_flags ?? [])];
-    if (flagged.length > 0) {
-      items.push({
-        id: `flags-${inv.id}`,
-        category: tr("ctl.catReading"),
-        icon: "eye",
-        title: tr("ctl.doubtful", { name, count: flagged.length }),
-        description: flagged.slice(0, 4).map((f) => f.message).join(" "),
-        severity: "review",
-        action: tr("ctl.compareFix"),
-        tab: "donnees",
-      });
-    }
+    // Les valeurs lues avec un doute sont listées une à une par le serveur, avec leur champ.
   }
 
   for (const g of rev.goods_lines) {
@@ -195,7 +186,7 @@ export function controlItems(detail: CaseDetail): ControlItem[] {
       icon: "tag",
       title: tr("ctl.goodsTitle", { n: g.ordinal, desc: g.description ? ` (${g.description})` : "", status: s.label.toLowerCase(), code: s.code ? ` ${s.code}` : "" }),
       description: done ? tr("ctl.codeConfirmed", { code: s.code, who: g.decision?.actor.email ?? "" }) : tr("ctl.codeToCheck"),
-      severity: done ? "ok" : "review",
+      severity: done ? "ok" : "blocking",
       action: done ? tr("ctl.noAction") : tr("ctl.openGoods"),
       tab: "marchandises",
       steps: done ? undefined : [tr("ctl.goodsStep1"), tr("ctl.goodsStep2"), tr("ctl.goodsStep3")],

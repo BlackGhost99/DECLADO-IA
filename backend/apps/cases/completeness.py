@@ -4,6 +4,7 @@
 Les écarts arithmétiques sont signalés, jamais corrigés (EXT-05, EXT-06).
 """
 
+import re
 from decimal import Decimal
 
 from apps.document_graph.models import DocumentConflict
@@ -45,7 +46,20 @@ PREFILLED_LABELS = {
     "target_edition": "édition du référentiel",
     "planned_declaration_date": "date de déclaration prévue",
     "regime": "régime (repris du dernier dossier)",
+    "importer": "importateur (reconnu d'après l'acheteur de la facture)",
 }
+
+
+# Champs de ligne dont l'absence ne mérite aucun signalement, et ceux déjà bloquants s'ils manquent.
+OPTIONAL_LINE_FIELDS = {"source_reference"}
+BLOCKING_LINE_FIELDS = {"description_raw", "quantity", "unit", "amount"}
+
+
+def _to_check(field: str, message: str) -> str:
+    """« À vérifier (fournisseur) : Émetteur lu en tête de la facture. » : le champ est nommé, une seule fois."""
+    name = FIELD_LABELS.get(field, field)
+    message = re.sub(r"\s*:\s*à vérifier\.?$", ".", message.strip(), flags=re.IGNORECASE)
+    return f"À vérifier ({name}) : {message}" if name else f"À vérifier : {message}"
 
 
 def _origin_covered(line, revision) -> bool:
@@ -57,7 +71,11 @@ def evaluate(revision: CaseRevision) -> dict:
     blocking, warnings = [], []
     case = revision.case
     if case.importer_id is None:
-        blocking.append(_item("case", case, "importer", "Importateur à renseigner.", case.reference))
+        buyers = sorted({inv.buyer_name for inv in revision.invoices.all() if inv.buyer_name})
+        message = "Importateur à renseigner."
+        if buyers:
+            message = f"Importateur à renseigner (acheteur lu sur la facture : {', '.join(buyers)})."
+        blocking.append(_item("case", case, "importer", message, case.reference))
     for field, message in (
         ("planned_declaration_date", "Date de déclaration prévue à renseigner."),
         ("regime", "Régime douanier à renseigner."),
@@ -140,7 +158,8 @@ def evaluate(revision: CaseRevision) -> dict:
                     )
                 )
         for flag in inv.review_flags:
-            warnings.append(_item("invoice", inv, flag.get("field", ""), f"À vérifier : {flag['message']}", label))
+            field = flag.get("field", "")
+            warnings.append(_item("invoice", inv, field, _to_check(field, flag["message"]), label))
         for divergence in inv.divergences.filter(state="open").select_related("invoice_line"):
             where = f"{label}, ligne {divergence.invoice_line.ordinal}" if divergence.invoice_line_id else label
             field = FIELD_LABELS.get(divergence.field_name, divergence.field_name)
@@ -185,11 +204,16 @@ def evaluate(revision: CaseRevision) -> dict:
                     )
                 )
             for flag in ln.review_flags:
-                if flag.get("code") in ("CODE_ABSENT",):
+                field = flag.get("field", "")
+                if str(flag.get("code", "")).startswith("CODE_") or field.startswith("code:"):
                     continue  # déjà couvert par le contrôle de code de la marchandise
-                warnings.append(
-                    _item("invoice_line", ln, flag.get("field", ""), f"À vérifier : {flag['message']}", line_label)
-                )
+                if flag.get("code") == "MISSING" and field in OPTIONAL_LINE_FIELDS:
+                    continue  # facultatif : son absence n'est pas une anomalie
+                if flag.get("code") == "MISSING" and field == "origin_country" and _origin_covered(ln, revision):
+                    continue
+                if flag.get("code") == "MISSING" and field in BLOCKING_LINE_FIELDS:
+                    continue  # déjà signalé comme bloquant ci-dessus
+                warnings.append(_item("invoice_line", ln, field, _to_check(field, flag["message"]), line_label))
             if not ln.goods_sources.all():
                 warnings.append(
                     _item("invoice_line", ln, "goods_line", "Ligne non rattachée à une marchandise.", line_label)
