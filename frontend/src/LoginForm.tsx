@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { api, ApiError, type Me } from "./api";
-import { Logo } from "./Icon";
+import logoUrl from "./assets/logo-clairtransit.jpg";
 import { LanguageSelector, tr, useI18n } from "./i18n";
 import { navigate } from "./router";
 
@@ -38,12 +38,8 @@ export function LoginForm({ onLoggedIn, notice }: { onLoggedIn: (me: Me) => void
         <div className="login-lang">
           <LanguageSelector />
         </div>
-        <div className="login-brand">
-          <Logo size={48} />
-          <span>
-            <strong>ClairTransit</strong>
-            <small>{t("dash.heroSub")}</small>
-          </span>
+        <div className="login-brand login-logo">
+          <img src={logoUrl} alt="ClairTransit · DECLADO IA" />
         </div>
         <h1 id="login-title">{t("loginTitle")}</h1>
         {notice && !error && <p className="onb-note" role="status">{notice}</p>}

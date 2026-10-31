@@ -450,7 +450,14 @@ def build_xlsx(ctx) -> bytes:
     return buffer.getvalue()
 
 
-BUILDERS = {CaseExport.Format.PDF: build_pdf, CaseExport.Format.XLSX: build_xlsx}
+def build_dau(ctx) -> bytes:
+    from . import dau
+
+    return dau.build(ctx)
+
+
+BUILDERS = {CaseExport.Format.PDF: build_pdf, CaseExport.Format.XLSX: build_xlsx, CaseExport.Format.DAU: build_dau}
+EXTENSION = {CaseExport.Format.DAU: "pdf"}
 
 
 @transaction.atomic
@@ -460,10 +467,14 @@ def create_export(*, org, actor, case_id, fmt: str) -> CaseExport:
     from apps.documents.storage import get_storage
 
     if fmt not in BUILDERS:
-        raise ApiError("VALIDATION_ERROR", "Format d'export inconnu : pdf ou xlsx.", 400)
+        raise ApiError("VALIDATION_ERROR", "Format d'export inconnu : pdf, xlsx ou dau.", 400)
     case = services.lock_case(org, case_id)
     revision = case.current_revision
     ctx = _context(case, revision, actor)
+    if fmt == CaseExport.Format.DAU:
+        from . import dau
+
+        ctx["dau"] = dau.data(case, revision, ctx["calc"])
     content = BUILDERS[fmt](ctx)
     stored = get_storage().put(io.BytesIO(content), prefix=f"exports/{org.id}")
     suffix = "" if ctx["marking"] == CaseExport.Marking.VALIDATED else "_brouillon"
@@ -472,7 +483,8 @@ def create_export(*, org, actor, case_id, fmt: str) -> CaseExport:
         revision=revision,
         format=fmt,
         marking=ctx["marking"],
-        filename=f"{case.reference}_r{revision.revision_no}{suffix}.{fmt}",
+        filename=f"{case.reference}_r{revision.revision_no}{'_DAU' if fmt == CaseExport.Format.DAU else ''}"
+        f"{suffix}.{EXTENSION.get(fmt, fmt)}",
         object_key=stored.key,
         sha256=stored.sha256,
         bytes=stored.size,

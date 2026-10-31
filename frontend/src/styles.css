@@ -722,3 +722,10 @@ input,select,textarea{min-height:39px;border-radius:7px;border-color:#dfe6e2}
 .exchange-row { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .exchange-row label { display: grid; gap: 0.2rem; flex: 1 1 12rem; min-width: 0; }
 .exchange-rates button { justify-self: start; }
+
+/* Tableaux de calcul : montants alignés à droite sous leur titre, colonnes tracées. */
+.data th.num, .data td.num { text-align: right; }
+.calc-taxes th + th, .calc-taxes td + td, .tx-lines th + th, .tx-lines td + td { border-left: 1px solid var(--border); }
+.tx-lines tfoot td { font-weight: 700; border-top: 2px solid var(--border); background: var(--surface-2); }
+.login-logo { justify-content: center; }
+.login-logo img { width: 100%; max-width: 300px; height: auto; display: block; }

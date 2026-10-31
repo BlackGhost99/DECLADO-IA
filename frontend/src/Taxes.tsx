@@ -4,6 +4,7 @@ import {
   ApiError,
   type AmendmentInput,
   type CalcTax,
+  type CalcArticle,
   type CaseCalculation,
   type CodeRates,
   type ScheduleLineInfo,
@@ -582,6 +583,12 @@ export function CalcTaxesTable({ calc }: { calc: CaseCalculation }) {
   );
 }
 
+/** Somme d'une colonne du détail par marchandise ; inconnue si une ligne l'est (inconnu ≠ 0). */
+function column(calc: CaseCalculation, pick: (a: CalcArticle) => string | null): string | null {
+  const values = calc.articles.map(pick);
+  return values.some((v) => v === null) ? null : String(values.reduce((a, v) => a + Number(v), 0));
+}
+
 export function CalcLinesTable({ calc }: { calc: CaseCalculation }) {
   const other = ["CCI", "OAD", "CSS", "CAF"];  // la TCI (compte 2) n'entre pas dans le total
   const sum = (taxes: CalcTax[], codes: string[]) => {
@@ -632,6 +639,18 @@ export function CalcLinesTable({ calc }: { calc: CaseCalculation }) {
               );
             })}
           </tbody>
+          {calc.articles.length > 1 && (
+            <tfoot>
+              <tr>
+                <td colSpan={3}>{tr("fx.total")}</td>
+                <td className="num">{cell(column(calc, (a) => a.value.xaf))}</td>
+                <td className="num">{cell(column(calc, (a) => a.taxes.find((t) => t.code === "DDI")?.amount ?? null))}</td>
+                <td className="num">{cell(column(calc, (a) => a.taxes.find((t) => t.code === "TVA")?.amount ?? null))}</td>
+                <td className="num">{cell(column(calc, (a) => sum(a.taxes, other)))}</td>
+                <td className="num">{cell(column(calc, (a) => a.total))}</td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
       <p className="muted small" style={{ marginTop: 8 }}>{tr("fx.linesNote")}</p>
