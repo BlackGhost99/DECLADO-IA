@@ -27,7 +27,7 @@ from apps.organizations.permissions import HasActiveOrganization, require_roles
 from apps.regulations.doc_types import mismatch_of, type_of
 from apps.tariffs.api import HISTORICAL_WARNING
 
-from . import completeness, proposals, services
+from . import completeness, intake, proposals, services
 from .models import (
     CaseDocument,
     CaseRevision,
@@ -1068,3 +1068,42 @@ class AIChoiceView(APIView):
         if choice is None:
             raise ApiError("NO_CANDIDATES", "Aucune ligne du tarif à départager : préciser la désignation.", 422)
         return Response(proposals.payload(choice.proposal_set), status=201)
+
+
+# --- Dépôt groupé (DEP-01 à DEP-06) -------------------------------------------------------
+
+
+class IntakeDocumentsView(APIView):
+    """POST multipart file : pièce contrôlée et conservée sans dossier, puis lue (type, partie, références)."""
+
+    permission_classes = [CanEdit]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        upload = _upload_from(request)
+        document, cases = intake.upload(
+            org=request.organization,
+            actor=request.user,
+            upload=upload,
+            declared_mime=getattr(upload, "content_type", "") or "",
+        )
+        return Response({**intake.analyze(document), "already_in": cases}, status=201)
+
+
+class IntakeProposalView(APIView):
+    """POST {document_ids} : dossiers proposés, avec la raison de chaque regroupement."""
+
+    permission_classes = [CanEdit]
+
+    def post(self, request):
+        return Response(intake.propose(org=request.organization, document_ids=request.data.get("document_ids")))
+
+
+class IntakeCasesView(APIView):
+    """POST {groups: [{title, document_ids}]} : création des dossiers confirmés par l'agent."""
+
+    permission_classes = [CanEdit]
+
+    def post(self, request):
+        created = intake.create_cases(org=request.organization, actor=request.user, groups=request.data.get("groups"))
+        return Response({"results": created}, status=201)

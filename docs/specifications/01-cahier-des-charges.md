@@ -158,6 +158,12 @@ Limites initiales proposées : 50 Mo par fichier, 500 pages par facture PDF et 1
 | LEC-08 | P0 | Lecture propre au type : titre de transport (n°, chargeur, destinataire, navire, ports, conteneur, colis, poids…), assurance (police, assuré, valeur assurée, prime…) et facture de fret ; chaque valeur sourcée, chaque absence « non trouvée » |
 | LEC-09 | P0 | Une pièce autre qu’une facture commerciale ne crée ni facture ni ligne de marchandise |
 | LEC-10 | P0 | Contrôle documentaire : pièce de type reconnu cochée « reçue, à vérifier », jamais vérifiée ; références croisées (B/L, facture, police, conteneur) proposées au rapprochement, jamais acceptées d’office |
+| DEP-01 | P1 | Dépôt groupé : plusieurs pièces de plusieurs envois déposées ensemble, chacune contrôlée par l’antivirus et lue (type, partie, références) sans créer de dossier |
+| DEP-02 | P1 | Regroupement proposé uniquement sur des références imprimées partagées (n° de facture, n° de B/L, conteneur), avec la raison affichée ; le nom de l’importateur seul ne regroupe jamais |
+| DEP-03 | P1 | Noms différents dans un même groupe signalés « à vérifier » ; pièce sans référence lue laissée « à classer », jamais rattachée au hasard |
+| DEP-04 | P1 | Rien n’est créé avant la confirmation de l’agent, qui peut renommer un dossier et déplacer une pièce |
+| DEP-05 | P1 | La confirmation crée un dossier par groupe, y rattache les pièces (type d’après le titre) et demande leur lecture ; journal « case.created_from_intake » |
+| DEP-06 | P1 | Un fichier déjà présent dans la société est réutilisé, avec les dossiers où il figure ; pièces d’une autre société refusées |
 | IAL-01 | P1 | IA en ligne facultative : sans fournisseur configuré, lecture et saisie fonctionnent sans internet ; rien n’est envoyé ni journalisé |
 | IAL-02 | P1 | Deux verrous : clé posée sur le serveur par l’exploitant (`donnees\ia.json` ou variables `AI_*`) et activation par l’administrateur de la société ; la clé n’est jamais affichée ni envoyée au navigateur |
 | IAL-03 | P1 | Seules les informations « non trouvées » par la lecture, ni proposées ni saisies, sont demandées ; une information déjà demandée sur la même lecture n’est pas redemandée |
