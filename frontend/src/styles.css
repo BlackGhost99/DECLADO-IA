@@ -729,3 +729,9 @@ input,select,textarea{min-height:39px;border-radius:7px;border-color:#dfe6e2}
 .tx-lines tfoot td { font-weight: 700; border-top: 2px solid var(--border); background: var(--surface-2); }
 .login-logo { justify-content: center; }
 .login-logo img { width: 100%; max-width: 300px; height: auto; display: block; }
+/* Dépôt groupé : un dossier proposé, encadré dans la carte des propositions. */
+.intake-group { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 12px; display: grid; gap: 8px; }
+.intake-group h3 { margin: 0; font-size: 0.95rem; }
+.intake-group input, .intake-group select { width: 100%; max-width: 100%; box-sizing: border-box; }
+.intake-group .actions-row { justify-content: flex-start; flex-wrap: wrap; }
+.intake-group .data td:last-child { width: 40%; }

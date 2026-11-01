@@ -5,6 +5,7 @@ import { CaseDetailView, CASE_TABS } from "./CaseDetail";
 import { CasePicker, Cases } from "./Cases";
 import { Console } from "./Console";
 import { NewCasePage } from "./NewCase";
+import { IntakePage } from "./Intake";
 import { Dashboard } from "./Dashboard";
 import { Icon, Logo, type IconName } from "./Icon";
 import cemacMap from "./assets/cemac-map.png";
@@ -147,6 +148,7 @@ const NAV_MAIN: NavItem[] = [
   { path: "", label: "nav.dashboard", icon: "home" },
   { path: "dossiers", label: "nav.myCases", icon: "folder" },
   { path: "nouveau", label: "nav.newCase", icon: "plus" },
+  { path: "depot", label: "nav.intake", icon: "layers" },
 ];
 
 const NAV_CASE: NavItem[] = [
@@ -436,6 +438,8 @@ function Page({ route, me, active }: { route: Route; me: Me; active: Membership 
       return <Cases membership={active} me={me} initialQuery={route.query.get("q") ?? ""} />;
     case "nouveau":
       return <NewCasePage membership={active} me={me} />;
+    case "depot":
+      return <IntakePage />;
     case "recherche":
       return <TariffSearch initialQuery={route.query.get("q") ?? ""} />;
     case "referentiel":

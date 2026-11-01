@@ -371,6 +371,26 @@ export interface DocumentInfo {
   created_at: string;
 }
 
+/** Pièce du dépôt groupé : type lu sur le titre, partie et références imprimées (n° de facture, B/L, conteneur). */
+export interface IntakePiece {
+  document_id: string;
+  name: string;
+  type: string;
+  party: string;
+  read: boolean;
+  references: { kind: "invoice" | "bl" | "container"; value: string; role: "own" | "cited" }[];
+  already_in?: string[];
+}
+
+export interface IntakeGroup {
+  title: string;
+  party: string;
+  parties: string[];
+  documents: IntakePiece[];
+  reasons: { kind: "invoice" | "bl" | "container"; value: string; documents: number }[];
+  warnings: string[];
+}
+
 export interface CaseDocument {
   id: string;
   usage: string;
@@ -1220,6 +1240,15 @@ export const api = {
       idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
     );
   },
+  intakeUpload: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return upload<IntakePiece>("/intake/documents", form);
+  },
+  intakeProposal: (document_ids: string[]) =>
+    request<{ groups: IntakeGroup[]; unassigned: IntakePiece[] }>("POST", "/intake/proposal", { document_ids }),
+  intakeCreate: (groups: { title: string; document_ids: string[] }[]) =>
+    request<{ results: { id: string; reference: string; title: string; documents: number }[] }>("POST", "/intake/cases", { groups }),
   reuseDocument: (caseId: string, document_id: string, usage: string, document_type = "") =>
     request<CaseDocument>("POST", `/cases/${caseId}/documents/reuse`, { document_id, usage, ...(document_type ? { document_type } : {}) }),
   confirmDocumentType: (linkId: string, document_type: string, reason: string) =>
