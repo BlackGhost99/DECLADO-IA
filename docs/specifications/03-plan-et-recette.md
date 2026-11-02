@@ -201,6 +201,9 @@ Aucune fixture ne doit présenter un taux synthétique comme un taux gabonais r�
 | T94 | TAX-04 | Exonération déclarée par l'admin ClairTransit seulement (403 sinon) : taxes, champ (codes, régime, période), justificatifs exigés et texte obligatoires ; sans texte officiel, marquée comme telle ; jamais réécrite, désactivée avec motif, journalisée |
 | T95 | TAX-04, TAX-05 | Exonération validée mais hors champ (code non couvert, régime, date) : non appliquée, raison affichée sur l'article |
 | T96 | TAX-04, SEC-01 | Refus avec motif obligatoire, retrait, nouvelle demande possible ; une autre société ne voit ni ne modifie les demandes (404) |
+| T97 | WF-05 | Dépôt refusé avant validation ; n° obligatoire, date future refusée ; enregistré une seule fois, journalisé ; calcul figé inchangé |
+| T98 | WF-06 | Archivage par un validateur (déclarant 403) : lecture seule, calcul figé conservé, pas de nouvelle révision ; autre société 404 |
+| T99 | WF-06 | Brouillon archivé avec motif obligatoire ; sortie des archives par l'administrateur seulement, avec motif, retour à l'état précédent |
 
 Tests T01, T11, T20–T29, T31–T35 bloquants avant mise en service du périmètre correspondant. Les autres tests P0 restent obligatoires ; les exigences P1 peuvent être reportées explicitement dans une livraison réduite.
 

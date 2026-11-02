@@ -292,6 +292,8 @@ def revision_payload(revision: CaseRevision) -> dict:
         "priority": revision.priority,
         "priority_label": revision.get_priority_display(),
         "is_editable": revision.is_editable,
+        "customs_declaration_number": revision.customs_declaration_number,
+        "lodged_on": revision.lodged_on,
         "decisions": [
             {
                 "kind": d.kind,
@@ -299,6 +301,7 @@ def revision_payload(revision: CaseRevision) -> dict:
                 "actor": user_brief(d.actor),
                 "reason": d.reason,
                 "created_at": d.created_at,
+                "details": {k: v for k, v in d.snapshot.items() if k in ("declaration_number", "lodged_on")},
                 "calculated": ((d.snapshot.get("calculation") or {}).get("totals") or {}).get("total") is not None,
             }
             for d in revision.decisions.select_related("actor")
@@ -341,6 +344,8 @@ def case_payload(case: CustomsCase, *, detail=False) -> dict:
         "state_label": revision.get_state_display(),
         "mode": revision.mode,
         "revision_no": revision.revision_no,
+        "archived_at": case.archived_at,
+        "customs_declaration_number": revision.customs_declaration_number,
     }
     if detail:
         body["revision"] = revision_payload(revision)
@@ -579,6 +584,13 @@ class CaseWorkflowView(APIView):
             workflow.return_for_correction(**common, membership=request.membership, reason=reason)
         elif action == "validate":
             workflow.validate(**common, membership=request.membership, reason=reason)
+        elif action == "lodge":
+            workflow.lodge(**common, number=str(request.data.get("number", "")),
+                           lodged_on=request.data.get("lodged_on"), reason=reason)  # fmt: skip
+        elif action == "archive":
+            workflow.archive(**common, membership=request.membership, reason=reason)
+        elif action == "restore":
+            workflow.restore(**common, membership=request.membership, reason=reason)
         else:
             raise ApiError(*services.NOT_FOUND)
         return Response(case_payload(get_case(request, case_id), detail=True))
