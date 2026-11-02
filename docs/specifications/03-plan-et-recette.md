@@ -198,6 +198,9 @@ Aucune fixture ne doit présenter un taux synthétique comme un taux gabonais r�
 | T91 | SUP-05 | Pièce malveillante puis pièce au contenu non conforme : refusées, rien gardé, chaque motif journalisé une fois (société, agent, extension, taille, empreinte tronquée), nom de fichier absent ; compteurs antivirus et société à jour |
 | T92 | SUP-06 | Modification refusée (conflit de version) notée avec méthode et code HTTP ; lecture d'un dossier introuvable non notée ; erreur imprévue notée « Exception <type> » sans son texte |
 | T93 | SUP-03 | Essai de l'antivirus : EICAR refusé et contenu sain accepté → réussi ; signatures absentes (EICAR accepté) → en échec ; dernier essai affiché avec son auteur |
+| T94 | TAX-04 | Exonération déclarée par l'admin ClairTransit seulement (403 sinon) : taxes, champ (codes, régime, période), justificatifs exigés et texte obligatoires ; sans texte officiel, marquée comme telle ; jamais réécrite, désactivée avec motif, journalisée |
+| T95 | TAX-04, TAX-05 | Exonération validée mais hors champ (code non couvert, régime, date) : non appliquée, raison affichée sur l'article |
+| T96 | TAX-04, SEC-01 | Refus avec motif obligatoire, retrait, nouvelle demande possible ; une autre société ne voit ni ne modifie les demandes (404) |
 
 Tests T01, T11, T20–T29, T31–T35 bloquants avant mise en service du périmètre correspondant. Les autres tests P0 restent obligatoires ; les exigences P1 peuvent être reportées explicitement dans une livraison réduite.
 

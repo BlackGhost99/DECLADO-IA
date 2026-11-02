@@ -257,4 +257,7 @@ def evaluate(revision: CaseRevision) -> dict:
         if not goods.origin_country:
             blocking.append(_item("goods_line", goods, "origin_country", "Origine à renseigner.", label))
         # Sans régime de dossier, le manque est déjà signalé une fois pour la révision.
+    from apps.fiscal.exemptions import blocking_items
+
+    blocking.extend(blocking_items(revision))
     return {"blocking": blocking, "warnings": warnings, "complete": not blocking}

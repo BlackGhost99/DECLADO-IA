@@ -61,7 +61,7 @@ const STATUS: Record<TaxOverviewRow["status"], [Tone, MessageKey]> = {
   sydonia: ["gray", "fx.st.sydonia"],
 };
 
-const SOURCES: Record<TaxAmendment["source_kind"], MessageKey> = {
+export const SOURCES: Record<TaxAmendment["source_kind"], MessageKey> = {
   finance_law: "fx.src.finance_law",
   cemac_act: "fx.src.cemac_act",
   customs_circular: "fx.src.customs_circular",
@@ -583,6 +583,12 @@ export function CalcTaxesTable({ calc }: { calc: CaseCalculation }) {
   );
 }
 
+/** Taxe exonérée : taux du barème remplacé, rappelé sous le montant. */
+function exempted(t: CalcTax | undefined) {
+  if (t?.rate_status !== "exempted") return null;
+  return <span className="block small muted">{tr("exo.insteadOf", { rate: t.schedule_rate ? pct(t.schedule_rate) : "—" })}</span>;
+}
+
 /** Somme d'une colonne du détail par marchandise ; inconnue si une ligne l'est (inconnu ≠ 0). */
 function column(calc: CaseCalculation, pick: (a: CalcArticle) => string | null): string | null {
   const values = calc.articles.map(pick);
@@ -629,10 +635,16 @@ export function CalcLinesTable({ calc }: { calc: CaseCalculation }) {
                     {a.value.notes.map((n) => (
                       <span key={n} className="block small muted">{n}</span>
                     ))}
+                    {a.exemptions?.applied.map((code) => (
+                      <span key={code} className="block"><Chip tone="green">{tr("exo.applied", { code })}</Chip></span>
+                    ))}
+                    {a.exemptions?.notes.map((n) => (
+                      <span key={n} className="block small tx-prov">{n}</span>
+                    ))}
                   </td>
                   <td className="num">{cell(a.value.xaf)}</td>
-                  <td className="num">{cell(ddi?.amount ?? null, ddi?.rate)}</td>
-                  <td className="num">{cell(tva?.amount ?? null, tva?.rate)}</td>
+                  <td className="num">{cell(ddi?.amount ?? null, ddi?.rate)}{exempted(ddi)}</td>
+                  <td className="num">{cell(tva?.amount ?? null, tva?.rate)}{exempted(tva)}</td>
                   <td className="num">{cell(sum(a.taxes, other))}</td>
                   <td className="num"><strong>{cell(a.total)}</strong></td>
                 </tr>

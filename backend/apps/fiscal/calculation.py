@@ -16,7 +16,7 @@ from apps.extraction.models import ExtractionRun
 from apps.extraction.numbers import parse_amount, parse_currency
 from apps.extraction.services import invoice_totals
 
-from . import engine, rules, services
+from . import engine, exemptions, rules, services
 from .models import TaxCode
 
 # Parité fixe du franc CFA (BEAC) : seule conversion faite sans saisie d'un taux de change.
@@ -176,6 +176,8 @@ def case_calculation(case) -> dict:
             continue
         extras[kind] = _apportion(sum((p["xaf"] for p in found), ZERO), known_weights, eligible)
 
+    claims = exemptions.claims_for(revision)
+    exemption_pending = False
     articles, out_articles = [], []
     for g in goods_lines:
         base = base_values[g.id]
@@ -194,6 +196,11 @@ def case_calculation(case) -> dict:
             rates = {}
             reason = "Code SH à reconfirmer." if code_status == "stale" else "Code SH non confirmé."
             why = {rule.code: reason for rule in rules.ARTICLE_TAXES}
+        exo = exemptions.for_article(claims, g, hs_code=code, customs_regime=g.regime or revision.regime, on=on)
+        exemption_pending = exemption_pending or exo.pending
+        for tax, rate in exo.rates.items():
+            rates[tax] = rate
+            why.pop(tax, None)
         article = engine.compute_article(value, rates, why)
         articles.append(article)
         out_articles.append(
@@ -211,7 +218,8 @@ def case_calculation(case) -> dict:
                     "notes": line_notes[g.id],
                 },
                 "cumulative_rate": _fmt(rules.cumulative_rate(rates)) if resolution else None,
-                "taxes": [_tax_json(t, resolution) for t in article.amounts],
+                "taxes": [_tax_json(t, resolution, exo.applied) for t in article.amounts],
+                "exemptions": {"applied": sorted({a["code"] for a in exo.applied.values()}), "notes": exo.notes},
                 "total": _fmt(article.total),
                 "known_total": _fmt(article.known_total),
                 "unknown": article.unknown,
@@ -226,6 +234,8 @@ def case_calculation(case) -> dict:
             (base_values[g.id] + extras["freight"].get(g.id, ZERO) + extras["insurance"].get(g.id, ZERO))
             for g in goods_lines
         )
+    if exemption_pending:
+        reasons.append("Exonération demandée en attente de justificatif validé : non appliquée pour l'instant.")
     global_resolution = services.rates_for("", on=on, territory=territory)
     global_taxes = engine.compute_global(total_value, {c: global_resolution.rates[c].rate for c in rules.GLOBAL_TAXES})
     totals = engine.declaration_total(articles, global_taxes)
@@ -265,8 +275,24 @@ def case_calculation(case) -> dict:
     }
 
 
-def _tax_json(t: engine.TaxAmount, resolution) -> dict:
+def _tax_json(t: engine.TaxAmount, resolution, applied: dict | None = None) -> dict:
     rate = resolution.rates.get(t.code) if resolution else None
+    exemption = (applied or {}).get(t.code)
+    if exemption:
+        return {
+            "code": t.code,
+            "base_kind": t.base_kind,
+            "base": _fmt(t.base),
+            "rate": services.pct(t.rate),
+            "amount": _fmt(t.amount),
+            "reason": t.reason,
+            "rate_status": "exempted",
+            "source": "exemption",
+            "cell": rate.cell if rate else "",
+            "amendment": None,
+            "schedule_rate": services.pct(rate.rate) if rate else None,
+            "exemption": exemption,
+        }
     return {
         "code": t.code,
         "base_kind": t.base_kind,

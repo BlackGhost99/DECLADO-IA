@@ -1092,9 +1092,86 @@ export interface CalcTax {
   rate: string | null;
   amount: string | null;
   reason: string;
-  rate_status: CodeRate["status"];
-  source: CodeRate["source"];
+  rate_status: CodeRate["status"] | "exempted";
+  source: CodeRate["source"] | "exemption";
   cell: string;
+  /** Taux du barème remplacé par une exonération validée (TAX-04). */
+  schedule_rate?: string | null;
+  exemption?: AppliedExemption;
+}
+
+export interface AppliedExemption {
+  claim_id: string;
+  code: string;
+  label: string;
+  rate: string;
+  source_kind: TaxAmendment["source_kind"];
+  source_reference: string;
+  proof_reference: string;
+}
+
+/** Exonération déclarée par l'admin ClairTransit : champ d'application, justificatifs, texte. */
+export interface ExemptionRegime {
+  id: string;
+  territory: string;
+  code: string;
+  label: string;
+  conditions: string;
+  taxes: Record<string, string>;
+  hs_prefixes: string[];
+  customs_regimes: string[];
+  required_documents: string[];
+  valid_from: string;
+  valid_to: string | null;
+  source_kind: TaxAmendment["source_kind"];
+  source_reference: string;
+  official: boolean;
+  reason: string;
+  is_active: boolean;
+  deactivated_at: string | null;
+  deactivation_reason: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface ExemptionRegimeInput {
+  code: string;
+  label: string;
+  conditions: string;
+  taxes: Record<string, string>;
+  hs_prefixes: string;
+  customs_regimes: string;
+  required_documents: string[];
+  valid_from: string;
+  valid_to: string;
+  source_kind: TaxAmendment["source_kind"];
+  source_reference: string;
+  reason: string;
+}
+
+export interface ExemptionClaim {
+  id: string;
+  regime: ExemptionRegime;
+  status: "requested" | "validated" | "rejected" | "withdrawn";
+  goods_line_ids: string[];
+  proof_ids: string[];
+  proof_reference: string;
+  note: string;
+  requested_by: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_reason: string;
+  created_at: string;
+  row_version: number;
+}
+
+export interface ExemptionClaimInput {
+  regime_id?: string;
+  goods_line_ids: string[];
+  proof_ids: string[];
+  proof_reference: string;
+  note?: string;
+  row_version?: number;
 }
 
 export interface CalcArticle {
@@ -1109,6 +1186,7 @@ export interface CalcArticle {
   total: string | null;
   known_total: string | null;
   unknown: string[];
+  exemptions?: { applied: string[]; notes: string[] };
 }
 
 export interface CaseCalculation {
@@ -1324,6 +1402,18 @@ export const api = {
     request<CodeRates>("GET", `/fiscal/rates?code=${encodeURIComponent(code)}${national ? `&national=${encodeURIComponent(national)}` : ""}`),
   amendRate: (body: AmendmentInput) => request<TaxAmendment>("POST", "/fiscal/amendments", body),
   caseCalculation: (caseId: string) => request<CaseCalculation>("GET", `/cases/${caseId}/calculation`),
+  exemptionRegimes: (activeOnly = false) =>
+    request<{ results: ExemptionRegime[]; taxes: string[]; can_edit: boolean }>("GET", `/fiscal/exemptions${activeOnly ? "?active=1" : ""}`),
+  createExemptionRegime: (body: ExemptionRegimeInput) => request<ExemptionRegime>("POST", "/fiscal/exemptions", body),
+  deactivateExemptionRegime: (id: string, reason: string) =>
+    request<ExemptionRegime>("POST", `/fiscal/exemptions/${id}/deactivate`, { reason }),
+  caseExemptions: (caseId: string) => request<{ results: ExemptionClaim[] }>("GET", `/cases/${caseId}/exemptions`),
+  requestExemption: (caseId: string, body: ExemptionClaimInput) =>
+    request<ExemptionClaim>("POST", `/cases/${caseId}/exemptions`, body),
+  updateExemption: (caseId: string, claimId: string, body: ExemptionClaimInput) =>
+    request<ExemptionClaim>("PATCH", `/cases/${caseId}/exemptions/${claimId}`, body),
+  decideExemption: (caseId: string, claimId: string, decision: "validate" | "reject" | "withdraw", row_version: number, reason = "") =>
+    request<ExemptionClaim>("POST", `/cases/${caseId}/exemptions/${claimId}/${decision}`, { row_version, reason }),
   workflow: (caseId: string, action: "submit" | "return" | "validate", row_version: number, reason = "") =>
     request<CaseDetail>("POST", `/cases/${caseId}/workflow/${action}`, { row_version, reason }),
   createRevision: (caseId: string, reason: string) => request<CaseDetail>("POST", `/cases/${caseId}/revisions`, { reason }),

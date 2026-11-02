@@ -8,7 +8,7 @@ le barème importé reste tel que lu, et un calcul se refait à l'identique pour
 from django.conf import settings
 from django.db import models
 
-from apps.core.models import UUIDModel
+from apps.core.models import OrganizationOwnedModel, UUIDModel
 
 
 class TaxCode(models.TextChoices):
@@ -127,3 +127,80 @@ class TaxAmendment(models.Model):
         if not self._state.adding:
             raise ValueError("Une modification de taux n'est jamais réécrite : en enregistrer une nouvelle.")
         super().save(*args, **kwargs)
+
+
+class ExemptionRegime(UUIDModel):
+    """Exonération ou régime privilégié déclaré par l'admin ClairTransit (TAX-04).
+
+    Toujours conditionnelle : un justificatif est exigé, et le champ d'application (codes, régime
+    douanier, période) est vérifié article par article. Jamais réécrite : on la désactive et on
+    en déclare une nouvelle. Aucun texte n'est livré avec l'application : sans source officielle
+    saisie, rien n'est présenté comme réglementaire.
+    """
+
+    territory = models.CharField(max_length=10, default="GA")
+    code = models.CharField(max_length=40)  # référence textuelle (code additionnel, n° de convention…)
+    label = models.CharField(max_length=200)
+    conditions = models.TextField(blank=True)
+    # Taux appliqué à la place du taux du barème, par taxe, en texte décimal ("0" = exonération totale).
+    taxes = models.JSONField(default=dict)
+    # Préfixes de codes SH couverts (texte, 2 à 8 chiffres) ; vide = tous les codes.
+    hs_prefixes = models.JSONField(default=list, blank=True)
+    # Régimes douaniers couverts (texte, ex. « IM4 ») ; vide = tous les régimes.
+    customs_regimes = models.JSONField(default=list, blank=True)
+    required_documents = models.JSONField(default=list)
+    valid_from = models.DateField()
+    valid_to = models.DateField(null=True, blank=True)
+    source_kind = models.CharField(max_length=20, choices=TaxAmendment.SourceKind.choices)
+    source_reference = models.CharField(max_length=300, blank=True)
+    reason = models.TextField()
+    is_active = models.BooleanField(default=True)
+    deactivated_at = models.DateTimeField(null=True, blank=True)
+    deactivated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    deactivation_reason = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "exonération"
+        ordering = ["territory", "code", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["territory", "code"], condition=models.Q(is_active=True), name="uniq_active_exemption_code"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.territory} {self.code} — {self.label}"
+
+
+class ExemptionClaim(OrganizationOwnedModel):
+    """Demande d'exonération sur une révision de dossier ; appliquée seulement une fois validée."""
+
+    class Status(models.TextChoices):
+        REQUESTED = "requested", "Demandée, justificatif à valider"
+        VALIDATED = "validated", "Justificatif validé"
+        REJECTED = "rejected", "Refusée"
+        WITHDRAWN = "withdrawn", "Retirée"
+
+    revision = models.ForeignKey("cases.CaseRevision", on_delete=models.PROTECT, related_name="exemption_claims")
+    regime = models.ForeignKey(ExemptionRegime, on_delete=models.PROTECT, related_name="claims")
+    # Vide = tous les articles du dossier.
+    goods_lines = models.ManyToManyField("cases.GoodsLine", blank=True, related_name="exemption_claims")
+    proofs = models.ManyToManyField("cases.CaseDocument", blank=True, related_name="exemption_claims")
+    proof_reference = models.CharField(max_length=120, blank=True)
+    note = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.REQUESTED)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_reason = models.TextField(blank=True)
+    copied_from = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        verbose_name = "demande d'exonération"
+        ordering = ["created_at"]
