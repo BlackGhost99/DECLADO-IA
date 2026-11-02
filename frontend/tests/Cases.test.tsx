@@ -83,6 +83,15 @@ function mockApi() {
     if (url.endsWith("/documents/limits")) return json(200, { max_bytes: 52428800, accepted: ["PDF (.pdf)"] });
     if (url.endsWith("/audit")) return json(200, { results: [] });
     if (url.endsWith("/decisions")) return json(201, revision.goods_lines[0]);
+    if (url.endsWith("/code-confirmations")) return json(201, { confirmed: 1, revision });
+    if (url.endsWith("/exports")) return json(200, { results: [] });
+    if (url.endsWith("/archive"))
+      return Promise.resolve(
+        new Response("PK", {
+          status: 200,
+          headers: { "Content-Type": "application/zip", "Content-Disposition": 'attachment; filename="CT-1_dossier_complet_brouillon.zip"' },
+        }),
+      );
     return json(404, {});
   });
 }
@@ -164,7 +173,7 @@ describe("Dossiers", () => {
     });
   });
 
-  it("confirme en une fois les codes reconnus, avec un seul motif, une décision par marchandise", async () => {
+  it("confirme en une fois les codes reconnus, avec un seul motif, en un seul envoi tout ou rien", async () => {
     document.cookie = "csrftoken=tok";
     const fetchMock = mockApi();
     render(<CaseDetailView caseId="c1" tab="marchandises" membership={membership} me={{ id: "u1" }} />);
@@ -173,15 +182,34 @@ describe("Dossiers", () => {
     const reason = screen.getAllByLabelText(/motif de la confirmation/i).find((el) => el.closest(".bulk-confirm"))!;
     fireEvent.change(reason, { target: { value: "Codes conformes aux factures" } });
     fireEvent.submit(reason.closest("form")!);
-    await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith("/decisions"))).toBe(true));
-    const call = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/decisions"))!;
+    await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith("/code-confirmations"))).toBe(true));
+    const call = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/code-confirmations"))!;
+    expect(String(call[0])).toContain("/revisions/r1/code-confirmations");
     expect(JSON.parse(String(call[1]!.body))).toEqual({
-      action: "confirm",
-      code_check_id: "chk1",
-      node_id: null,
       reason: "Codes conformes aux factures",
-      goods_line_version: 3,
+      items: [{ goods_id: expect.any(String), code_check_id: "chk1", goods_line_version: 3, node_id: null }],
     });
+    // Plus de décisions envoyées une à une : une erreur ne laisse pas le dossier à moitié confirmé.
+    expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith("/decisions"))).toBe(false);
+  });
+
+  it("télécharge le dossier complet en une archive", async () => {
+    document.cookie = "csrftoken=tok";
+    const fetchMock = mockApi();
+    const created = vi.fn(() => "blob:archive");
+    Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    render(<CaseDetailView caseId="c1" tab="export" membership={membership} me={{ id: "u1" }} />);
+    const button = await screen.findByRole("button", { name: /Télécharger le dossier complet/ });
+    expect(button).toBeEnabled();
+    expect(button).toHaveTextContent("ZIP : pièces, révisions, DAU, Excel et journal");
+    fireEvent.click(button);
+    await waitFor(() => expect(click).toHaveBeenCalled());
+    const call = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/cases/c1/archive"))!;
+    expect(call[1]!.method).toBe("POST");
+    const anchor = click.mock.instances[0] as unknown as HTMLAnchorElement;
+    expect(anchor.download).toBe("CT-1_dossier_complet_brouillon.zip");
+    click.mockRestore();
   });
 
   it("réunit les manques et les codes à traiter dans les contrôles", async () => {

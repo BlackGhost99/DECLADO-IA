@@ -1226,6 +1226,24 @@ export const api = {
     if (!response.ok) return parse<Blob>(response);
     return response.blob();
   },
+  /** Archive complète du dossier (ZIP) : pièces, exports, circuit, décisions de code, journal et manifeste. */
+  caseArchive: async (caseId: string): Promise<{ blob: Blob; filename: string }> => {
+    const path = `/cases/${caseId}/archive`;
+    const response = watchSession(
+      path,
+      await fetch(`${BASE}${path}`, {
+        method: "POST",
+        headers: { Accept: "application/zip, application/json", "X-CSRFToken": await ensureCsrf() },
+        credentials: "same-origin",
+      }),
+    );
+    if (!response.ok) return parse<{ blob: Blob; filename: string }>(response);
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const star = /filename\*=utf-8''([^;]+)/i.exec(disposition);
+    const plain = /filename="?([^";]+)"?/i.exec(disposition);
+    const filename = star ? decodeURIComponent(star[1]) : plain ? plain[1] : "dossier_complet.zip";
+    return { blob: await response.blob(), filename };
+  },
   documentLimits: () => request<{ max_bytes: number; accepted: string[] }>("GET", "/documents/limits"),
   /** usage : « auto » pour reconnaître le type d'après le titre ; documentType : type choisi par l'agent. */
   uploadDocument: (caseId: string, file: File, usage: string, duplicateAction = "", idempotencyKey = "", documentType = "") => {
@@ -1281,6 +1299,12 @@ export const api = {
     request<CodeCheck>("POST", `/goods-lines/${goodsId}/code-checks`, { edition_id }),
   decide: (goodsId: string, data: Record<string, unknown>) =>
     request<GoodsLine>("POST", `/goods-lines/${goodsId}/decisions`, data),
+  /** Confirmation groupée des codes retrouvés : tout ou rien, une décision attribuée par marchandise. */
+  confirmCodes: (
+    revisionId: string,
+    reason: string,
+    items: { goods_id: string; code_check_id: string; goods_line_version: number; node_id?: string | null }[],
+  ) => request<{ confirmed: number; revision: Revision }>("POST", `/revisions/${revisionId}/code-confirmations`, { reason, items }),
   extract: (linkId: string, options: { ocr?: boolean; retry?: boolean }) =>
     request<ExtractionRun>("POST", `/case-documents/${linkId}/extractions`, options),
   extractionRun: (id: string) => request<ExtractionDetail>("GET", `/extraction-runs/${id}`),

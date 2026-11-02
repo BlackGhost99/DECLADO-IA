@@ -1057,3 +1057,70 @@ def record_decision(*, org, actor, goods_id, data) -> ClassificationDecision:
         {"action": action, "code": node.code, "edition": str(check.target_edition_id)},
     )
     return decision
+
+
+MAX_BULK_CONFIRM = 500
+
+
+@transaction.atomic
+def confirm_codes(*, org, actor, revision_id, reason: str, items: list[dict]) -> list[ClassificationDecision]:
+    """T77 : confirmer en une fois les codes retrouvés de plusieurs marchandises, avec un seul motif.
+
+    Une marchandise au code incomplet peut y figurer avec la seule subdivision offerte par le tarif
+    (`node_id`) : c'est alors un complément, vérifié comme tel.
+
+    Tout ou rien : chaque confirmation passe par `record_decision` (contrôle à jour, code retrouvé,
+    version de la ligne) et reste une décision attribuée par marchandise ; une seule erreur annule
+    l'ensemble et dit quelle marchandise relire.
+    """
+    revision = _get(CaseRevision.objects.for_organization(org).select_for_update(of=("self",)), revision_id)
+    _require_editable(revision)
+    reason = (reason or "").strip()
+    if not reason:
+        raise ApiError("REASON_REQUIRED", "Une justification est obligatoire.", 400)
+    if not items:
+        raise ApiError("NOTHING_TO_CONFIRM", "Aucun code à confirmer.", 400)
+    if len(items) > MAX_BULK_CONFIRM:
+        raise ApiError("TOO_MANY_ITEMS", f"Au plus {MAX_BULK_CONFIRM} marchandises par confirmation.", 400)
+    ids = [str(i["goods_id"]) for i in items]
+    if len(set(ids)) != len(ids):
+        raise ApiError("VALIDATION_ERROR", "Une marchandise figure deux fois.", 400)
+    ordinals = {
+        str(pk): ordinal
+        for pk, ordinal in GoodsLine.objects.for_organization(org)
+        .filter(revision=revision, pk__in=ids)
+        .values_list("id", "ordinal")
+    }
+    if len(ordinals) != len(ids):
+        raise ApiError(*NOT_FOUND)
+    decisions = []
+    for item in items:
+        # Code incomplet dont le tarif n'offre qu'une subdivision : l'agent la confirme (complément vérifié).
+        node_id = item.get("node_id")
+        data = {
+            "action": ClassificationDecision.Action.COMPLETE if node_id else ClassificationDecision.Action.CONFIRM,
+            "node_id": node_id,
+            "code_check_id": item["code_check_id"],
+            "goods_line_version": item["goods_line_version"],
+            "reason": reason,
+        }
+        try:
+            decisions.append(record_decision(org=org, actor=actor, goods_id=item["goods_id"], data=data))
+        except ApiError as exc:
+            ordinal = ordinals[str(item["goods_id"])]
+            raise ApiError(
+                exc.error_code,
+                f"Marchandise {ordinal} : {exc.detail} Aucun code n'a été confirmé.",
+                exc.status_code,
+                {**exc.details, "goods_id": str(item["goods_id"]), "ordinal": ordinal},
+            ) from exc
+    _event(
+        org,
+        actor,
+        "goods_line.codes_confirmed",
+        revision,
+        revision.case,
+        None,
+        {"count": len(decisions), "codes": [d.selected_code for d in decisions], "reason": reason},
+    )
+    return decisions
