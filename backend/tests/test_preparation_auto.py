@@ -58,7 +58,8 @@ def test_reading_fills_edition_date_regime_and_prepares_checked_goods(prepared):
     blocking = {(b["field"], b["message"]) for b in rev["completeness"]["blocking"]}
     assert not any(f in ("planned_declaration_date", "regime", "target_edition", "goods_lines") for f, _m in blocking)
     warnings = " ".join(w["message"] for w in rev["completeness"]["warnings"])
-    assert "Proposé automatiquement, à confirmer" in warnings and "régime (repris du dernier dossier)" in warnings
+    assert "Proposé automatiquement, à confirmer" in warnings
+    assert "régime (réglage de la société ou dernier dossier)" in warnings
     event = AuditEvent.objects.get(event_type="revision.prepared_automatically")
     assert event.current["goods_created"] == 2 and event.current["codes_checked"] == 2
     assert event.actor.email == "declarant@a.test"

@@ -11,7 +11,7 @@ from apps.document_graph.models import DocumentConflict
 from apps.extraction import services as extraction
 from apps.tariffs.models import PublicationState
 
-from . import services
+from . import crosschecks, services
 from .models import CaseDocument, CaseRevision
 
 FIELD_LABELS = {
@@ -45,7 +45,9 @@ def _item(scope, obj, field, message, label=""):
 PREFILLED_LABELS = {
     "target_edition": "édition du référentiel",
     "planned_declaration_date": "date de déclaration prévue",
-    "regime": "régime (repris du dernier dossier)",
+    "regime": "régime (réglage de la société ou dernier dossier)",
+    "entry_office": "bureau d'entrée (réglage de la société)",
+    "exchange_rates": "taux de change (cours de la société)",
     "importer": "importateur (reconnu d'après l'acheteur de la facture)",
 }
 
@@ -232,6 +234,9 @@ def evaluate(revision: CaseRevision) -> dict:
                 "Relations documentaires",
             )
         )
+
+    # Écarts entre les pièces (facture citée, valeur assurée, origine, masses) : à vérifier.
+    warnings.extend(crosschecks.evaluate(revision))
 
     goods_lines = list(revision.goods_lines.all())
     if invoices and not goods_lines:

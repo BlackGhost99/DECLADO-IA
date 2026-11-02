@@ -48,6 +48,8 @@ describe("Préparation automatique (T79)", () => {
     render(<CaseDetailView caseId="c1" tab="apercu" membership={membership} me={{ id: "u1" }} />);
     expect(await screen.findByText(/ClairTransit a rempli les champs vides/)).toBeInTheDocument();
     expect(screen.getAllByText("Proposé automatiquement, à confirmer")).toHaveLength(3);
+    // Attendre la liste des tarifs : sa réponse tardive ne doit pas croiser la saisie.
+    await screen.findByRole("option", { name: "Jeu F CSV" });
     fireEvent.change(screen.getByPlaceholderText("CN"), { target: { value: "cn" } });
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
     await waitFor(() => {
