@@ -2285,7 +2285,7 @@ function Calculation({ detail, membership, act, go }: { detail: CaseDetail; memb
               <div><dt><Icon name="ship" size={16} /> {tr("calc.shipCountry")}</dt><dd>{revision.provenance_country || unknown()}</dd></div>
               <div><dt><Icon name="scale" size={16} /> {tr("calc.unit")}</dt><dd>{units || unknown()}</dd></div>
               <div><dt><Icon name="box" size={16} /> {tr("calc.items")}</dt><dd>{goods.length}</dd></div>
-              <div><dt><Icon name="layers" size={16} /> {tr("calc.packages")}</dt><dd>{unknown(tr("calc.packingNotRead"))}</dd></div>
+              <div><dt><Icon name="layers" size={16} /> {tr("calc.packages")}</dt><dd>{revision.measures?.packages != null ? `${revision.measures.packages} ${revision.measures.nature}`.trim() : unknown(tr("calc.packingNotRead"))}</dd></div>
             </dl>
           </section>
           </div>
@@ -2320,6 +2320,7 @@ function ExchangeRates({ revision, missing, onSave }: { revision: Revision; miss
   return (
     <form className={`exchange-rates ${missing.length ? "note-amber" : "note-blue"} small`} onSubmit={(e) => { e.preventDefault(); save(); }}>
       <p><Icon name="info" size={15} /> {missing.length ? tr("fx.ratesMissing", { cur: missing.join(", ") }) : tr("fx.ratesEntered")}</p>
+      {(revision.prefilled ?? []).includes("exchange_rates") && <p className="prefilled-hint">{tr("fx.ratesProposed")}</p>}
       {currencies.map((cur) => (
         <div key={cur} className="exchange-row">
           <label>

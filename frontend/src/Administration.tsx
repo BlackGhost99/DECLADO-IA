@@ -4,11 +4,13 @@ import {
   ApiError,
   ROLE_LABELS,
   type Agency,
+  type CompanyRate,
   type Importer,
   type Invitation,
   type Member,
   type Membership,
   type OrganizationOverview,
+  type PreparationSettings,
   type Role,
 } from "./api";
 import { DocumentPolicies } from "./DocumentPolicies";
@@ -18,8 +20,8 @@ import { ActivationLink, Field, issuedLink, type IssuedLink } from "./Onboarding
 import { AISettingsPanel, ImporterAIChoice } from "./OnlineAI";
 import { Chip, initials, PageHeader } from "./ui";
 
-export type AdminTab = "importers" | "documents" | "users" | "agencies" | "ia";
-const ADMIN_TABS: AdminTab[] = ["importers", "documents", "users", "agencies", "ia"];
+export type AdminTab = "importers" | "documents" | "preparation" | "users" | "agencies" | "ia";
+const ADMIN_TABS: AdminTab[] = ["importers", "documents", "preparation", "users", "agencies", "ia"];
 export const adminTab = (value: string | null): AdminTab =>
   ADMIN_TABS.includes(value as AdminTab) ? (value as AdminTab) : "importers";
 
@@ -35,7 +37,10 @@ export function Administration({
 }) {
   const canEdit = membership.roles.some((r) => r === "declarant" || r === "validator");
   const isAdmin = membership.roles.includes("org_admin");
-  const [tab, setTab] = useState<AdminTab>(isAdmin || initialTab === "documents" ? initialTab : "importers");
+  const canSetRates = membership.roles.some((r) => r === "validator" || r === "org_admin");
+  const [tab, setTab] = useState<AdminTab>(
+    isAdmin || initialTab === "documents" || initialTab === "preparation" ? initialTab : "importers",
+  );
 
   return (
     <>
@@ -46,6 +51,9 @@ export function Administration({
         </button>
         <button type="button" role="tab" aria-selected={tab === "documents"} onClick={() => setTab("documents")}>
           <Icon name="file" size={18} /> {tr("adm.caseDocs")}
+        </button>
+        <button type="button" role="tab" aria-selected={tab === "preparation"} onClick={() => setTab("preparation")}>
+          <Icon name="settings" size={18} /> {tr("adm.preparation")}
         </button>
         {isAdmin && (
           <button type="button" role="tab" aria-selected={tab === "users"} onClick={() => setTab("users")}>
@@ -67,6 +75,8 @@ export function Administration({
         <Importers canEdit={canEdit} isAdmin={isAdmin} />
       ) : tab === "documents" ? (
         <DocumentPolicies isAdmin={isAdmin} />
+      ) : tab === "preparation" ? (
+        <Preparation isAdmin={isAdmin} canSetRates={canSetRates} />
       ) : tab === "agencies" ? (
         <Agencies />
       ) : tab === "ia" ? (
@@ -460,5 +470,137 @@ function Agencies() {
       </form>
       {error && <p role="alert" className="error">⚠ {error}</p>}
     </section>
+  );
+}
+
+/** Régime et bureau d'entrée proposés par défaut, cours de change de la société : jamais imposés à un dossier. */
+function Preparation({ isAdmin, canSetRates }: { isAdmin: boolean; canSetRates: boolean }) {
+  const [settings, setSettings] = useState<PreparationSettings | null>(null);
+  const [defaults, setDefaults] = useState({ regime: "", entry_office: "" });
+  const [rates, setRates] = useState<CompanyRate[] | null>(null);
+  const [form, setForm] = useState({ currency: "", rate: "", valid_from: new Date().toISOString().slice(0, 10), source: "" });
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const load = () => {
+    void api.preparationSettings().then(
+      (s) => {
+        setSettings(s);
+        setDefaults({ regime: s.regime, entry_office: s.entry_office });
+      },
+      () => setSettings(null),
+    );
+    void api.companyRates().then((r) => setRates(r.results), () => setRates([]));
+  };
+  useEffect(load, []);
+
+  async function run(action: () => Promise<unknown>, done: string) {
+    setError("");
+    setMessage("");
+    try {
+      await action();
+      setMessage(done);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : tr("saveError"));
+    }
+  }
+  function saveDefaults(event: FormEvent) {
+    event.preventDefault();
+    void run(() => api.updatePreparationSettings(defaults), tr("adm.prepSaved"));
+  }
+  function addRate(event: FormEvent) {
+    event.preventDefault();
+    void run(async () => {
+      await api.addCompanyRate({ ...form, currency: form.currency.trim().toUpperCase(), rate: form.rate.trim().replace(",", ".") });
+      setForm({ ...form, currency: "", rate: "", source: "" });
+    }, tr("adm.rateAdded"));
+  }
+
+  return (
+    <>
+      <section className="card" aria-labelledby="prep-title">
+        <h2 id="prep-title" className="card-title">{tr("adm.prepDefaults")}</h2>
+        <p className="muted small">{tr("adm.prepDefaultsHelp")}</p>
+        {settings === null ? (
+          <p className="muted">{tr("loading")}</p>
+        ) : (
+          <form className="form-grid" onSubmit={saveDefaults}>
+            <label>
+              {tr("calc.regime")}
+              <input id="prep-regime" maxLength={60} disabled={!isAdmin} value={defaults.regime} onChange={(e) => setDefaults({ ...defaults, regime: e.target.value })} />
+            </label>
+            <label>
+              {tr("export.office")}
+              <input id="prep-office" maxLength={120} disabled={!isAdmin} value={defaults.entry_office} onChange={(e) => setDefaults({ ...defaults, entry_office: e.target.value })} />
+            </label>
+            {isAdmin && (
+              <div className="form-end">
+                <button type="submit" className="btn-primary"><Icon name="check" /> {tr("save")}</button>
+              </div>
+            )}
+          </form>
+        )}
+        {settings?.updated_by && <p className="muted small">{tr("adm.prepUpdatedBy", { name: settings.updated_by })}</p>}
+      </section>
+      <section className="card" aria-labelledby="rates-title">
+        <h2 id="rates-title" className="card-title">{tr("adm.rates")}</h2>
+        <p className="muted small">{tr("adm.ratesHelp")}</p>
+        {rates === null ? (
+          <p className="muted">{tr("loading")}</p>
+        ) : rates.length === 0 ? (
+          <p className="empty">{tr("adm.noRateYet")}</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th scope="col">{tr("field.currency")}</th>
+                  <th scope="col">{tr("adm.rateValue")}</th>
+                  <th scope="col">{tr("adm.rateFrom")}</th>
+                  <th scope="col">{tr("fx.rateSource")}</th>
+                  <th scope="col">{tr("adm.rateBy")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rates.map((r) => (
+                  <tr key={r.id}>
+                    <td className="code">{r.currency}</td>
+                    <td className="num">1 {r.currency} = {r.rate} FCFA</td>
+                    <td>{new Date(r.valid_from).toLocaleDateString()}</td>
+                    <td>{r.source}</td>
+                    <td>{r.created_by}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {canSetRates && (
+          <form className="form-grid" onSubmit={addRate}>
+            <label>
+              {tr("field.currency")}
+              <input id="rate-currency" required maxLength={3} placeholder="USD" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} />
+            </label>
+            <label>
+              {tr("adm.rateValue")}
+              <input id="rate-value" required inputMode="decimal" placeholder="0,00" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
+            </label>
+            <label>
+              {tr("adm.rateFrom")}
+              <input id="rate-from" required type="date" value={form.valid_from} onChange={(e) => setForm({ ...form, valid_from: e.target.value })} />
+            </label>
+            <label>
+              {tr("fx.rateSource")}
+              <input id="rate-source" required maxLength={200} placeholder={tr("fx.rateSourceHint")} value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} />
+            </label>
+            <div className="form-end">
+              <button type="submit" className="btn-primary"><Icon name="plus" /> {tr("add")}</button>
+            </div>
+          </form>
+        )}
+      </section>
+      {message && <p role="status" className="note-blue small">{message}</p>}
+      {error && <p role="alert" className="error">⚠ {error}</p>}
+    </>
   );
 }

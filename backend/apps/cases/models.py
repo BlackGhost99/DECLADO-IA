@@ -498,3 +498,41 @@ class CaseExport(OrganizationOwnedModel):
         if not self._state.adding:
             raise ValueError("Un export n'est jamais réécrit : en générer un nouveau.")
         super().save(*args, **kwargs)
+
+
+class PreparationSettings(OrganizationOwnedModel):
+    """Valeurs proposées dans chaque dossier de la société : marquées « à confirmer », jamais imposées."""
+
+    regime = models.CharField(max_length=60, blank=True)
+    entry_office = models.CharField(max_length=120, blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = "réglages de préparation"
+        constraints = [models.UniqueConstraint(fields=["organization"], name="uniq_preparation_settings_org")]
+
+
+class CompanyExchangeRate(OrganizationOwnedModel):
+    """Cours de change saisi par la société, daté et sourcé ; ajout seul (un nouveau cours remplace l'ancien).
+
+    Proposé dans un dossier qui n'a pas encore de taux pour cette devise, au cours en vigueur à sa date
+    de déclaration prévue ; l'agent le confirme ou le remplace. Jamais téléchargé ni deviné.
+    """
+
+    currency = models.CharField(max_length=3)
+    rate = models.DecimalField(max_digits=18, decimal_places=6)
+    valid_from = models.DateField()
+    source = models.CharField(max_length=200)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        verbose_name = "cours de change de la société"
+        ordering = ["currency", "-valid_from", "-created_at"]
+        indexes = [models.Index(fields=["organization", "currency", "valid_from"])]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("Un cours de change n'est jamais modifié : en saisir un nouveau.")
+        super().save(*args, **kwargs)

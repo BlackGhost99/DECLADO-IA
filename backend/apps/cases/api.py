@@ -27,7 +27,7 @@ from apps.organizations.permissions import HasActiveOrganization, require_roles
 from apps.regulations.doc_types import mismatch_of, type_of
 from apps.tariffs.api import HISTORICAL_WARNING
 
-from . import completeness, intake, measures, proposals, services
+from . import completeness, intake, measures, preparation, proposals, services
 from .models import (
     CaseDocument,
     CaseRevision,
@@ -1027,6 +1027,53 @@ class CaseArchiveView(APIView):
         response["X-Content-Type-Options"] = "nosniff"
         response["Cache-Control"] = "private, no-store"
         return response
+
+
+class PreparationSettingsInput(serializers.Serializer):
+    regime = serializers.CharField(required=False, allow_blank=True, max_length=60)
+    entry_office = serializers.CharField(required=False, allow_blank=True, max_length=120)
+
+
+CanSetPreparation = require_roles(Role.ORG_ADMIN, safe_methods_open=True)
+
+
+class PreparationSettingsView(APIView):
+    """Régime et bureau d'entrée proposés par défaut dans les dossiers de la société."""
+
+    permission_classes = [CanSetPreparation]
+
+    def get(self, request):
+        return Response(preparation.settings_payload(request.organization))
+
+    def put(self, request):
+        preparation.update_settings(
+            org=request.organization, actor=request.user, data=valid(PreparationSettingsInput, request)
+        )
+        return Response(preparation.settings_payload(request.organization))
+
+
+class CompanyRateInput(serializers.Serializer):
+    currency = serializers.CharField(max_length=3)
+    rate = serializers.DecimalField(max_digits=18, decimal_places=6, min_value=Decimal("0.000001"))
+    valid_from = serializers.DateField()
+    source = serializers.CharField(max_length=200)
+
+
+CanSetRates = require_roles(Role.VALIDATOR, Role.ORG_ADMIN, safe_methods_open=True)
+
+
+class CompanyExchangeRatesView(APIView):
+    """Cours de change de la société, datés et sourcés (ajout seul) ; proposés dans les dossiers."""
+
+    permission_classes = [CanSetRates]
+
+    def get(self, request):
+        return Response({"results": [preparation.rate_payload(r) for r in preparation.rates(request.organization)]})
+
+    def post(self, request):
+        data = valid(CompanyRateInput, request)
+        item = preparation.add_rate(org=request.organization, actor=request.user, **data)
+        return Response(preparation.rate_payload(item), status=201)
 
 
 class CaseAuditView(APIView):

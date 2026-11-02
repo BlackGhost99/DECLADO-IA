@@ -107,6 +107,8 @@ urlpatterns = [
     path("case-documents/<uuid:link_id>/confirm-type", ConfirmDocumentTypeView.as_view()),
     path("document-types", DocumentTypeListView.as_view()),
     path("organization/document-policies", OrganizationDocumentPolicyView.as_view()),
+    path("organization/preparation-settings", cases.PreparationSettingsView.as_view()),
+    path("organization/exchange-rates", cases.CompanyExchangeRatesView.as_view()),
     path("revisions/<uuid:revision_id>/invoices", cases.InvoiceCreateView.as_view()),
     path("revisions/<uuid:revision_id>/goods-lines", cases.GoodsLineCreateView.as_view()),
     path("revisions/<uuid:revision_id>/code-confirmations", cases.RevisionCodeConfirmationsView.as_view()),
