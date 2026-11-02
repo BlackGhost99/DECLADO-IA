@@ -1,4 +1,5 @@
-"""Colis et masse brute du dossier, lus sur les titres de transport (B/L, LTA, lettre de voiture).
+"""Colis et masses du dossier : colis et masse brute lus sur les titres de transport (B/L, LTA,
+lettre de voiture), masse nette lue sur les listes de colisage.
 
 Rien n'est deviné : seule une valeur imprimée sur la pièce (ou saisie par l'agent à la place de
 la lecture) est reprise. Une masse n'est retenue qu'en kilogrammes ; une autre unité reste à
@@ -93,10 +94,35 @@ def transport_measures(revision) -> dict:
     }
 
 
+def packing_net_weight(revision) -> Decimal | None:
+    """Masse nette totale des listes de colisage ; inconnue si une liste n'est pas lue ou ne l'imprime pas."""
+    links = revision.documents.filter(usage=CaseDocument.Usage.PACKING_LIST, replaced_by__isnull=True)
+    weights, seen = [], set()
+    for link in links.order_by("created_at"):
+        run = (
+            ExtractionRun.objects.filter(case_document=link, status=ExtractionRun.Status.SUCCEEDED)
+            .order_by("-created_at")
+            .first()
+        )
+        if run is None or run.options.get("reader") != readers.PACKING:
+            return None
+        fields = document_fields(run)
+        number = _retained(fields, "document_number")
+        if number and number in seen:
+            continue
+        seen.add(number)
+        weights.append(weight_kg(_retained(fields, "net_weight")))
+    if not weights or None in weights:
+        return None
+    return sum(weights, Decimal("0"))
+
+
 def measures_payload(revision) -> dict:
     m = transport_measures(revision)
     weight = m["gross_weight_kg"]
+    net = packing_net_weight(revision)
     return {
+        "net_weight_kg": None if net is None else format(net.normalize(), "f"),
         "packages": m["packages"],
         "nature": m["nature"],
         "gross_weight_kg": None if weight is None else format(weight.normalize(), "f"),

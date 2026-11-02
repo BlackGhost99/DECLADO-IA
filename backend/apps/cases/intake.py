@@ -1,7 +1,8 @@
 """Dépôt groupé (DEP-01 à DEP-06) : des pièces déposées ensemble, réparties en dossiers proposés.
 
 Chaque pièce est contrôlée par l'antivirus, puis lue comme au dépôt dans un dossier : type d'après
-le titre, puis les informations utiles de sa lecture (facture, titre de transport, assurance).
+le titre, puis les informations utiles de sa lecture (facture, titre de transport, assurance,
+liste de colisage, certificat d'origine).
 
 Les pièces sont regroupées uniquement sur des références imprimées qu'elles partagent : le numéro
 de facture (porté par la facture, cité par le B/L ou l'assurance), le numéro de B/L et le numéro
@@ -27,7 +28,7 @@ from apps.documents.storage import get_storage
 from apps.extraction import adapters
 from apps.extraction import services as extraction
 from apps.extraction.detection import detect_document_type
-from apps.extraction.readers import INSURANCE, INVOICE, READER_FOR_TYPE, TRANSPORT
+from apps.extraction.readers import INSURANCE, INVOICE, ORIGIN, PACKING, READER_FOR_TYPE, TRANSPORT
 from apps.extraction.schema import Status
 
 from . import services
@@ -50,8 +51,11 @@ REFERENCES = {
         ("related_bl", "bl", "cited"),
         ("container", "container", "cited"),
     ),
+    # Liste de colisage et certificat d'origine : rattachés par le n° de facture qu'ils citent.
+    PACKING: (("related_invoice", "invoice", "cited"), ("container", "container", "cited")),
+    ORIGIN: (("related_invoice", "invoice", "cited"),),
 }
-PARTY = {INVOICE: "buyer_name", TRANSPORT: "consignee", INSURANCE: "insured"}
+PARTY = {INVOICE: "buyer_name", TRANSPORT: "consignee", INSURANCE: "insured", ORIGIN: "consignee"}
 KIND_LABELS = {"invoice": "Facture", "bl": "Titre de transport", "container": "Conteneur"}
 
 
@@ -92,7 +96,7 @@ def analyze(document: Document) -> dict:
         return out
     out["read"] = True
     header = {name: v for name, v in parsed.header.items() if v.status == Status.OK and v.raw}
-    if party := header.get(PARTY[reader]):
+    if PARTY.get(reader) and (party := header.get(PARTY[reader])):
         out["party"] = str(party.raw).strip()
     for field, kind, role in REFERENCES[reader]:
         if (value := header.get(field)) and _key(str(value.raw)):

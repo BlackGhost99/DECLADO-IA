@@ -48,6 +48,8 @@ PIECES = {
     readers.TRANSPORT: "titre de transport (connaissement, lettre de transport aérien ou lettre de voiture)",
     readers.INSURANCE: "pièce d'assurance (facture, attestation ou police)",
     readers.FREIGHT: "facture de fret",
+    readers.PACKING: "liste de colisage",
+    readers.ORIGIN: "certificat d'origine",
 }
 MAX_EXCERPT = 300
 PAGE_MARK = re.compile(r"^\[page (\d+)\]$")

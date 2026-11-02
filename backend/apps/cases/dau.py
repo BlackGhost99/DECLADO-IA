@@ -2,7 +2,7 @@
 
 Les cases reprennent la numérotation du formulaire fourni par l'exploitant. Elles sont remplies
 avec les données du dossier, et rien n'est inventé : une case sans donnée prouvée reste vide
-(masse nette, opérateurs). Colis et masse brute viennent des titres de transport lus.
+(opérateurs). Colis et masse brute viennent des titres de transport lus, masse nette des listes de colisage.
 Les cases réservées à la Douane (n° de déclaration, enregistrement,
 contrôle, approbation) restent toujours vides.
 
@@ -174,12 +174,15 @@ def data(case, revision, calc) -> dict:
     m = measures.transport_measures(revision)
     total_packages = str(m["packages"]) if m["packages"] is not None else ""
     gross = _weight(m["gross_weight_kg"])
+    net = _weight(measures.packing_net_weight(revision))
     if len(goods) == 1:
         goods[0]["marks"] = f"{total_packages} {m['nature']}".strip() if total_packages else ""
         goods[0]["gross"] = gross
+        goods[0]["net"] = net
     for g in goods:
         g.setdefault("marks", "")
         g.setdefault("gross", "")
+        g.setdefault("net", "")
 
     origins = sorted({g["origin"] for g in goods if g["origin"]})
     freight = [(a.get("value") or {}).get("freight") for a in articles.values()]
@@ -237,6 +240,7 @@ def data(case, revision, calc) -> dict:
         "packages": total_packages,
         "packages_nature": m["nature"] if total_packages else "",
         "gross_weight": gross,
+        "net_weight": net,
         "freight": added(freight) or (TEXT["included"].format(inc=incoterm) if incoterm in FREIGHT_IN_PRICE else ""),
         "insurance": added(insurance)
         or (TEXT["included"].format(inc=incoterm) if incoterm in INSURANCE_IN_PRICE else ""),
@@ -436,7 +440,7 @@ def build(ctx, annex=None) -> bytes:
         frame(
             [[box("23", "Nombre total de colis", d["packages"]), box("24", "Nature des colis", d["packages_nature"]),
               box("25", "Masse brute totale (kg)", d["gross_weight"]),
-              box("26", "Masse nette totale (kg)"), box("27", "Nombre d'articles", d["articles"])]],
+              box("26", "Masse nette totale (kg)", d["net_weight"]), box("27", "Nombre d'articles", d["articles"])]],
             [34, 34, 38, 38, 36],
         )
     )  # fmt: skip
@@ -479,13 +483,13 @@ def build(ctx, annex=None) -> bytes:
               "41 Quantité\n42 Unité", f"43 Valeur ({d['currency'] or '?'})\nen douane (FCFA)",
               "44 Régime"]  # fmt: skip
     rows = [
-        [g["no"], g["marks"], g["description"], g["code"], g["origin"], g["gross"], "",
+        [g["no"], g["marks"], g["description"], g["code"], g["origin"], g["gross"], g["net"],
          f"{g['quantity']} {g['unit']}".strip(), _values(g), g["regime"]]
         for g in d["goods"]
     ]  # fmt: skip
     story.append(
         grid("34  Articles et marchandises", header, rows, [8, 18, 42, 21, 13, 13, 13, 15, 21, 16],
-             numeric=(5, 7, 8), min_rows=3)
+             numeric=(5, 6, 7, 8), min_rows=3)
     )  # fmt: skip
     story.append(Spacer(1, 1.8 * mm))
 

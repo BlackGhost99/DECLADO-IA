@@ -22,7 +22,8 @@ from .numbers import document_decimal_hint, looks_numeric, norm
 from .schema import Origin, ParsedDocument, Status, Value, warning
 
 INVOICE, TRANSPORT, INSURANCE, FREIGHT = "invoice", "transport", "insurance", "freight"
-READERS = (INVOICE, TRANSPORT, INSURANCE, FREIGHT)
+PACKING, ORIGIN = "packing", "origin"
+READERS = (INVOICE, TRANSPORT, INSURANCE, FREIGHT, PACKING, ORIGIN)
 
 
 @dataclass(frozen=True)
@@ -91,11 +92,38 @@ SPECS: dict[str, tuple[FieldSpec, ...]] = {
         FieldSpec("port_of_discharge", "Port de déchargement", labels=_k("port_of_discharge")),
         FieldSpec("freight_total", "Montant du fret", "amount"),
     ),
+    # Liste de colisage et certificat d'origine : références pour le rattachement (n° de facture cité)
+    # et informations utiles, jamais une facture ni une ligne de marchandise.
+    PACKING: (
+        FieldSpec(
+            "document_number",
+            "N° de la pièce",
+            labels=DOCUMENT_NUMBER + ("packing list no", "packing list no.", "n° liste de colisage", "pl no"),
+        ),
+        FieldSpec("issue_date", "Date", "date", ISSUE_DATE),
+        FieldSpec("related_invoice", "Facture citée", labels=_k("related_invoice")),
+        FieldSpec("container", "Conteneur", labels=_k("container")),
+        FieldSpec("packages", "Colis", labels=_k("packages", "total packages", "total colis")),
+        FieldSpec("gross_weight", "Poids brut", labels=_k("gross_weight", "total gross weight", "poids brut total")),
+        FieldSpec("net_weight", "Poids net", labels=("net weight", "poids net", "total net weight", "poids net total")),
+    ),
+    ORIGIN: (
+        FieldSpec(
+            "document_number",
+            "N° de la pièce",
+            labels=("certificate no", "certificate no.", "certificat n°", "n° certificat", "certificat no", "ref. no"),
+        ),
+        FieldSpec("issue_date", "Date", "date", ISSUE_DATE),
+        FieldSpec("related_invoice", "Facture citée", labels=_k("related_invoice")),
+        FieldSpec("exporter", "Exportateur", labels=("exporter", "exportateur", "consignor", "expediteur")),
+        FieldSpec("consignee", "Destinataire", labels=("consignee", "destinataire", "importateur", "importer")),
+        FieldSpec("country_of_origin", "Pays d'origine", labels=_k("country_of_origin")),
+    ),
 }
 # Champ « total » de chaque lecture : le dernier total imprimé de la pièce.
 TOTAL_FIELD = {INSURANCE: "premium_total", FREIGHT: "freight_total"}
 REFERENCE_FIELDS = {"transport_number", "document_number", "policy_number", "related_bl", "related_invoice"}
-MEASURE_FIELDS = {"packages", "gross_weight", "measurement"}
+MEASURE_FIELDS = {"packages", "gross_weight", "net_weight", "measurement"}
 # Numéro de conteneur (ISO 6346) : quatre lettres puis six ou sept chiffres, « MSCU 771205-4 ».
 CONTAINER = re.compile(r"\b[A-Z]{4}\s?\d{6}(?:\s?-?\s?\d)?(?!\d)")
 
@@ -138,8 +166,17 @@ READER_FOR_TYPE = {
     "insurance_policy": INSURANCE,
     "freight_invoice": FREIGHT,
     "freight_receipt": FREIGHT,
+    "packing_list": PACKING,
+    "certificate_of_origin": ORIGIN,
 }
-READER_FOR_USAGE = {"invoice": INVOICE, "transport": TRANSPORT, "insurance": INSURANCE, "freight": FREIGHT}
+READER_FOR_USAGE = {
+    "invoice": INVOICE,
+    "transport": TRANSPORT,
+    "insurance": INSURANCE,
+    "freight": FREIGHT,
+    "packing_list": PACKING,
+    "origin": ORIGIN,
+}
 
 
 def _columns(page: Page) -> list[str]:

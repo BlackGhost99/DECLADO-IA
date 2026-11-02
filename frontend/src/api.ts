@@ -841,7 +841,7 @@ export interface Revision {
   decisions?: RevisionDecision[];
   export_count?: number;
   /** Colis et masse brute lus sur les titres de transport ; null tant qu'un titre manque ou ne les imprime pas. */
-  measures?: { packages: number | null; nature: string; gross_weight_kg: string | null; sources: string[] };
+  measures?: { net_weight_kg?: string | null; packages: number | null; nature: string; gross_weight_kg: string | null; sources: string[] };
   mode: string;
   mode_label: string;
   territory: string;

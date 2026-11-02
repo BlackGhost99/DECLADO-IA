@@ -261,7 +261,7 @@ def test_t57_declared_type_is_a_confirmation_and_unknown_type_is_refused(world, 
     resp = case["s"].upload(f"/api/v1/cases/{case['id']}/documents", {"file": file, "document_type": "nimporte"})
     assert resp.status_code == 422 and resp.json()["code"] == "UNKNOWN_DOCUMENT_TYPE"
     # Type confirmé sans lecture automatique : rien n'est deviné.
-    other = upload(case, BL, document_type="packing_list", duplicate_action="keep_both")
+    other = upload(case, BL, document_type="delivery_note", duplicate_action="keep_both")
     resp = case["s"].post(f"/api/v1/case-documents/{other['id']}/extractions", {})
     assert resp.status_code == 422 and resp.json()["code"] == "NO_READER_FOR_TYPE"
 
