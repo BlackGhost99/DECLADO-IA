@@ -385,8 +385,22 @@ DatabaseMirror database.clamav.net
         if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
         Extraire-Zip $zip $tmp
         $racine = Get-ChildItem $tmp -Directory | Select-Object -First 1
-        if (Test-Path $Code) { Remove-Item -Recurse -Force $Code }
-        Move-Item $racine.FullName $Code
+        # La fenêtre qui lance ce script peut être placée dans le dossier du code (scripts\windows) :
+        # Windows refuse alors de supprimer ce dossier. On sort du code, puis, si un dossier reste
+        # verrouillé, on remplace son contenu au lieu de le supprimer.
+        Set-Location $Dossier
+        if (Test-Path $Code) {
+            try { Remove-Item -Recurse -Force $Code -ErrorAction Stop }
+            catch {
+                Info "Un dossier du code est ouvert dans une fenêtre : son contenu est remplacé sur place."
+                Get-ChildItem $Code -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+        if (Test-Path $Code) {
+            Copy-Item -Path (Join-Path $racine.FullName "*") -Destination $Code -Recurse -Force
+        } else {
+            Move-Item $racine.FullName $Code
+        }
         Remove-Item -Recurse -Force $tmp
         if (Test-Path (Join-Path $Etapes "dependances.ok")) { Remove-Item (Join-Path $Etapes "dependances.ok") }
         Info "Code téléchargé (branche $Branche)"
