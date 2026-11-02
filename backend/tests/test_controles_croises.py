@@ -84,3 +84,36 @@ def test_t88_origin_certificate_differing_from_the_goods_origin(world, session):
     assert messages == {"country_of_origin": "Le certificat indique l'origine ES, différente de marchandise 1 : FR."}
     generated(case, "origine-fr.pdf", synthetic.origin_certificate_pdf(invoice="F-1", country="France"))
     assert len(cross(case)[0]) == 1  # le certificat conforme n'ajoute rien
+
+
+def test_t89_origin_certificate_fills_goods_without_origin_whatever_the_reading_order(world, session):
+    """Certificat lu avant ou après la facture : l'origine des marchandises sans origine est reprise."""
+    from apps.audit.models import AuditEvent
+
+    call_command("seed_document_types")
+    case = make_case(session, make_edition())
+    # Facture fictive sans pays d'origine imprimé : seule la preuve du certificat compte.
+    generated(case, "origine.pdf", synthetic.origin_certificate_pdf(invoice="F-2026-001", country="China"))
+    columns = [c for c in synthetic.HEADER if c != "origin"]
+    generated(case, "facture.pdf", synthetic.simple_invoice_pdf(columns=columns))
+    rev = cross(case)[1]
+    assert rev["origin_country"] == ""
+    assert rev["goods_lines"] and {g["origin_country"] for g in rev["goods_lines"]} == {"CN"}
+    assert cross(case)[0] == []  # origine identique : aucun écart
+    event = AuditEvent.objects.get(event_type="goods_line.origin_from_certificate")
+    assert event.current["origin_country"] == "CN" and "origine.pdf" in event.current["evidence"]
+
+
+def test_t89_a_certificate_for_another_invoice_or_contradicting_ones_fill_nothing(world, session):
+    call_command("seed_document_types")
+    edition = make_edition()
+    case, _ = ready_case(session, edition)
+    s = case["s"]
+    detail = complete(case, world, edition)
+    goods = detail["revision"]["goods_lines"][0]
+    resp = s.patch(f"/api/v1/goods-lines/{goods['id']}", {"origin_country": "", "row_version": goods["row_version"]})
+    assert resp.status_code == 200, resp.content
+    generated(case, "autre.pdf", synthetic.origin_certificate_pdf(invoice="X-999", country="Spain"))
+    assert cross(case)[1]["goods_lines"][0]["origin_country"] == ""
+    generated(case, "es.pdf", synthetic.origin_certificate_pdf(invoice="F-1", country="Spain"))
+    assert cross(case)[1]["goods_lines"][0]["origin_country"] == "ES"
