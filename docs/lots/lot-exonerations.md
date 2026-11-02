@@ -28,7 +28,13 @@ Demande du 2 novembre 2026 : développer le module suivant après la supervision
 - Aucune exonération réelle n'est saisie : il faut les textes officiels (codes additionnels, régimes privilégiés, conventions, Charte des investissements, etc.).
 - Une exonération vise les taxes calculées par article. La redevance informatique est calculée par SYDONIA et n'est pas concernée.
 - Si deux exonérations validées visent la même taxe, la plus favorable s'applique et est affichée ; aucun cumul n'est calculé.
-- Les exports PDF, Excel et DAU affichent les montants exonérés tels que calculés, sans encart dédié à l'exonération.
+
+## Exports (2 novembre 2026, T100)
+
+- L'annexe du PDF (export DAU compris) comporte un tableau « Exonérations appliquées » : la référence et le texte de chaque exonération, les taxes avec le taux du barème remplacé, les lignes concernées et le n° du justificatif.
+- L'Excel comporte une feuille « Exonérations appliquées » avec les mêmes informations.
+- Le dépôt en douane déclaré par l'agent (n°, date, mention « non vérifié ») apparaît dans l'identification et dans les métadonnées.
+- Les cases douanières du formulaire DAU restent vides : seule la Douane les remplit.
 
 ## Commandes
 
@@ -48,4 +54,4 @@ cd frontend && npm run typecheck && npm test && npm run build
 
 ## Prochaine étape
 
-Saisir les vraies exonérations dès réception des textes, puis ajouter un encart « Exonérations appliquées » aux exports.
+Saisir les vraies exonérations dès réception des textes.
