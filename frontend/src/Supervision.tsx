@@ -93,7 +93,7 @@ function Overview({ data }: { data: Data }) {
         hint={tr("sup.readingsHint", { ok: data.reading.counts.succeeded, failed: data.reading.counts.failed })} />
       <StatCard icon="eye" tone={ocr.available ? "green" : "gray"} label={tr("sup.ocr")}
         value={tr(ocr.available ? "sup.available" : "sup.unavailable")}
-        hint={ocr.available ? `Tesseract ${ocr.version}` : tr("sup.ocrHint")} />
+        hint={ocr.available ? `Tesseract ${ocr.version}` : tr(`sup.ocrWhy.${ocr.reason || "not_found"}`)} />
       <StatCard icon="layers" tone={provider.configured ? "green" : "gray"} label={tr("sup.ai")}
         value={provider.configured ? provider.label ?? "—" : tr("sup.aiOff")}
         hint={tr("sup.aiHint", { n: data.ai.counts.sent ?? 0 })} />
@@ -178,6 +178,9 @@ function ReadingTab({ data }: { data: Data }) {
             <dd>
               <Chip tone={r.engines.ocr.available ? "green" : "gray"}>{tr(r.engines.ocr.available ? "sup.available" : "sup.unavailable")}</Chip>
               {r.engines.ocr.available && ` Tesseract ${r.engines.ocr.version} · ${tr("sup.languages", { list: r.engines.ocr.languages.join(", ") || "—" })}`}
+              {!r.engines.ocr.available && (
+                <span className="muted small"> {tr(`sup.ocrWhy.${r.engines.ocr.reason || "not_found"}`)}{r.engines.ocr.error ? ` (${r.engines.ocr.error})` : ""}</span>
+              )}
             </dd>
             <dt>{tr("sup.ai")}</dt>
             <dd>{r.engines.ai.configured ? `${r.engines.ai.label ?? ""} · ${r.engines.ai.model ?? ""}` : tr("sup.aiOff")}</dd>

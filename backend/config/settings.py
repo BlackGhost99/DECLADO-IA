@@ -214,6 +214,8 @@ CLAMAV_SCAN_TIMEOUT = env.int("CLAMAV_SCAN_TIMEOUT", default=120)
 EXTRACTION_MAX_PAGES = env.int("EXTRACTION_MAX_PAGES", default=500)
 OCR_LANGUAGES = env("OCR_LANGUAGES", default="fra+eng+spa+ara")
 OCR_PAGE_TIMEOUT_SECONDS = env.int("OCR_PAGE_TIMEOUT_SECONDS", default=120)
+# Chemin explicite de tesseract(.exe) : évite de dépendre du PATH du processus (poste Windows).
+OCR_TESSERACT_CMD = env("OCR_TESSERACT_CMD", default="")
 # Numérisation : nombre de pages au plus dans un lot (scanner ou téléphone).
 SCAN_BATCH_MAX_PAGES = env.int("SCAN_BATCH_MAX_PAGES", default=300)
 # Un lot du scanner peut arriver en dizaines d'images : le plafond de Django (100) suit celui du lot.

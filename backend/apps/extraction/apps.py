@@ -7,4 +7,13 @@ class ExtractionConfig(AppConfig):
     verbose_name = "Extraction des factures"
 
     def ready(self):
+        from django.conf import settings
+
         from . import handlers  # noqa: F401 - enregistre le gestionnaire outbox
+
+        if settings.OCR_TESSERACT_CMD:
+            try:
+                import pytesseract
+            except ImportError:
+                return
+            pytesseract.pytesseract.tesseract_cmd = settings.OCR_TESSERACT_CMD

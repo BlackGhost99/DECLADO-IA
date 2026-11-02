@@ -11,6 +11,7 @@ import time
 from collections import Counter
 from datetime import timedelta
 
+from django.conf import settings
 from django.db.models import Avg, Count, F, Max, Sum
 from django.utils import timezone
 
@@ -140,14 +141,26 @@ def antivirus_section(since, names) -> dict:
 
 
 def ocr_engine() -> dict:
+    """État de Tesseract et, s'il manque, la raison (jamais de chemin ni de contenu)."""
+    unavailable = {"available": False, "version": "", "languages": []}
     try:
         import pytesseract
-
+    except ImportError:
+        return {**unavailable, "reason": "library_missing"}
+    try:
         version = str(pytesseract.get_tesseract_version())
+    except pytesseract.TesseractNotFoundError:
+        return {**unavailable, "reason": "not_found"}
+    except Exception as exc:  # binaire présent mais inutilisable
+        return {**unavailable, "reason": "broken", "error": type(exc).__name__}
+    try:
         languages = sorted(lang for lang in pytesseract.get_languages(config="") if lang != "osd")
-    except Exception:  # absent, mal installé ou introuvable : l'OCR est indisponible
-        return {"available": False, "version": "", "languages": []}
-    return {"available": True, "version": version, "languages": languages}
+    except Exception as exc:
+        return {**unavailable, "version": version, "reason": "languages_unreadable", "error": type(exc).__name__}
+    wanted = [lang for lang in settings.OCR_LANGUAGES.split("+") if lang in languages]
+    if not wanted:
+        return {**unavailable, "version": version, "languages": languages, "reason": "languages_missing"}
+    return {"available": True, "version": version, "languages": languages, "reason": ""}
 
 
 def reading_section(since, names) -> dict:

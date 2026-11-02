@@ -52,3 +52,9 @@ La supervision montrait « OCR indisponible : Tesseract absent de ce serveur » 
 - en cas d'échec, l'application démarre quand même et l'avertissement l'indique.
 
 Limite : l'installateur UB Mannheim n'est pas vérifié par une empreinte figée (impossible à relever depuis l'environnement de développement) ; il est analysé par ClamAV et son empreinte est affichée. Le script n'est pas mis à jour par `-MettreAJour` : il faut retélécharger `scripts/windows/demarrer-clairtransit.ps1`.
+
+## OCR « Indisponible » : la raison est affichée (2026-11-02)
+
+- La carte OCR de Console › Supervision indique pourquoi l'OCR manque : bibliothèque absente, Tesseract introuvable, Tesseract qui ne répond pas, langues illisibles ou aucune langue FR/EN/ES/AR. Aucun chemin n'est affiché, seulement un type d'erreur.
+- `OCR_TESSERACT_CMD` (réglage, variable d'environnement) donne le chemin exact de `tesseract(.exe)` à l'API, qui ne dépend plus du PATH. Le script Windows le renseigne après l'installation.
+- Test : `test_t90_ocr_unavailable_says_why_without_paths`, `test_ocr_tesseract_cmd_setting_points_pytesseract_to_the_binary`, test frontend Supervision.
