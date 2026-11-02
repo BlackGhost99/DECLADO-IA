@@ -58,3 +58,8 @@ Limite : l'installateur UB Mannheim n'est pas vérifié par une empreinte figée
 - La carte OCR de Console › Supervision indique pourquoi l'OCR manque : bibliothèque absente, Tesseract introuvable, Tesseract qui ne répond pas, langues illisibles ou aucune langue FR/EN/ES/AR. Aucun chemin n'est affiché, seulement un type d'erreur.
 - `OCR_TESSERACT_CMD` (réglage, variable d'environnement) donne le chemin exact de `tesseract(.exe)` à l'API, qui ne dépend plus du PATH. Le script Windows le renseigne après l'installation.
 - Test : `test_t90_ocr_unavailable_says_why_without_paths`, `test_ocr_tesseract_cmd_setting_points_pytesseract_to_the_binary`, test frontend Supervision.
+
+## Installateur Tesseract introuvable (2026-11-02)
+
+- Sur PC_NGWA, le script s'arrêtait sur une erreur 404 : l'installateur n'est plus publié sous `UB-Mannheim/tesseract/releases`. Il se télécharge maintenant depuis les versions officielles `tesseract-ocr/tesseract` (5.5.0, `tesseract-ocr-w64-setup-5.5.0.20241111.exe`). Son empreinte SHA-256 est vérifiée avant l'analyse ClamAV et avant l'installation.
+- La console affiche correctement les accents des sorties Python, par exemple « détecté » au contrôle EICAR.
