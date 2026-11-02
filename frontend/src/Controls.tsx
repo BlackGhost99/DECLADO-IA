@@ -44,6 +44,7 @@ const SCOPE_TABS: Record<string, string> = {
   case: "apercu",
   revision: "apercu",
   document: "documents",
+  case_document: "documents",
   goods_line: "marchandises",
 };
 
