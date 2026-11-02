@@ -8,6 +8,7 @@ seulement pour ce qui est encore vide :
 - le bureau d'entrée : celui réglé par la société ;
 - le taux de change d'une devise facturée : le cours de la société en vigueur à la date prévue ;
 - l'origine du dossier : seulement si la facture l'imprime (« Country of origin », « Made in ») ;
+- l'origine des marchandises sans origine : celle d'un certificat d'origine qui cite leur facture ;
 - l'importateur : le client de la société dont le nom est exactement celui de l'acheteur lu ;
 - une marchandise par ligne facturée libre, puis le contrôle de son code.
 
@@ -155,6 +156,8 @@ def _prepare(run, invoice) -> dict:
         revision.save()
 
     goods = services.goods_lines_from_invoice(org=org, actor=actor, invoice_id=invoice.id)
+    if certified := origin_from_certificates(revision, actor):
+        filled["origin_from_certificate"] = certified
     checked = 0
     if revision.target_edition_id:
         for line in goods:
@@ -190,3 +193,68 @@ def classify_after_reading(run) -> int:
         except Exception:
             logger.exception("Choix de code par l'IA pour la marchandise %s : échec", line.id)
     return asked
+
+
+def origin_from_certificates(revision, actor) -> list[int]:
+    """Origine des marchandises sans origine, d'après un certificat d'origine lu qui cite leur facture.
+
+    Seulement si le certificat imprime un pays reconnu et cite exactement le n° d'une facture du
+    dossier ; deux certificats contradictoires pour une même facture ne remplissent rien. L'origine
+    reste modifiable ; le contrôle croisé signale toute différence ultérieure. Journalisé.
+    """
+    from apps.extraction import readers
+    from apps.extraction.api import document_fields
+    from apps.extraction.models import ExtractionRun
+
+    from .crosschecks import _key, _value
+    from .models import CaseDocument, GoodsLine
+
+    if not revision.is_editable:
+        return []
+    by_invoice: dict[str, set] = {}
+    evidence: dict[str, str] = {}
+    for link in revision.documents.filter(usage=CaseDocument.Usage.ORIGIN, replaced_by__isnull=True):
+        run = (
+            ExtractionRun.objects.filter(case_document=link, status=ExtractionRun.Status.SUCCEEDED)
+            .order_by("-created_at")
+            .first()
+        )
+        if run is None or run.options.get("reader") != readers.ORIGIN:
+            continue
+        fields = document_fields(run)
+        number, country = (
+            _key(_value(fields, "related_invoice")),
+            parse_country(_value(fields, "country_of_origin")).value,
+        )
+        if number and country:
+            by_invoice.setdefault(number, set()).add(country)
+            evidence[number] = f"certificat d'origine « {link.document.original_name} »"
+    filled = []
+    for invoice in revision.invoices.all():
+        countries = by_invoice.get(_key(invoice.invoice_number), set())
+        if len(countries) != 1:
+            continue
+        [country] = countries
+        goods = (
+            GoodsLine.objects.select_for_update()
+            .filter(revision=revision, origin_country="")
+            .filter(pk__in=GoodsLine.objects.filter(sources__invoice_line__invoice=invoice).values("pk"))
+        )
+        done = []
+        for line in goods.order_by("ordinal"):
+            line.origin_country = country
+            line.row_version += 1
+            line.save(update_fields=["origin_country", "row_version", "updated_at"])
+            done.append(line.ordinal)
+        if done:
+            filled += done
+            services._event(
+                revision.organization,
+                actor,
+                "goods_line.origin_from_certificate",
+                revision,
+                revision.case,
+                None,
+                {"origin_country": country, "goods_lines": done, "evidence": evidence[_key(invoice.invoice_number)]},
+            )
+    return filled

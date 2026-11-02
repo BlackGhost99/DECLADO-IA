@@ -502,6 +502,10 @@ def merge_fields(run: ExtractionRun, parsed: ParsedDocument) -> None:
         revision,
         current={"run": str(run.id), "reader": parsed.stats.get("reader"), "fields_read": read},
     )
+    if parsed.stats.get("reader") == readers.ORIGIN:
+        from apps.cases import autoprep
+
+        autoprep.origin_from_certificates(revision, run.created_by)
 
 
 def merge(run: ExtractionRun, parsed: ParsedDocument) -> None:
