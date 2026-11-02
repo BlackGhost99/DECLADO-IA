@@ -63,3 +63,11 @@ Limite : l'installateur UB Mannheim n'est pas vérifié par une empreinte figée
 
 - Sur PC_NGWA, le script s'arrêtait sur une erreur 404 : l'installateur n'est plus publié sous `UB-Mannheim/tesseract/releases`. Il se télécharge maintenant depuis les versions officielles `tesseract-ocr/tesseract` (5.5.0, `tesseract-ocr-w64-setup-5.5.0.20241111.exe`). Son empreinte SHA-256 est vérifiée avant l'analyse ClamAV et avant l'installation.
 - La console affiche correctement les accents des sorties Python, par exemple « détecté » au contrôle EICAR.
+
+## OCR de nouveau « Indisponible » après une mise à jour (2026-11-02, soir)
+
+Cause : `-MettreAJour` met à jour le code mais pas la copie du script de démarrage lancée depuis un autre dossier (OneDrive). Cette ancienne copie ne transmet ni `OCR_TESSERACT_CMD` ni `TESSDATA_PREFIX` à l'API : Tesseract installé mais « introuvable par l'API ».
+
+Correction : sans `OCR_TESSERACT_CMD` et sans Tesseract sur le PATH, l'API (et le worker) cherchent `tesseract.exe` dans `<installation>\outils\tesseract`, puis `Program Files\Tesseract-OCR` et `%LOCALAPPDATA%\Programs\Tesseract-OCR`, et les langues dans `<installation>\outils\tessdata` (`apps/extraction/apps.py`, `locate_tesseract`). Test : `test_tesseract_found_in_the_install_folder_without_the_startup_script_variables`.
+
+Conseil d'exploitation : lancer le script depuis `<installation>\code\scripts\windows`, toujours à jour après `-MettreAJour`.

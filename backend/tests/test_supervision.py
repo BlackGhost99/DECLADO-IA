@@ -190,3 +190,27 @@ def test_ocr_tesseract_cmd_setting_points_pytesseract_to_the_binary(settings, mo
     settings.OCR_TESSERACT_CMD = r"C:\ClairTransit\outils\tesseract\tesseract.exe"
     apps.get_app_config("extraction").ready()
     assert pytesseract.pytesseract.tesseract_cmd == settings.OCR_TESSERACT_CMD
+
+
+def test_tesseract_found_in_the_install_folder_without_the_startup_script_variables(tmp_path):
+    """Un ancien script de démarrage ne transmet pas OCR_TESSERACT_CMD : l'API retrouve Tesseract
+    et ses langues dans <installation>\\outils, à côté de <installation>\\code\\backend."""
+    from apps.extraction.apps import locate_tesseract
+
+    backend = tmp_path / "code" / "backend"
+    backend.mkdir(parents=True)
+    no_path = lambda name: None  # noqa: E731
+    assert locate_tesseract(backend, {}, no_path) == ("", "")
+    exe = tmp_path / "outils" / "tesseract" / "tesseract.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_bytes(b"")
+    (tmp_path / "outils" / "tessdata").mkdir()
+    assert locate_tesseract(backend, {}, no_path) == (str(exe), str(tmp_path / "outils" / "tessdata"))
+    # Déjà sur le PATH ou langues déjà indiquées : rien n'est changé.
+    assert locate_tesseract(backend, {"TESSDATA_PREFIX": "x"}, lambda name: "/usr/bin/tesseract") == ("", "")
+    program_files = tmp_path / "pf"
+    (program_files / "Tesseract-OCR").mkdir(parents=True)
+    (program_files / "Tesseract-OCR" / "tesseract.exe").write_bytes(b"")
+    exe.unlink()
+    found, _ = locate_tesseract(backend, {"ProgramFiles": str(program_files)}, no_path)
+    assert found == str(program_files / "Tesseract-OCR" / "tesseract.exe")
