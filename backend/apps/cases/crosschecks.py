@@ -5,7 +5,8 @@ Chaque contrôle compare des valeurs imprimées (ou saisies par l'agent à la pl
   du dossier : pièce d'un autre envoi, ou facture manquante ;
 - une valeur assurée inférieure au total des factures, dans la même devise ;
 - un pays d'origine du certificat différent de l'origine d'une marchandise ;
-- une masse brute différente entre le titre de transport et la liste de colisage ;
+- une masse brute ou un nombre de colis différent entre le titre de transport et ses listes de colisage ;
+- un n° de conteneur dont le chiffre de contrôle ISO 6346 est faux (mal lu ou mal imprimé) ;
 - un conteneur imprimé sur la liste de colisage et absent du titre de transport, ou l'inverse ;
 - un scellé lu sur la liste de colisage introuvable sur le titre de transport, et inversement.
 
@@ -98,6 +99,95 @@ def _container_warnings(transport, packing) -> list[dict]:
     return out
 
 
+# Valeurs des lettres pour le chiffre de contrôle ISO 6346 (les multiples de 11 sont sautés).
+_LETTERS = {}
+_n = 10
+for _c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+    _n += _n % 11 == 0
+    _LETTERS[_c], _n = _n, _n + 1
+
+
+def check_digit(container: str) -> int | None:
+    """Chiffre de contrôle ISO 6346 attendu pour « MSCU771205 » ; None si la forme ne s'y prête pas."""
+    key = _key(container)[:10]
+    if not re.fullmatch(r"[A-Z]{4}\d{6}", key):
+        return None
+    total = sum((_LETTERS[c] if c.isalpha() else int(c)) * 2**i for i, c in enumerate(key))
+    return total % 11 % 10
+
+
+def _check_digit_warnings(pieces) -> list[dict]:
+    """Un n° de conteneur imprimé avec un chiffre de contrôle faux : mal lu ou mal imprimé."""
+    out = []
+    for link, fields, text in pieces:
+        wrong = []
+        for printed in _containers(fields, text).values():
+            key = _key(printed)
+            if len(key) == 11 and int(key[10]) != check_digit(key):
+                wrong.append(f"{printed} (attendu : {check_digit(key)})")
+        if wrong:
+            out.append(
+                _item(link, "container",
+                      f"Chiffre de contrôle ISO 6346 incorrect pour le conteneur {', '.join(sorted(wrong))} : "
+                      "n° mal lu ou mal imprimé ?")
+            )  # fmt: skip
+    return out
+
+
+def _distinct(pieces, number_field: str):
+    """Une même pièce déposée deux fois (même n° imprimé) n'est comptée qu'une fois."""
+    out, seen = [], set()
+    for link, fields, text in pieces:
+        number = _key(_value(fields, number_field))
+        if number and number in seen:
+            continue
+        seen.add(number)
+        out.append((link, fields, text))
+    return out
+
+
+def _measure_warnings(revision, transport, packing) -> list[dict]:
+    """Masse brute et nombre de colis : un seul titre de transport face à la somme de ses listes de colisage.
+
+    Comparé seulement si toutes les listes du dossier sont lues et impriment la valeur : une somme
+    partielle donnerait un faux écart."""
+    if len(transport) != 1 or not packing:
+        return []
+    filed = revision.documents.filter(usage=CaseDocument.Usage.PACKING_LIST, replaced_by__isnull=True).count()
+    if filed > len(packing):
+        return []
+    bl, bl_fields, _text = transport[0]
+    packing = _distinct(packing, "document_number")
+    single = len(packing) == 1
+    target = packing[0][0] if single else bl
+    lists = "la liste de colisage" if single else f"les {len(packing)} listes de colisage"
+    out = []
+
+    a = measures.weight_kg(_value(bl_fields, "gross_weight"))
+    weights = [measures.weight_kg(_value(f, "gross_weight")) for _lk, f, _t in packing]
+    if a is not None and None not in weights:
+        b = sum(weights, Decimal("0"))
+        if abs(a - b) > WEIGHT_TOLERANCE * max(a, b):
+            bl_kg, pl_kg = format(a.normalize(), "f"), format(b.normalize(), "f")
+            message = (
+                f"Masse brute {pl_kg} kg, le titre de transport indique {bl_kg} kg."
+                if single
+                else f"Masse brute {bl_kg} kg, {lists} totalisent {pl_kg} kg."
+            )
+            out.append(_item(target, "gross_weight", message))
+
+    count, _nature = measures.packages(_value(bl_fields, "packages"))
+    counts = [measures.packages(_value(f, "packages"))[0] for _lk, f, _t in packing]
+    if count is not None and None not in counts and sum(counts) != count:
+        message = (
+            f"{sum(counts)} colis, le titre de transport en indique {count}."
+            if single
+            else f"{count} colis sur le titre de transport, {lists} en totalisent {sum(counts)}."
+        )
+        out.append(_item(target, "packages", message))
+    return out
+
+
 def _seal_warnings(transport, packing) -> list[dict]:
     """Scellé différent : seulement s'il est lu des deux côtés et introuvable dans le texte de l'autre pièce
     (un titre de transport à plusieurs conteneurs imprime plusieurs scellés)."""
@@ -166,14 +256,6 @@ def evaluate(revision) -> list[dict]:
     packing = [(lk, f, t) for lk, r, f, t in readings if r == readers.PACKING]
     warnings += _container_warnings(transport, packing)
     warnings += _seal_warnings(transport, packing)
-    if len(transport) == 1 and len(packing) == 1:
-        (_bl, bl_fields, _t), (pl, pl_fields, _u) = transport[0], packing[0]
-        a = measures.weight_kg(_value(bl_fields, "gross_weight"))
-        b = measures.weight_kg(_value(pl_fields, "gross_weight"))
-        if a is not None and b is not None and abs(a - b) > WEIGHT_TOLERANCE * max(a, b):
-            warnings.append(
-                _item(pl, "gross_weight",
-                      f"Masse brute {format(b.normalize(), 'f')} kg, le titre de transport indique "
-                      f"{format(a.normalize(), 'f')} kg.")
-            )  # fmt: skip
+    warnings += _check_digit_warnings(transport + packing)
+    warnings += _measure_warnings(revision, transport, packing)
     return warnings
