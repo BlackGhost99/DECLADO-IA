@@ -27,7 +27,7 @@ from apps.organizations.permissions import HasActiveOrganization, require_roles
 from apps.regulations.doc_types import mismatch_of, type_of
 from apps.tariffs.api import HISTORICAL_WARNING
 
-from . import completeness, intake, proposals, services
+from . import completeness, intake, measures, proposals, services
 from .models import (
     CaseDocument,
     CaseRevision,
@@ -304,6 +304,7 @@ def revision_payload(revision: CaseRevision) -> dict:
             for d in revision.decisions.select_related("actor")
         ],
         "export_count": revision.exports.count(),
+        "measures": measures.measures_payload(revision),
         "row_version": revision.row_version,
         "target_edition": None
         if edition is None

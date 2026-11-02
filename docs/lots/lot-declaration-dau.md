@@ -32,3 +32,12 @@
 - L'export PDF du dossier (bouton « Générer l'export » et carte de l'onglet Export) produit maintenant la déclaration au modèle DAU en page 1, suivie du récapitulatif de préparation en annexe (identification, marchandises, droits et taxes avec leurs libellés, total compte 1, TCI compte 2, RI par SYDONIA, sources, taux de change, empreinte, décisions).
 - Page 1 : case 7 avec la révision, case 33 avec la mention de validation interne (ou de brouillon, de démonstration, de simulation historique), case 43 avec la valeur en devise puis la valeur en douane en FCFA.
 - Le format `dau` reste accepté pour les exports déjà générés ; il produit le même document.
+
+
+## Suite : colis et masse brute (T85, 2026-11-02)
+
+- `apps/cases/measures.py` lit sur chaque titre de transport (lecture B/L) le nombre et la nature des colis et la masse brute, telle qu'imprimée ou saisie par l'agent à la place de la lecture.
+- DAU : cases 23 (nombre total de colis), 24 (nature), 25 (masse brute totale). Pour un article seul, cases 35 et 39 aussi ; avec plusieurs articles, la masse reste au total, jamais répartie.
+- Écran Export, « Informations complémentaires » : poids total brut et colis (`revision.measures`).
+- Règles : masse retenue en kilogrammes seulement (« 3,94 t » ou « 8 700 lbs » restent vides) ; un nombre ambigu (« 1.234 kg ») reste vide ; un total n'est donné que si chaque titre de transport du dossier est lu et porte sa valeur ; un même B/L déposé deux fois compte une fois.
+- Limites : masse nette (cases 26 et 40) toujours vide ; la liste de colisage n'est pas encore lue.
