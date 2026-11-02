@@ -43,10 +43,12 @@ INSTALLED_APPS = [
     "apps.scans",
     "apps.onboarding",
     "apps.fiscal",
+    "apps.supervision",
 ]
 
 MIDDLEWARE = [
     "apps.core.middleware.RequestIdMiddleware",
+    "apps.supervision.recorder.SupervisionMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

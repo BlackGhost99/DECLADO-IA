@@ -4,6 +4,7 @@ import { api, ApiError, ROLE_LABELS, SESSION_ENDED_EVENT, type Me, type Membersh
 import { CaseDetailView, CASE_TABS } from "./CaseDetail";
 import { CasePicker, Cases } from "./Cases";
 import { Console } from "./Console";
+import { Supervision } from "./Supervision";
 import { NewCasePage } from "./NewCase";
 import { IntakePage } from "./Intake";
 import { Dashboard } from "./Dashboard";
@@ -165,6 +166,7 @@ const NAV_CASE: NavItem[] = [
 const NAV_CONSOLE: NavItem[] = [
   { path: "", label: "con.title", icon: "folder" },
   { path: "demandes", label: "con.requests", icon: "message" },
+  { path: "supervision", label: "nav.supervision", icon: "chart" },
 ];
 
 const NAV_ADMIN: NavItem[] = [
@@ -413,6 +415,7 @@ function Page({ route, me, active }: { route: Route; me: Me; active: Membership 
 
   if (!active) {
     if (first === "referentiel") return <ReferenceAdmin canSeeImports={me.is_reference_manager} />;
+    if (me.is_platform_operator && first === "supervision") return <Supervision />;
     if (me.is_platform_operator && first !== "recherche") return <Console view={first === "demandes" ? "requests" : "home"} />;
     return <TariffSearch />;
   }
