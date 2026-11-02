@@ -225,6 +225,7 @@ Les règles en vigueur, assiettes, arrondis et conversions fiscales seront valid
 | EXP-01 | P0 | Export PDF préparatoire : identification, marchandises/codes, valorisation, taxes, sources, état et validations |
 | EXP-02 | P0 | Export XLSX avec codes textuels, montants, unités et onglet de métadonnées ; neutraliser les cellules pouvant devenir des formules |
 | EXP-03 | P0 | Un brouillon exporté porte un marquage visible ; seul un dossier approuvé porte la validation interne |
+| EXP-04 | P1 | Archive complète du dossier en un fichier : pièces originales, exports de chaque révision, circuit de validation, décisions de code, journal et manifeste avec empreintes ; validation interne rappelée, jamais une acceptation par la Douane |
 | AUD-01 | P0 | Journaliser corrections, changements de code, décisions, règles utilisées et génération d’exports |
 | AUD-02 | P0 | Filtrer l’historique par acteur/date/type sans exposer les données d’une autre société |
 

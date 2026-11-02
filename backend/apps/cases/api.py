@@ -984,6 +984,50 @@ class DecisionView(APIView):
         return Response(goods_payload(get_goods(request, goods_id)), status=201)
 
 
+class CodeConfirmItem(serializers.Serializer):
+    goods_id = serializers.UUIDField()
+    code_check_id = serializers.UUIDField()
+    goods_line_version = serializers.IntegerField()
+    node_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class CodeConfirmationsInput(serializers.Serializer):
+    reason = serializers.CharField(max_length=2000)
+    items = serializers.ListField(child=CodeConfirmItem(), allow_empty=False)
+
+
+class RevisionCodeConfirmationsView(APIView):
+    """T77 : confirmer en une fois les codes retrouvés de plusieurs marchandises (tout ou rien)."""
+
+    permission_classes = [CanEdit]
+
+    def post(self, request, revision_id):
+        revision = get_revision(request, revision_id)
+        data = valid(CodeConfirmationsInput, request)
+        decisions = services.confirm_codes(
+            org=request.organization, actor=request.user, revision_id=revision.id,
+            reason=data["reason"], items=data["items"],
+        )  # fmt: skip
+        payload = revision_payload(get_revision(request, revision_id))
+        return Response({"confirmed": len(decisions), "revision": payload}, status=201)
+
+
+class CaseArchiveView(APIView):
+    """EXP-04 : archive complète du dossier (pièces, exports, circuit, décisions, journal, manifeste)."""
+
+    permission_classes = [CanExport]
+
+    def post(self, request, case_id):
+        from . import archive
+
+        get_case(request, case_id)  # 404 hors de la société, avant tout verrou
+        filename, spool = archive.build_archive(org=request.organization, actor=request.user, case_id=case_id)
+        response = FileResponse(spool, content_type="application/zip", as_attachment=True, filename=filename)
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
 class CaseAuditView(APIView):
     """AUD-01/AUD-02 : historique d'un dossier, borné à la société."""
 

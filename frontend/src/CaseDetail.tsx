@@ -1693,16 +1693,17 @@ function GoodsTab({
   const [bulkReason, setBulkReason] = useState("");
   const confirmAll = () =>
     void act(async () => {
-      for (const g of confirmable) {
-        const sub = onlySubdivision(g);
-        await api.decide(g.id, {
-          action: sub ? "complete" : "confirm",
+      // Un seul appel, tout ou rien : si une marchandise a changé, aucun code n'est confirmé.
+      await api.confirmCodes(
+        revision.id,
+        bulkReason.trim(),
+        confirmable.map((g) => ({
+          goods_id: g.id,
           code_check_id: g.latest_check!.id,
-          node_id: sub ? sub.id : null,
-          reason: bulkReason.trim(),
           goods_line_version: g.row_version,
-        });
-      }
+          node_id: onlySubdivision(g)?.id ?? null,
+        })),
+      );
       setBulkReason("");
       setBulkOpen(false);
     });
@@ -2544,6 +2545,13 @@ function ExportPage({ detail, act, go }: { detail: CaseDetail; act: Act; go: (ta
   async function downloadExport(e: CaseExport) {
     saveFile(e.filename, await api.exportFile(detail.id, e.id), "");
   }
+  // Archive complète : le projet DAU et l'Excel du calcul actuel sont générés et conservés s'ils manquent.
+  const downloadArchive = () =>
+    void act(async () => {
+      const { blob, filename } = await api.caseArchive(detail.id);
+      saveFile(filename, blob, "");
+      loadExports();
+    });
   const generate = (formats: ("pdf" | "xlsx" | "dau")[]) =>
     void act(async () => {
       for (const f of formats) await downloadExport(await api.createExport(detail.id, f));
@@ -2620,8 +2628,8 @@ function ExportPage({ detail, act, go }: { detail: CaseDetail; act: Act; go: (ta
             <button type="button" className="btn-primary btn-block btn-row" onClick={() => generate(["pdf", "xlsx"])}>
               <Icon name="upload" /> <span>{tr("export.generate")}<small>{tr("export.generateHint", { n: rev.revision_no })}</small></span> <Icon name="arrowRight" />
             </button>
-            <button type="button" className="btn-secondary btn-block btn-row" disabled>
-              <Icon name="download" /> <span>{tr("export.downloadAll")}</span> <Icon name="arrowRight" />
+            <button type="button" className="btn-secondary btn-block btn-row" onClick={downloadArchive}>
+              <Icon name="download" /> <span>{tr("export.downloadAll")}<small>{tr("export.downloadAllHint")}</small></span> <Icon name="arrowRight" />
             </button>
             <button type="button" className="btn-secondary btn-block btn-row" disabled>
               <Icon name="check" /> <span>{tr("export.markExported")}</span> <Icon name="arrowRight" />
