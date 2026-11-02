@@ -2,7 +2,8 @@
 
 Les cases reprennent la numérotation du formulaire fourni par l'exploitant. Elles sont remplies
 avec les données du dossier, et rien n'est inventé : une case sans donnée prouvée reste vide
-(colis, masses, opérateurs). Les cases réservées à la Douane (n° de déclaration, enregistrement,
+(masse nette, opérateurs). Colis et masse brute viennent des titres de transport lus.
+Les cases réservées à la Douane (n° de déclaration, enregistrement,
 contrôle, approbation) restent toujours vides.
 
 Ce document sert à saisir la déclaration dans SYDONIA. Il ne vaut pas déclaration. Le calcul
@@ -22,7 +23,7 @@ from apps.extraction.models import ExtractionRun
 from apps.extraction.services import invoice_totals
 from apps.fiscal import rules
 
-from . import services
+from . import measures, services
 from .models import CaseDocument, CaseExport
 
 # Incoterms dont le prix comprend déjà le fret, et ceux qui comprennent aussi l'assurance.
@@ -69,6 +70,16 @@ def _money(value) -> str:
     number = Decimal(str(value)).quantize(Decimal("0.01"))
     whole, _, cents = f"{number:,}".partition(".")
     return f"{whole.replace(',', chr(0xA0))},{cents}"
+
+
+def _weight(value) -> str:
+    """Masse en kilogrammes : 3 940 ou 3 940,5 ; inconnue → case vide."""
+    if value in (None, ""):
+        return ""
+    number = Decimal(str(value))
+    whole, _, rest = f"{number:,f}".partition(".")
+    rest = rest.rstrip("0")
+    return whole.replace(",", "\u00a0") + (f",{rest}" if rest else "")
 
 
 def _code(code: str | None) -> str:
@@ -159,6 +170,17 @@ def data(case, revision, calc) -> dict:
             }
         )
 
+    # Colis et masse brute lus sur les titres de transport ; sur l'article seulement s'il est seul.
+    m = measures.transport_measures(revision)
+    total_packages = str(m["packages"]) if m["packages"] is not None else ""
+    gross = _weight(m["gross_weight_kg"])
+    if len(goods) == 1:
+        goods[0]["marks"] = f"{total_packages} {m['nature']}".strip() if total_packages else ""
+        goods[0]["gross"] = gross
+    for g in goods:
+        g.setdefault("marks", "")
+        g.setdefault("gross", "")
+
     origins = sorted({g["origin"] for g in goods if g["origin"]})
     freight = [(a.get("value") or {}).get("freight") for a in articles.values()]
     insurance = [(a.get("value") or {}).get("insurance") for a in articles.values()]
@@ -212,6 +234,9 @@ def data(case, revision, calc) -> dict:
         "currency": ", ".join(currencies),
         "invoice_total": _money(invoice_total),
         "articles": str(len(goods)),
+        "packages": total_packages,
+        "packages_nature": m["nature"] if total_packages else "",
+        "gross_weight": gross,
         "freight": added(freight) or (TEXT["included"].format(inc=incoterm) if incoterm in FREIGHT_IN_PRICE else ""),
         "insurance": added(insurance)
         or (TEXT["included"].format(inc=incoterm) if incoterm in INSURANCE_IN_PRICE else ""),
@@ -409,7 +434,8 @@ def build(ctx, annex=None) -> bytes:
 
     story.append(
         frame(
-            [[box("23", "Nombre total de colis"), box("24", "Nature des colis"), box("25", "Masse brute totale (kg)"),
+            [[box("23", "Nombre total de colis", d["packages"]), box("24", "Nature des colis", d["packages_nature"]),
+              box("25", "Masse brute totale (kg)", d["gross_weight"]),
               box("26", "Masse nette totale (kg)"), box("27", "Nombre d'articles", d["articles"])]],
             [34, 34, 38, 38, 36],
         )
@@ -453,13 +479,13 @@ def build(ctx, annex=None) -> bytes:
               "41 Quantité\n42 Unité", f"43 Valeur ({d['currency'] or '?'})\nen douane (FCFA)",
               "44 Régime"]  # fmt: skip
     rows = [
-        [g["no"], "", g["description"], g["code"], g["origin"], "", "",
+        [g["no"], g["marks"], g["description"], g["code"], g["origin"], g["gross"], "",
          f"{g['quantity']} {g['unit']}".strip(), _values(g), g["regime"]]
         for g in d["goods"]
     ]  # fmt: skip
     story.append(
         grid("34  Articles et marchandises", header, rows, [8, 18, 42, 21, 13, 13, 13, 15, 21, 16],
-             numeric=(7, 8), min_rows=3)
+             numeric=(5, 7, 8), min_rows=3)
     )  # fmt: skip
     story.append(Spacer(1, 1.8 * mm))
 

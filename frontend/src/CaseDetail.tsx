@@ -2670,7 +2670,8 @@ function ExportPage({ detail, act, go }: { detail: CaseDetail; act: Act; go: (ta
             <div><dt>{tr("calc.regime")}</dt><dd>{rev.regime || unknown(tr("case.toFill"))}</dd></div>
             <div><dt>{tr("field.currency")}</dt><dd>{currencies || unknown()}</dd></div>
             <div><dt>{tr("export.lineCount")}</dt><dd>{rev.goods_lines.length}</dd></div>
-            <div><dt>{tr("export.grossWeight")}</dt><dd>{unknown()}</dd></div>
+            <div><dt>{tr("export.grossWeight")}</dt><dd>{rev.measures?.gross_weight_kg ? `${fmtQty(rev.measures.gross_weight_kg)} kg` : unknown()}</dd></div>
+            <div><dt>{tr("export.packages")}</dt><dd>{rev.measures?.packages != null ? `${rev.measures.packages} ${rev.measures.nature}`.trim() : unknown()}</dd></div>
           </dl>
         </section>
       </div>
