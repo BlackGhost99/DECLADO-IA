@@ -232,13 +232,14 @@ def _with_cached_values(data: bytes, values: dict[str, str]) -> bytes:
     return out.getvalue()
 
 
-def packing_list_pdf(invoice="IIC-2026-7784", container="MSCU 771205-4", gross="3 940 kg") -> bytes:
+def packing_list_pdf(invoice="IIC-2026-7784", container="MSCU 771205-4", gross="3 940 kg", seal="ES449201") -> bytes:
     """Liste de colisage fictive : grille « libellé | valeur », n° de facture cité."""
     rows = [
         ("Packing List No.", "PL-FIC-2026-0091"),
         ("Date", "05/10/2026"),
         ("Commercial Invoice", invoice),
         ("Container No.", container),
+        ("Seal No.", seal),
         ("Total packages", "9 caisses bois"),
         ("Total gross weight", gross),
         ("Total net weight", "3 610 kg"),

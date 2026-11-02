@@ -153,7 +153,7 @@ def test_t59_auto_mode_asks_only_missing_fields_with_the_read_text(world, case, 
     [call] = configured["provider"].calls
     assert set(call["fields"]) == {"packages", "measurement", "freight_terms", "notify", "voyage",
                                    "place_of_delivery", "related_invoice", "container", "gross_weight",
-                                   "issue_date"}  # fmt: skip
+                                   "issue_date", "seal"}  # fmt: skip
     assert "transport_number" not in call["fields"]  # déjà lu : jamais redemandé
     assert call["piece"].startswith("titre de transport")
     assert isinstance(call["text"], str) and "%PDF" not in call["text"]  # le texte, jamais le fichier

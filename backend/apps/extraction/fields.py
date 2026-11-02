@@ -257,6 +257,8 @@ KNOWN_LABELS: dict[str, tuple[str, ...]] = {
     "port_of_discharge": ("port of discharge", "port de dechargement", "pod"),
     "place_of_delivery": ("place of delivery", "lieu de livraison"),
     "container": ("container", "container no", "container no.", "conteneur", "container number"),
+    "seal": ("seal", "seal no", "seal no.", "seal number", "seal nos", "scelle", "scellé", "n° scelle", "n° de scelle",
+             "plomb", "n° plomb"),
     "packages": ("packages", "no. of packages", "number of packages", "colis", "nombre de colis"),
     "gross_weight": ("gross weight", "poids brut", "gross weight (kg)"),
     "measurement": ("measurement", "volume", "cubage"),

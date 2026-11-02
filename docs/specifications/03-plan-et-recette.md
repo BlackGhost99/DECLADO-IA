@@ -205,6 +205,7 @@ Aucune fixture ne doit présenter un taux synthétique comme un taux gabonais r�
 | T98 | WF-06 | Archivage par un validateur (déclarant 403) : lecture seule, calcul figé conservé, pas de nouvelle révision ; autre société 404 |
 | T99 | WF-06 | Brouillon archivé avec motif obligatoire ; sortie des archives par l'administrateur seulement, avec motif, retour à l'état précédent |
 | T100 | TAX-04, EXP-01, EXP-02, WF-05 | Exports PDF et Excel : exonérations appliquées (référence, taxes avec taux du barème remplacé, lignes, justificatif) et dépôt déclaré (n°, date, « non vérifié ») |
+| T101 | CTL-08, LEC-10 | Conteneurs et scellés comparés entre titre de transport et liste de colisage, en avertissements : conteneur de la liste absent du titre (et inversement, un seul titre), chiffre de contrôle ISO 6346 ignoré ; scellé de la liste introuvable sur le titre et inversement ; valeurs identiques ou inconnues : aucun signalement |
 
 Tests T01, T11, T20–T29, T31–T35 bloquants avant mise en service du périmètre correspondant. Les autres tests P0 restent obligatoires ; les exigences P1 peuvent être reportées explicitement dans une livraison réduite.
 
