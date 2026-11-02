@@ -69,4 +69,9 @@ class Membership(TimestampedModel):
 
 
 # Profils et agences multi-métiers (importés pour la découverte Django).
-from .business_models import Agency, BusinessProfile, OrganizationBusinessProfile  # noqa: E402,F401
+from .business_models import (  # noqa: E402,F401
+    Agency,
+    BusinessProfile,
+    CustomsHabilitation,
+    OrganizationBusinessProfile,
+)

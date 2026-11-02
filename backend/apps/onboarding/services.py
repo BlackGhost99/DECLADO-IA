@@ -16,7 +16,12 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.audit.services import record_event
 from apps.core.exceptions import ApiError, RevisionConflict
-from apps.organizations.business_models import OPEN_PROFILES, Agency, OrganizationBusinessProfile
+from apps.organizations.business_models import (
+    OPEN_PROFILES,
+    Agency,
+    CustomsHabilitation,
+    OrganizationBusinessProfile,
+)
 from apps.organizations.models import Membership, Organization, Role
 from apps.organizations.services import _clean_roles
 
@@ -44,6 +49,16 @@ def _check_password(password: str, user: User | None = None) -> None:
 def _check_profile(profile: str) -> None:
     if profile not in OPEN_PROFILES:
         raise ApiError("PROFILE_NOT_OPEN", "Ce métier n'est pas encore ouvert.", 400, {"profile": profile})
+
+
+def _clean_secondary(primary: str, secondary) -> list[str]:
+    """Activités secondaires : métiers ouverts, sans doublon ni répétition du métier principal."""
+    cleaned = []
+    for profile in secondary or []:
+        _check_profile(profile)
+        if profile != primary and profile not in cleaned:
+            cleaned.append(profile)
+    return cleaned
 
 
 def _check_country(country_code: str) -> str:
@@ -163,8 +178,10 @@ def create_organization(
     max_users: int | None,
     admin_name: str,
     admin_email: str,
+    secondary_profiles: list[str] | None = None,
 ) -> tuple[Organization, Invitation, str]:
     _check_profile(primary_profile)
+    secondary = _clean_secondary(primary_profile, secondary_profiles)
     country = _check_country(country_code)
     if default_locale not in LOCALES:
         raise ApiError("UNKNOWN_LOCALE", "Langue inconnue.", 400)
@@ -173,13 +190,15 @@ def create_organization(
     organization = Organization.objects.create(
         name=name.strip(), country_code=country, default_locale=default_locale, max_users=max_users
     )
-    OrganizationBusinessProfile.objects.create(organization=organization, primary_profile=primary_profile)
+    OrganizationBusinessProfile.objects.create(
+        organization=organization, primary_profile=primary_profile, secondary_profiles=secondary
+    )
     record_event(
         organization=organization,
         actor=actor,
         event_type="organization.created",
         entity=organization,
-        current={"name": organization.name, "profile": primary_profile, "country": country},
+        current={"name": organization.name, "profile": primary_profile, "secondary": secondary, "country": country},
     )
     invitation, token = invite(
         organization=organization,
@@ -255,6 +274,118 @@ def update_organization_capacities(
         scope="platform",
     )
     return organization
+
+
+# ---------- Métiers et habilitations (console) ----------
+
+
+@transaction.atomic
+def update_business_profiles(
+    *, organization: Organization, actor: User, secondary_profiles: list[str], row_version: int, reason: str
+) -> Organization:
+    """MET-02 : l'exploitant ajoute ou retire des activités secondaires ; le métier principal reste."""
+    organization = Organization.objects.select_for_update().get(pk=organization.pk)
+    if organization.row_version != row_version:
+        raise RevisionConflict(row_version, organization.row_version)
+    profile, _ = OrganizationBusinessProfile.objects.get_or_create(organization=organization)
+    secondary = _clean_secondary(profile.primary_profile, secondary_profiles)
+    previous = list(profile.secondary_profiles)
+    if previous == secondary:
+        return organization
+    profile.secondary_profiles = secondary
+    profile.row_version += 1
+    profile.save(update_fields=["secondary_profiles", "row_version", "updated_at"])
+    organization.row_version += 1
+    organization.save(update_fields=["row_version", "updated_at"])
+    record_event(
+        organization=organization,
+        actor=actor,
+        event_type="organization.profiles_changed",
+        entity=organization,
+        previous={"secondary": previous},
+        current={"secondary": secondary, "reason": reason},
+        scope="platform",
+    )
+    return organization
+
+
+def _habilitation_data(h: CustomsHabilitation) -> dict:
+    return {
+        "kind": h.kind,
+        "country": h.country_code,
+        "reference": h.reference,
+        "valid_from": h.valid_from.isoformat() if h.valid_from else None,
+        "valid_until": h.valid_until.isoformat() if h.valid_until else None,
+        "status": h.status,
+    }
+
+
+@transaction.atomic
+def add_habilitation(
+    *, organization: Organization, actor: User, kind: str, country_code: str, reference: str,
+    valid_from=None, valid_until=None, note: str = "",
+) -> CustomsHabilitation:  # fmt: skip
+    """MET-03 : enregistrer une habilitation déclarée par la société ; elle n'ouvre rien avant vérification."""
+    if kind not in CustomsHabilitation.Kind.values:
+        raise ApiError("VALIDATION_ERROR", "Type d'habilitation inconnu.", 400, {"field": "kind"})
+    country = _check_country(country_code)
+    reference = " ".join((reference or "").split())[:120]
+    if not reference:
+        raise ApiError("VALIDATION_ERROR", "La référence de l'acte est obligatoire.", 400, {"field": "reference"})
+    if valid_from and valid_until and valid_until < valid_from:
+        raise ApiError("VALIDATION_ERROR", "La fin de validité précède le début.", 400, {"field": "valid_until"})
+    habilitation = CustomsHabilitation.objects.create(
+        organization=organization,
+        kind=kind,
+        country_code=country,
+        reference=reference,
+        valid_from=valid_from,
+        valid_until=valid_until,
+        note=(note or "").strip()[:500],
+        created_by=actor,
+    )
+    record_event(
+        organization=organization,
+        actor=actor,
+        event_type="habilitation.declared",
+        entity=habilitation,
+        current=_habilitation_data(habilitation),
+        scope="platform",
+    )
+    return habilitation
+
+
+@transaction.atomic
+def decide_habilitation(
+    *, habilitation: CustomsHabilitation, actor: User, verified: bool, row_version: int, reason: str
+) -> CustomsHabilitation:
+    """MET-03 : l'exploitant vérifie l'acte (pièce vue) ou retire l'habilitation ; un retrait est définitif."""
+    habilitation = CustomsHabilitation.objects.select_for_update().get(pk=habilitation.pk)
+    if habilitation.row_version != row_version:
+        raise RevisionConflict(row_version, habilitation.row_version)
+    if habilitation.status == CustomsHabilitation.Status.REVOKED:
+        raise ApiError("HABILITATION_REVOKED", "Cette habilitation a été retirée.", 409)
+    if verified and habilitation.status == CustomsHabilitation.Status.VERIFIED:
+        return habilitation
+    previous = _habilitation_data(habilitation)
+    if verified:
+        habilitation.status = CustomsHabilitation.Status.VERIFIED
+        habilitation.verified_by = actor
+        habilitation.verified_at = timezone.now()
+    else:
+        habilitation.status = CustomsHabilitation.Status.REVOKED
+    habilitation.row_version += 1
+    habilitation.save()
+    record_event(
+        organization=habilitation.organization,
+        actor=actor,
+        event_type="habilitation.verified" if verified else "habilitation.revoked",
+        entity=habilitation,
+        previous=previous,
+        current={**_habilitation_data(habilitation), "reason": reason},
+        scope="platform",
+    )
+    return habilitation
 
 
 # ---------- Invitations ----------

@@ -507,13 +507,18 @@ def create_export(*, org, actor, case_id, fmt: str) -> CaseExport:
     """Génère, conserve et journalise un export de la révision courante."""
     from apps.core.exceptions import ApiError
     from apps.documents.storage import get_storage
+    from apps.organizations.business_permissions import organization_capabilities, require_capability
 
     if fmt not in BUILDERS:
         raise ApiError("VALIDATION_ERROR", "Format d'export inconnu : pdf, xlsx ou dau.", 400)
+    # Le projet de déclaration n'est produit que pour une société habilitée (MET-04).
+    declaring = "declaration" in organization_capabilities(org)
+    if fmt == CaseExport.Format.DAU:
+        require_capability(org, "declaration")
     case = services.lock_case(org, case_id)
     revision = case.current_revision
     ctx = _context(case, revision, actor)
-    if fmt in (CaseExport.Format.PDF, CaseExport.Format.DAU):
+    if fmt in (CaseExport.Format.PDF, CaseExport.Format.DAU) and declaring:
         from . import dau
 
         ctx["dau"] = dau.data(case, revision, ctx["calc"])

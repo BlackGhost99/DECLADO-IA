@@ -15,6 +15,7 @@ from apps.accounts.mfa import rate_limit
 from apps.accounts.models import TotpDevice
 from apps.audit.services import record_event
 from apps.core.exceptions import ApiError
+from apps.organizations.business_permissions import organization_capabilities, organization_profiles
 from apps.organizations.context import (
     active_memberships,
     auto_select_single_organization,
@@ -53,10 +54,14 @@ def me_payload(request) -> dict:
                     "is_demo": m.organization.is_demo,
                     "timezone": m.organization.timezone,
                     "default_locale": m.organization.default_locale,
+                    "profiles": organization_profiles(m.organization),
+                    "capabilities": sorted(organization_capabilities(m.organization)),
                 },
                 "roles": m.roles,
             }
-            for m in active_memberships(user).order_by("organization__name")
+            for m in active_memberships(user)
+            .select_related("organization__business_profile")
+            .order_by("organization__name")
         ],
         "active_organization_id": str(active.organization_id) if active else None,
     }

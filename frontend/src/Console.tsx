@@ -11,7 +11,7 @@ import {
 import { PlatformAIPanel } from "./PlatformAI";
 import { Icon } from "./Icon";
 import { tr } from "./i18n";
-import { ActivationLink, issuedLink, type IssuedLink, CountrySelect, countryLabel, Field, LOCALES, ProfileChoice, profileLabel } from "./Onboarding";
+import { ActivationLink, issuedLink, type IssuedLink, CountrySelect, countryLabel, Field, LOCALES, ProfileChoice, profileLabel, SecondaryProfiles } from "./Onboarding";
 import { Chip, PageHeader, relativeTime } from "./ui";
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : tr("saveError"));
@@ -192,6 +192,7 @@ function CompanyStats({ items }: { items: PlatformOrganization[] }) {
 const EMPTY: NewOrganizationInput = {
   name: "",
   primary_profile: "transit",
+  secondary_profiles: [],
   country_code: "GA",
   default_locale: "fr",
   max_users: null,
@@ -233,7 +234,10 @@ function NewCompany({
       <Field label={tr("onb.companyName")} required>
         <input id="org-name" required value={form.name} onChange={set("name")} />
       </Field>
-      <ProfileChoice name="org-profile" value={form.primary_profile} onChange={(p) => setForm({ ...form, primary_profile: p })} />
+      <ProfileChoice name="org-profile" value={form.primary_profile}
+        onChange={(p) => setForm({ ...form, primary_profile: p, secondary_profiles: form.secondary_profiles.filter((x) => x !== p) })} />
+      <SecondaryProfiles primary={form.primary_profile} value={form.secondary_profiles}
+        onChange={(secondary_profiles) => setForm({ ...form, secondary_profiles })} />
       <div className="onb-row">
         <Field label={tr("onb.country")} required>
           <CountrySelect id="org-country" value={form.country_code} onChange={(c) => setForm({ ...form, country_code: c })} />

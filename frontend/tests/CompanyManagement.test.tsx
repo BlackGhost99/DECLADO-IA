@@ -8,6 +8,10 @@ const company: PlatformCompanyDetail = {
   id: "7a5c1bac-d710-4ba4-9106-8f8df4ee16e9",
   name: "Transit Test",
   primary_profile: "transit",
+  secondary_profiles: [],
+  capabilities: ["cases", "declaration", "documents", "tariff", "taxes"],
+  declaration_basis: "profile",
+  habilitations: [],
   country_code: "GA",
   default_locale: "fr",
   active: true,
@@ -75,5 +79,40 @@ describe("Console plateforme : gestion des sociétés", () => {
     expect(onState).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Confirmer" }));
     expect(onState).toHaveBeenCalledWith(company, "suspend");
+  });
+});
+
+describe("Console plateforme : métiers et habilitations (MET-02, MET-03)", () => {
+  it("n'ouvre pas la déclaration à un importateur et enregistre une habilitation à vérifier", async () => {
+    const importer: PlatformCompanyDetail = {
+      ...company, primary_profile: "importer", capabilities: ["cases", "documents", "estimates", "tariff", "taxes"],
+      declaration_basis: null,
+    };
+    const calls: { url: string; method?: string; body?: unknown }[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation((request, init) => {
+      const url = String(request);
+      calls.push({ url, method: init?.method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const json = (data: unknown, status = 200) =>
+        Promise.resolve(new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } }));
+      if (url.endsWith("/habilitations") && init?.method === "POST") {
+        return json({ ...importer, habilitations: [{ id: "h1", kind: "own_account", country_code: "GA", reference: "GA-FIC-1",
+          valid_from: null, valid_until: null, status: "declared", note: "", verified_at: null, row_version: 1,
+          created_at: new Date().toISOString() }] }, 201);
+      }
+      if (url.endsWith("/platform/organizations/" + company.id)) return json(importer);
+      if (url.includes("/auth/csrf")) return Promise.resolve(new Response(null, { status: 204 }));
+      return json([]);
+    });
+    render(<I18nProvider><CompanyManagement items={[importer]} onRefresh={() => undefined} onState={() => undefined} onRenew={() => undefined} /></I18nProvider>);
+    fireEvent.click(screen.getByRole("button", { name: /Gérer/ }));
+    expect(await screen.findByText("Pas de préparation de déclaration")).toBeTruthy();
+    fireEvent.change(screen.getByRole("combobox", { name: "Type d'habilitation" }), { target: { value: "own_account" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Référence de l'acte" }), { target: { value: "GA-FIC-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer l'habilitation" }));
+    expect(await screen.findByText("À vérifier")).toBeTruthy();
+    const posted = calls.find((c) => c.method === "POST" && c.url.endsWith("/habilitations"));
+    expect(posted?.body).toMatchObject({ kind: "own_account", country_code: "GA", reference: "GA-FIC-1" });
+    // Sans motif, l'exploitant ne peut pas marquer l'habilitation vérifiée.
+    expect((screen.getByRole("button", { name: "Vérifiée" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

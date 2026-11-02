@@ -302,19 +302,21 @@ def build(ctx, annex=None) -> bytes:
 
     import reportlab
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import PageBreak, Paragraph, Spacer, Table, TableStyle
 
     fonts = Path(reportlab.__file__).parent / "fonts"
     if "Vera" not in pdfmetrics.getRegisteredFontNames():
         pdfmetrics.registerFont(TTFont("Vera", str(fonts / "Vera.ttf")))
         pdfmetrics.registerFont(TTFont("Vera-Bold", str(fonts / "VeraBd.ttf")))
 
-    d = ctx["dau"]
+    d = ctx.get("dau")
+    if d is None:
+        # Société sans habilitation à déclarer (MET-04) : le récapitulatif seul, sans les cases du DAU.
+        return _render(ctx, list(annex or []), "Récapitulatif")
     ink = colors.HexColor("#1d2b24")
     band = colors.HexColor("#e3f1e7")
     line = colors.HexColor("#5d6b63")
@@ -521,6 +523,16 @@ def build(ctx, annex=None) -> bytes:
     if annex:
         story += [PageBreak(), *annex]
 
+    return _render(ctx, story, "Projet de déclaration")
+
+
+def _render(ctx, story, title: str) -> bytes:
+    """Mise en page commune : filigrane, mention brouillon, pied de page."""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate
+
     draft = ctx["marking"] == CaseExport.Marking.DRAFT
     reference = ctx["identification"][0][1]
 
@@ -558,7 +570,7 @@ def build(ctx, annex=None) -> bytes:
         rightMargin=15 * mm - 6,
         topMargin=10 * mm,
         bottomMargin=13 * mm,
-        title=f"Projet de déclaration {reference}",
+        title=f"{title} {reference}",
         author=ctx["identification"][2][1],
         invariant=1,
     )

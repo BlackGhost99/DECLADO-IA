@@ -41,13 +41,13 @@ export const LOCALES: [string, string][] = [
 
 const PROFILES: [BusinessProfile, IconName, MessageKey, MessageKey][] = [
   ["transit", "ship", "onb.profile.transit", "onb.profile.transitHint"],
-  ["importer", "box", "onb.profile.importer", "onb.later"],
-  ["logistics", "truck", "onb.profile.logistics", "onb.later"],
-  ["expert", "scale", "onb.profile.expert", "onb.later"],
+  ["importer", "box", "onb.profile.importer", "onb.profile.importerHint"],
+  ["logistics", "truck", "onb.profile.logistics", "onb.profile.logisticsHint"],
+  ["expert", "scale", "onb.profile.expert", "onb.profile.expertHint"],
 ];
 
-/** Seul le métier transitaire est ouvert en V1 ; les autres sont annoncés, jamais simulés. */
-export const OPEN_PROFILES: BusinessProfile[] = ["transit"];
+/** Les quatre familles sont ouvertes (MET-01) ; le droit de déclarer vient des habilitations, pas du métier. */
+export const OPEN_PROFILES: BusinessProfile[] = ["transit", "importer", "logistics", "expert"];
 
 export const profileLabel = (profile: BusinessProfile) =>
   tr(PROFILES.find(([p]) => p === profile)?.[2] ?? "onb.profile.transit");
@@ -86,6 +86,28 @@ export function ProfileChoice({ value, onChange, name }: { value: BusinessProfil
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/** MET-02 : activités exercées en plus du métier principal (un groupe peut être importateur et logisticien). */
+export function SecondaryProfiles({ primary, value, onChange }: {
+  primary: BusinessProfile; value: BusinessProfile[]; onChange: (p: BusinessProfile[]) => void;
+}) {
+  return (
+    <div className="nc-field">
+      <span className="nc-label">{tr("met.secondary")}</span>
+      <div className="onb-choices" role="group" aria-label={tr("met.secondary")}>
+        {PROFILES.filter(([p]) => p !== primary).map(([profile, icon, label]) => (
+          <label key={profile} className="onb-check">
+            <input type="checkbox" checked={value.includes(profile)}
+              onChange={(e) => onChange(e.target.checked ? [...value, profile] : value.filter((p) => p !== profile))} />
+            <Icon name={icon} size={18} />
+            <span><strong>{tr(label)}</strong></span>
+          </label>
+        ))}
+      </div>
+      <small className="muted small">{tr("met.secondaryHelp")}</small>
     </div>
   );
 }

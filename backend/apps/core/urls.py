@@ -48,6 +48,18 @@ urlpatterns = [
     path("platform/organizations", onboarding.PlatformOrganizationListView.as_view()),
     path("platform/organizations/<uuid:organization_id>", onboarding.PlatformOrganizationDetailView.as_view()),
     path(
+        "platform/organizations/<uuid:organization_id>/profiles",
+        onboarding.PlatformOrganizationProfilesView.as_view(),
+    ),
+    path(
+        "platform/organizations/<uuid:organization_id>/habilitations",
+        onboarding.PlatformHabilitationListView.as_view(),
+    ),
+    path(
+        "platform/organizations/<uuid:organization_id>/habilitations/<uuid:habilitation_id>/<str:action>",
+        onboarding.PlatformHabilitationDecisionView.as_view(),
+    ),
+    path(
         "platform/organizations/<uuid:organization_id>/<str:action>",
         onboarding.PlatformOrganizationStateView.as_view(),
     ),

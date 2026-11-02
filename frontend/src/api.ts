@@ -4,7 +4,13 @@
 export type Role = "declarant" | "validator" | "org_admin";
 
 export interface Membership {
-  organization: { id: string; name: string; is_demo: boolean; timezone: string; default_locale: "fr" | "en" | "es" | "ar" };
+  organization: {
+    id: string; name: string; is_demo: boolean; timezone: string; default_locale: "fr" | "en" | "es" | "ar";
+    /** Métier principal puis activités secondaires (MET-01, MET-02). */
+    profiles?: BusinessProfile[];
+    /** Capacités ouvertes par les métiers et les habilitations vérifiées (MET-04). */
+    capabilities?: string[];
+  };
   roles: Role[];
 }
 
@@ -106,9 +112,47 @@ export interface Agency {
   active: boolean;
 }
 
-export interface OrganizationOverview {
-  name: string;
+export type HabilitationKind = "customs_broker" | "temporary_authorization" | "own_account" | "customs_expert";
+
+/** Habilitation douanière enregistrée et vérifiée par l'exploitant (MET-03). */
+export interface Habilitation {
+  id: string;
+  kind: HabilitationKind;
+  country_code: string;
+  reference: string;
+  valid_from: string | null;
+  valid_until: string | null;
+  status: "declared" | "verified" | "revoked";
+  note: string;
+  verified_at: string | null;
+  row_version: number;
+  created_at: string;
+}
+
+export interface BusinessInfo {
   primary_profile: BusinessProfile;
+  secondary_profiles: BusinessProfile[];
+  capabilities: string[];
+  /** Fondement du droit de préparer une déclaration : le métier transitaire, une habilitation, ou rien. */
+  declaration_basis: "profile" | "habilitation" | null;
+}
+
+/** La société active peut-elle préparer une déclaration (projet DAU, dépôt SYDONIA) ? */
+export const canDeclare = (m: Membership | null | undefined) =>
+  !m?.organization?.capabilities || m.organization.capabilities.includes("declaration");
+
+export interface HabilitationInput {
+  kind: HabilitationKind;
+  country_code: string;
+  reference: string;
+  valid_from: string | null;
+  valid_until: string | null;
+  note: string;
+}
+
+export interface OrganizationOverview extends BusinessInfo {
+  name: string;
+  habilitations: Habilitation[];
   country_code: string;
   default_locale: string;
   max_users: number | null;
@@ -140,10 +184,9 @@ export interface AccessRequestInfo extends AccessRequestInput {
   organization: string | null;
 }
 
-export interface PlatformOrganization {
+export interface PlatformOrganization extends BusinessInfo {
   id: string;
   name: string;
-  primary_profile: BusinessProfile;
   country_code: string;
   default_locale: string;
   active: boolean;
@@ -159,6 +202,7 @@ export interface PlatformOrganization {
 }
 
 export interface PlatformCompanyDetail extends PlatformOrganization {
+  habilitations: Habilitation[];
   administrators: { full_name: string; email: string; active: boolean; mfa_enabled: boolean }[];
   history: { id: string; at: string; event_type: string; actor: string | null;
     previous: Record<string, unknown> | null; current: Record<string, unknown> | null }[];
@@ -167,6 +211,7 @@ export interface PlatformCompanyDetail extends PlatformOrganization {
 export interface NewOrganizationInput {
   name: string;
   primary_profile: BusinessProfile;
+  secondary_profiles: BusinessProfile[];
   country_code: string;
   default_locale: string;
   max_users: number | null;
@@ -1379,6 +1424,12 @@ export const api = {
   platformCompany: (id: string) => request<PlatformCompanyDetail>("GET", `/platform/organizations/${id}`),
   updateCompanyCapacities: (id: string, data: { max_users: number | null; max_agencies: number | null; row_version: number; reason: string }) =>
     request<PlatformCompanyDetail>("PATCH", `/platform/organizations/${id}`, data),
+  updateCompanyProfiles: (id: string, data: { secondary_profiles: BusinessProfile[]; row_version: number; reason: string }) =>
+    request<PlatformCompanyDetail>("PUT", `/platform/organizations/${id}/profiles`, data),
+  addHabilitation: (id: string, data: HabilitationInput) =>
+    request<PlatformCompanyDetail>("POST", `/platform/organizations/${id}/habilitations`, data),
+  decideHabilitation: (id: string, habilitationId: string, action: "verify" | "revoke", data: { row_version: number; reason: string }) =>
+    request<PlatformCompanyDetail>("POST", `/platform/organizations/${id}/habilitations/${habilitationId}/${action}`, data),
   createOrganization: (data: NewOrganizationInput) =>
     request<{ organization_id: string; invitation: Invitation }>("POST", "/platform/organizations", data),
   setOrganizationState: (id: string, action: "suspend" | "reactivate") =>
