@@ -30,3 +30,13 @@
 ## Prochaine étape
 
 - Lire aussi la liste de colisage et le certificat d'origine pour les rattacher par n° de facture.
+
+
+## Suite : liste de colisage et certificat d'origine (T87, 2026-11-02)
+
+- Deux lectures ajoutées (`apps/extraction/readers.py`) : `packing` (n° de pièce, date, facture citée, conteneur, colis, masse brute, masse nette) et `origin` (n° de certificat, date, facture citée, exportateur, destinataire, pays d'origine). Elles enregistrent des observations sourcées, jamais une facture ni une ligne.
+- Dépôt groupé : ces pièces rejoignent leur envoi par le n° de facture qu'elles citent (et le conteneur pour la liste de colisage) ; sans référence lue, elles restent « À classer ».
+- Dans un dossier, une pièce de ces types (détectée, confirmée ou déposée avec cet usage) est lue automatiquement ; un type confirmé sans lecture (bon de livraison, licence…) reste conservé tel quel.
+- DAU : masse nette totale (case 26) = somme des listes de colisage lues, seulement si chacune l'imprime ; case 40 pour un article seul.
+- Pièces fictives générées par `synthetic.packing_list_pdf()` et `synthetic.origin_certificate_pdf()` (envoi BatiPro).
+- Limites : le pays d'origine lu n'alimente pas encore l'origine des marchandises (à confirmer par l'agent, prochaine étape) ; les lignes détaillées d'une liste de colisage ne sont pas lues.

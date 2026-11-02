@@ -35,12 +35,13 @@ def test_t85_bl_measures_fill_the_dau_and_the_export_screen(world, session):
     call_command("seed_document_types")
     case = make_case(session, make_edition())
     before = case["s"].get(f"/api/v1/cases/{case['id']}").json()["revision"]["measures"]
-    assert before == {"packages": None, "nature": "", "gross_weight_kg": None, "sources": []}
+    assert before == {"net_weight_kg": None, "packages": None, "nature": "", "gross_weight_kg": None, "sources": []}
     links = {name: upload(case, name, usage="auto") for name in (INVOICE, BL)}
     for link in links.values():
         read_piece(case, link)
     measures = case["s"].get(f"/api/v1/cases/{case['id']}").json()["revision"]["measures"]
     assert measures == {
+        "net_weight_kg": None,
         "packages": 9,
         "nature": "caisses bois",
         "gross_weight_kg": "3940",

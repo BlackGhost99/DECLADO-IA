@@ -230,3 +230,40 @@ def _with_cached_values(data: bytes, values: dict[str, str]) -> bytes:
                 body = text.encode()
             dst.writestr(info, body)
     return out.getvalue()
+
+
+def packing_list_pdf(invoice="IIC-2026-7784", container="MSCU 771205-4") -> bytes:
+    """Liste de colisage fictive : grille « libellé | valeur », n° de facture cité."""
+    rows = [
+        ("Packing List No.", "PL-FIC-2026-0091"),
+        ("Date", "05/10/2026"),
+        ("Commercial Invoice", invoice),
+        ("Container No.", container),
+        ("Total packages", "9 caisses bois"),
+        ("Total gross weight", "3 940 kg"),
+        ("Total net weight", "3 610 kg"),
+    ]
+    items = [(30, 40, "Iberica Industrial Components S.L."), (380, 40, "PACKING LIST")]
+    items += [
+        (x, 90 + 16 * n, text) for n, (label, value) in enumerate(rows) for x, text in ((30, label), (200, value))
+    ]
+    items.append((30, 800, "Document fictif généré pour les essais."))
+    return pdf_from_pages([items])
+
+
+def origin_certificate_pdf(invoice="IIC-2026-7784") -> bytes:
+    """Certificat d'origine fictif : n° de facture cité, pays d'origine imprimé."""
+    rows = [
+        ("Certificate No.", "CO-FIC-2026-0009"),
+        ("Date", "06/10/2026"),
+        ("Exporter", "Iberica Industrial Components S.L."),
+        ("Consignee", "BatiPro Gabon SARL"),
+        ("Commercial Invoice", invoice),
+        ("Country of origin", "Spain"),
+    ]
+    items = [(30, 40, "Camara de Comercio (fictif)"), (360, 40, "CERTIFICATE OF ORIGIN")]
+    items += [
+        (x, 90 + 16 * n, text) for n, (label, value) in enumerate(rows) for x, text in ((30, label), (200, value))
+    ]
+    items.append((30, 800, "Document fictif généré pour les essais."))
+    return pdf_from_pages([items])
