@@ -40,3 +40,15 @@ cd frontend && npm run typecheck && npm test && npm run build
 ## Prochaine étape
 
 Alerte visible dans la console quand ClamAV ne répond pas ou qu'un essai échoue ; durée de conservation du journal.
+
+## Suite : OCR installé par le script Windows (2 novembre 2026)
+
+La supervision montrait « OCR indisponible : Tesseract absent de ce serveur » : le script de démarrage n'installait pas Tesseract. Il le fait maintenant, dans l'étape « Lecture des scans (OCR Tesseract) » :
+
+- un Tesseract déjà présent sur le PC (Program Files, profil utilisateur, PATH) est réutilisé ;
+- sinon, l'installateur officiel UB Mannheim 5.5.0.20241111 est téléchargé, **analysé par ClamAV (clamscan) avant d'être ouvert**, puis installé sans question dans `outils\tesseract` (Windows peut demander une autorisation) ;
+- les modèles de langue `eng`, `fra`, `spa`, `ara` et `osd` (tessdata_fast 4.1.0) sont téléchargés dans `outils\tessdata` et vérifiés par empreinte SHA-256 ;
+- `TESSDATA_PREFIX` et le `PATH` du processus pointent vers eux : l'API lancée par le script les hérite ;
+- en cas d'échec, l'application démarre quand même et l'avertissement l'indique.
+
+Limite : l'installateur UB Mannheim n'est pas vérifié par une empreinte figée (impossible à relever depuis l'environnement de développement) ; il est analysé par ClamAV et son empreinte est affichée. Le script n'est pas mis à jour par `-MettreAJour` : il faut retélécharger `scripts/windows/demarrer-clairtransit.ps1`.
