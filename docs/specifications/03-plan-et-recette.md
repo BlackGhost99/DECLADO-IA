@@ -207,6 +207,10 @@ Aucune fixture ne doit présenter un taux synthétique comme un taux gabonais r�
 | T100 | TAX-04, EXP-01, EXP-02, WF-05 | Exports PDF et Excel : exonérations appliquées (référence, taxes avec taux du barème remplacé, lignes, justificatif) et dépôt déclaré (n°, date, « non vérifié ») |
 | T101 | CTL-08, LEC-10 | Conteneurs et scellés comparés entre titre de transport et liste de colisage, en avertissements : conteneur de la liste absent du titre (et inversement, un seul titre), chiffre de contrôle ISO 6346 ignoré ; scellé de la liste introuvable sur le titre et inversement ; valeurs identiques ou inconnues : aucun signalement |
 | T102 | CTL-08, LEC-10 | Chiffre de contrôle ISO 6346 d'un n° de conteneur imprimé recalculé : faux → pièce signalée avec le chiffre attendu ; masse brute et nombre de colis d'un titre de transport unique comparés à la somme de ses listes de colisage, seulement quand toutes les listes déposées sont lues ; avertissements, jamais bloquants |
+| T103 | MET-01, MET-02, MET-06 | Console : société « conseil » sans déclaration ; société importateur avec activité secondaire (doublons retirés) ; ajout de l'activité transitaire avec motif → déclaration ouverte ; version périmée refusée ; changement journalisé |
+| T104 | MET-03, MET-04 | Habilitation déclarée : rien d'ouvert ; vérifiée dans un autre pays : rien ; vérifiée dans le pays de la société : déclaration ouverte ; expirée : fermée ; retirée : fermée et non revérifiable ; accès croisé (admin d'une autre société, autre société) refusé |
+| T105 | MET-05 | La session expose, pour chaque société de l'utilisateur, ses métiers et ses capacités |
+| T106 | MET-04 | Société importateur sans habilitation : dépôt en douane et export DAU refusés (403), PDF = récapitulatif sans projet de déclaration |
 
 Tests T01, T11, T20–T29, T31–T35 bloquants avant mise en service du périmètre correspondant. Les autres tests P0 restent obligatoires ; les exigences P1 peuvent être reportées explicitement dans une livraison réduite.
 

@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, type Invitation, type PlatformCompanyDetail, type PlatformOrganization } from "./api";
 import { Icon } from "./Icon";
-import { tr } from "./i18n";
+import { tr, type MessageKey } from "./i18n";
+import { BusinessPanel } from "./BusinessPanel";
 import { countryLabel, profileLabel } from "./Onboarding";
 import { Chip } from "./ui";
 
@@ -193,13 +194,12 @@ function CompanyDetail({ detail, onUpdated, onClose }: {
         <p className="muted small">{tr("con.privacyBoundary")}</p>
       </section>
     </div>
+    <BusinessPanel detail={detail} onUpdated={onUpdated} />
     <section className="console-panel console-history">
       <h4>{tr("con.platformHistory")}</h4>
       {detail.history.length === 0 ? <p className="muted small">{tr("con.noHistory")}</p> :
         <ul>{detail.history.map((e) => <li key={e.id}>
-          <strong>{tr(e.event_type === "organization.capacities_changed" ? "con.capacitiesChanged" :
-            e.event_type === "organization.created" ? "con.companyCreated" :
-            e.event_type === "organization.suspended" ? "con.companySuspended" : "con.companyReactivated")}</strong>
+          <strong>{tr(HISTORY_LABELS[e.event_type] ?? "con.companyReactivated")}</strong>
           <span className="muted small">{new Date(e.at).toLocaleString()} · {e.actor || "—"}</span>
           {e.event_type === "organization.capacities_changed" &&
             <span className="small">{tr("con.users")}: {limit(asLimit(e.previous?.max_users))} → {limit(asLimit(e.current?.max_users))} · {tr("adm.agencies")}: {limit(asLimit(e.previous?.max_agencies))} → {limit(asLimit(e.current?.max_agencies))}</span>}
@@ -208,5 +208,15 @@ function CompanyDetail({ detail, onUpdated, onClose }: {
     </section>
   </div>;
 }
+const HISTORY_LABELS: Record<string, MessageKey> = {
+  "organization.capacities_changed": "con.capacitiesChanged",
+  "organization.created": "con.companyCreated",
+  "organization.suspended": "con.companySuspended",
+  "organization.reactivated": "con.companyReactivated",
+  "organization.profiles_changed": "con.profilesChanged",
+  "habilitation.declared": "con.habilitationDeclared",
+  "habilitation.verified": "con.habilitationVerified",
+  "habilitation.revoked": "con.habilitationRevoked",
+};
 const limitInput = (value: number | null) => value === null ? "" : String(value);
 const asLimit = (value: unknown): number | null => typeof value === "number" ? value : null;

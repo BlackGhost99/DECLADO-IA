@@ -19,7 +19,8 @@ from apps.accounts.mfa import rate_limit
 from apps.accounts.models import TotpDevice
 from apps.audit.models import AuditEvent
 from apps.core.exceptions import ApiError
-from apps.organizations.business_models import Agency, BusinessProfile
+from apps.organizations.business_models import Agency, BusinessProfile, CustomsHabilitation
+from apps.organizations.business_permissions import declaration_basis, organization_capabilities
 from apps.organizations.context import set_active_organization
 from apps.organizations.models import Membership, Organization, Role
 from apps.organizations.permissions import require_roles
@@ -93,6 +94,9 @@ class AcceptInput(TokenInput):
 class OrganizationInput(serializers.Serializer):
     name = serializers.CharField(max_length=200)
     primary_profile = serializers.ChoiceField(choices=BusinessProfile.choices)
+    secondary_profiles = serializers.ListField(
+        child=serializers.ChoiceField(choices=BusinessProfile.choices), required=False, default=list, max_length=3
+    )
     country_code = serializers.CharField(max_length=2)
     default_locale = serializers.CharField(max_length=2, default="fr")
     max_users = serializers.IntegerField(required=False, allow_null=True, default=None)
@@ -105,6 +109,55 @@ class PlatformCapacitiesInput(serializers.Serializer):
     max_agencies = serializers.IntegerField(min_value=1, required=True, allow_null=True)
     row_version = serializers.IntegerField(min_value=1)
     reason = serializers.CharField(min_length=8, max_length=500, trim_whitespace=True)
+
+
+class ProfilesInput(serializers.Serializer):
+    secondary_profiles = serializers.ListField(
+        child=serializers.ChoiceField(choices=BusinessProfile.choices), allow_empty=True, max_length=3
+    )
+    row_version = serializers.IntegerField(min_value=1)
+    reason = serializers.CharField(min_length=8, max_length=500, trim_whitespace=True)
+
+
+class HabilitationInput(serializers.Serializer):
+    kind = serializers.ChoiceField(choices=CustomsHabilitation.Kind.choices)
+    country_code = serializers.CharField(max_length=2)
+    reference = serializers.CharField(max_length=120)
+    valid_from = serializers.DateField(required=False, allow_null=True, default=None)
+    valid_until = serializers.DateField(required=False, allow_null=True, default=None)
+    note = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
+
+
+class HabilitationDecisionInput(serializers.Serializer):
+    row_version = serializers.IntegerField(min_value=1)
+    reason = serializers.CharField(min_length=8, max_length=500, trim_whitespace=True)
+
+
+def habilitation_payload(h: CustomsHabilitation) -> dict:
+    return {
+        "id": str(h.pk),
+        "kind": h.kind,
+        "country_code": h.country_code,
+        "reference": h.reference,
+        "valid_from": h.valid_from,
+        "valid_until": h.valid_until,
+        "status": h.status,
+        "note": h.note,
+        "verified_at": h.verified_at,
+        "row_version": h.row_version,
+        "created_at": h.created_at,
+    }
+
+
+def business_payload(org: Organization) -> dict:
+    """Métiers, capacités et fondement du droit de préparer une déclaration (MET-01 à MET-05)."""
+    profile = getattr(org, "business_profile", None)
+    return {
+        "primary_profile": profile.primary_profile if profile else BusinessProfile.TRANSIT,
+        "secondary_profiles": list(profile.secondary_profiles) if profile else [],
+        "capabilities": sorted(organization_capabilities(org)),
+        "declaration_basis": declaration_basis(org),
+    }
 
 
 class RefuseInput(serializers.Serializer):
@@ -299,12 +352,11 @@ def _organization_rows(organization_id=None):
             .order_by("-created_at")
             .first()
         )
-        profile = getattr(org, "business_profile", None)
         rows.append(
             {
                 "id": str(org.pk),
                 "name": org.name,
-                "primary_profile": profile.primary_profile if profile else BusinessProfile.TRANSIT,
+                **business_payload(org),
                 "country_code": org.country_code,
                 "default_locale": org.default_locale,
                 "active": org.active,
@@ -327,6 +379,10 @@ _PLATFORM_AUDIT_EVENTS = (
     "organization.suspended",
     "organization.reactivated",
     "organization.capacities_changed",
+    "organization.profiles_changed",
+    "habilitation.declared",
+    "habilitation.verified",
+    "habilitation.revoked",
 )
 
 
@@ -356,6 +412,9 @@ def _organization_detail(organization: Organization):
         .select_related("actor")
         .order_by("-at")[:30]
     )
+    result["habilitations"] = [
+        habilitation_payload(h) for h in CustomsHabilitation.objects.for_organization(organization)
+    ]
     result["history"] = [
         {
             "id": str(event.pk),
@@ -405,6 +464,55 @@ class PlatformOrganizationDetailView(APIView):
             organization=_organization(organization_id), actor=request.user, **data.validated_data
         )
         return Response(_organization_detail(updated))
+
+
+class PlatformOrganizationProfilesView(APIView):
+    """MET-02 : activités secondaires d'une société, avec motif journalisé."""
+
+    permission_classes = [IsPlatformOperator]
+
+    def put(self, request, organization_id):
+        data = ProfilesInput(data=request.data)
+        data.is_valid(raise_exception=True)
+        updated = services.update_business_profiles(
+            organization=_organization(organization_id), actor=request.user, **data.validated_data
+        )
+        return Response(_organization_detail(updated))
+
+
+class PlatformHabilitationListView(APIView):
+    """MET-03 : habilitations douanières d'une société (l'exploitant les enregistre et les vérifie)."""
+
+    permission_classes = [IsPlatformOperator]
+
+    def get(self, request, organization_id):
+        org = _organization(organization_id)
+        return Response([habilitation_payload(h) for h in CustomsHabilitation.objects.for_organization(org)])
+
+    def post(self, request, organization_id):
+        data = HabilitationInput(data=request.data)
+        data.is_valid(raise_exception=True)
+        org = _organization(organization_id)
+        services.add_habilitation(organization=org, actor=request.user, **data.validated_data)
+        return Response(_organization_detail(org), status=201)
+
+
+class PlatformHabilitationDecisionView(APIView):
+    permission_classes = [IsPlatformOperator]
+
+    def post(self, request, organization_id, habilitation_id, action):
+        if action not in ("verify", "revoke"):
+            raise ApiError("NOT_FOUND", "Élément introuvable.", 404)
+        org = _organization(organization_id)
+        habilitation = CustomsHabilitation.objects.for_organization(org).filter(pk=habilitation_id).first()
+        if habilitation is None:
+            raise ApiError("NOT_FOUND", "Élément introuvable.", 404)
+        data = HabilitationDecisionInput(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.decide_habilitation(
+            habilitation=habilitation, actor=request.user, verified=action == "verify", **data.validated_data
+        )
+        return Response(_organization_detail(org))
 
 
 class PlatformOrganizationStateView(APIView):
@@ -547,11 +655,12 @@ class OrganizationOverviewView(APIView):
 
     def get(self, request):
         org = request.organization
-        profile = getattr(org, "business_profile", None)
         return Response(
             {
                 "name": org.name,
-                "primary_profile": profile.primary_profile if profile else BusinessProfile.TRANSIT,
+                **business_payload(org),
+                # Lecture seule pour la société : seul l'exploitant enregistre et vérifie (MET-03).
+                "habilitations": [habilitation_payload(h) for h in CustomsHabilitation.objects.for_organization(org)],
                 "country_code": org.country_code,
                 "default_locale": org.default_locale,
                 "max_users": org.max_users,

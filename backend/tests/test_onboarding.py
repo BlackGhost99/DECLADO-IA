@@ -163,10 +163,10 @@ def test_access_request_waits_for_operator_then_contact_becomes_admin(db, operat
     assert Session().post("/api/v1/auth/invitations/lookup", {"token": token}).status_code == 404
 
 
-def test_access_request_rejects_closed_profiles_and_non_cemac_countries(db):
+def test_access_request_rejects_unknown_profiles_and_non_cemac_countries(db):
     s = Session()
-    importer = s.post("/api/v1/auth/access-requests", {**REQUEST, "primary_profile": "importer"})
-    assert importer.status_code == 400 and importer.json()["code"] == "PROFILE_NOT_OPEN"
+    unknown = s.post("/api/v1/auth/access-requests", {**REQUEST, "primary_profile": "douane"})
+    assert unknown.status_code == 400
     abroad = s.post("/api/v1/auth/access-requests", {**REQUEST, "country_code": "FR"})
     assert abroad.status_code == 400 and abroad.json()["code"] == "COUNTRY_NOT_CEMAC"
     assert not AccessRequest.objects.exists()

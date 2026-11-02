@@ -168,6 +168,10 @@ def lodge(*, org, actor, case_id, expected, number: str, lodged_on, reason: str 
     """Après validation interne : l'agent indique le n° et la date de dépôt dans SYDONIA."""
     from datetime import date
 
+    from apps.organizations.business_permissions import require_capability
+
+    # Seule une société habilitée à déclarer enregistre un dépôt en douane (MET-04).
+    require_capability(org, "declaration")
     case, revision = _lock(org, case_id)
     check_version(revision, expected)
     if revision.state != State.VALIDATED:

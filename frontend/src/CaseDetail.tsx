@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   api,
+  canDeclare,
   ApiError,
   type AuditEntry,
   type CaseCalculation,
@@ -316,7 +317,7 @@ export function CaseDetailView({
         {tab === "controles" && <Controls detail={detail} go={go} />}
         {tab === "calculs" && <Calculation detail={detail} membership={membership} act={act} go={go} />}
         {tab === "validation" && <ValidationPage detail={detail} membership={membership} act={act} go={go} />}
-        {tab === "export" && <ExportPage detail={detail} act={act} go={go} />}
+        {tab === "export" && <ExportPage detail={detail} declaring={canDeclare(membership)} act={act} go={go} />}
         {tab === "historique" && <History caseId={detail.id} version={tick} />}
       </div>
     </div>
@@ -2525,7 +2526,7 @@ function saveFile(name: string, content: string | Blob, type: string) {
   URL.revokeObjectURL(url);
 }
 
-function ExportPage({ detail, act, go }: { detail: CaseDetail; act: Act; go: (tab: string) => void }) {
+function ExportPage({ detail, declaring, act, go }: { detail: CaseDetail; declaring: boolean; act: Act; go: (tab: string) => void }) {
   const rev = detail.revision;
   const docs = rev.documents.filter((d) => !d.replaced_by_id);
   const currencies = [...new Set(rev.invoices.map((i) => i.currency).filter(Boolean))].join(", ");
@@ -2567,25 +2568,32 @@ function ExportPage({ detail, act, go }: { detail: CaseDetail; act: Act; go: (ta
     <div className="grid-2-1">
       <div>
         <Prerequisites detail={detail} kind="export" go={go} />
-        <section className="card" aria-labelledby="file-title">
-          <div className="card-head">
-            <h2 id="file-title" className="card-title">{tr("export.dau")}</h2>
-            <Chip tone={lastDau ? "green" : "gray"} icon={lastDau ? "checkCircle" : "clock"}>{lastDau ? tr("export.dauDone") : tr("export.dauToDo")}</Chip>
-          </div>
-          <div className="export-file">
-            <span className="export-icon"><Icon name="fileSheet" size={34} /></span>
-            <dl className="recap">
-              <div><dt>{tr("export.fileName")}</dt><dd>{lastDau?.filename ?? `${stem}.pdf`}</dd></div>
-              <div><dt>{tr("export.format")}</dt><dd>{tr("export.dauFormat")}</dd></div>
-              <div><dt>{tr("export.generatedOn")}</dt><dd>{lastDau ? fmtDateTime(lastDau.created_at) : "—"}</dd></div>
-              <div><dt>{tr("export.generatedBy")}</dt><dd>{lastDau?.created_by ?? "—"}</dd></div>
-            </dl>
-          </div>
-          <button type="button" className="btn-primary btn-block" onClick={() => generate(["pdf"])}>
-            <Icon name="download" size={16} /> {tr("export.dauGenerate")}
-          </button>
-          <p className="muted small">{tr("export.dauNote")}</p>
-        </section>
+        {declaring ? (
+          <section className="card" aria-labelledby="file-title">
+            <div className="card-head">
+              <h2 id="file-title" className="card-title">{tr("export.dau")}</h2>
+              <Chip tone={lastDau ? "green" : "gray"} icon={lastDau ? "checkCircle" : "clock"}>{lastDau ? tr("export.dauDone") : tr("export.dauToDo")}</Chip>
+            </div>
+            <div className="export-file">
+              <span className="export-icon"><Icon name="fileSheet" size={34} /></span>
+              <dl className="recap">
+                <div><dt>{tr("export.fileName")}</dt><dd>{lastDau?.filename ?? `${stem}.pdf`}</dd></div>
+                <div><dt>{tr("export.format")}</dt><dd>{tr("export.dauFormat")}</dd></div>
+                <div><dt>{tr("export.generatedOn")}</dt><dd>{lastDau ? fmtDateTime(lastDau.created_at) : "—"}</dd></div>
+                <div><dt>{tr("export.generatedBy")}</dt><dd>{lastDau?.created_by ?? "—"}</dd></div>
+              </dl>
+            </div>
+            <button type="button" className="btn-primary btn-block" onClick={() => generate(["pdf"])}>
+              <Icon name="download" size={16} /> {tr("export.dauGenerate")}
+            </button>
+            <p className="muted small">{tr("export.dauNote")}</p>
+          </section>
+        ) : (
+          <section className="card" aria-labelledby="file-title">
+            <h2 id="file-title" className="card-title">{tr("export.summary")}</h2>
+            <p className="muted small">{tr("met.noDeclaration")}</p>
+          </section>
+        )}
         <section className="card" aria-labelledby="final-docs">
           <h2 id="final-docs" className="card-title">{tr("export.finalDocs")}</h2>
           <p className="muted small">{tr("export.finalDocsHelp")}</p>

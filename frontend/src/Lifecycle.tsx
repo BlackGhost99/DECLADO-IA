@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, type CaseDetail, type Membership } from "./api";
+import { api, canDeclare, type CaseDetail, type Membership } from "./api";
 import { Icon } from "./Icon";
 import { tr } from "./i18n";
 import { fmtDate } from "./ui";
@@ -15,7 +15,9 @@ export function CaseLifecycle({ detail, membership, act }: { detail: CaseDetail;
   const [open, setOpen] = useState<"lodge" | "archive" | "restore" | null>(null);
   const has = (...roles: string[]) => membership.roles.some((r) => roles.includes(r));
   const validated = rev.state === "validated";
-  const canLodge = validated && !rev.customs_declaration_number && has("declarant", "validator", "org_admin");
+  // Dépôt en douane : réservé à une société habilitée à déclarer (MET-04).
+  const canLodge = validated && !rev.customs_declaration_number && canDeclare(membership) &&
+    has("declarant", "validator", "org_admin");
   const canArchive = (validated || rev.is_editable) && has("validator", "org_admin");
   const canRestore = rev.state === "archived" && has("org_admin");
   const reasonNeeded = open === "restore" || (open === "archive" && !validated);
