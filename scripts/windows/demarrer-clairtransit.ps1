@@ -10,6 +10,11 @@
 #   - base PostgreSQL portable sur un port libre (55432 ou suivant), Python et Node portables ;
 #   - antivirus ClamAV portable (signature Talos vérifiée par empreinte), écoute locale seulement :
 #     sans lui, l'application refuse tout dépôt de fichier ;
+#   - lecture des scans et photos (OCR Tesseract, langues FR, EN, ES, AR) : l'installateur officiel
+#     UB Mannheim est d'abord analysé par ClamAV, puis installé sans question dans le dossier
+#     ClairTransit (Windows peut demander une autorisation ; il s'ajoute alors à la liste des
+#     programmes). Un Tesseract déjà présent sur le PC est réutilisé. Sans OCR, l'application
+#     fonctionne : seuls les scans restent à saisir à la main ;
 #   - installation neuve : aucune société ni aucun compte. Au premier lancement, l'écran
 #     « Mise en service » crée le compte de l'exploitant ClairTransit (double authentification) ;
 #     les sociétés sont ensuite créées depuis sa console, ou après sa validation d'une demande ;
@@ -54,6 +59,17 @@ $VersionClamav = "1.5.4"
 $UrlClamav = "https://github.com/Cisco-Talos/clamav/releases/download/clamav-$VersionClamav/clamav-$VersionClamav.win.x64.zip"
 # Empreinte de l'archive officielle, contrôlée avec la signature GPG Talos (clé 707F0DB480836771).
 $Sha256Clamav = "0d9e0228b2674137ea1a2853566c98a0278ad52ab2582c3d6dbd75373848c395"
+$VersionTesseract = "5.5.0.20241111"
+$UrlTesseract = "https://github.com/UB-Mannheim/tesseract/releases/download/v$VersionTesseract/tesseract-ocr-w64-setup-$VersionTesseract.exe"
+# Modèles de langue « fast » officiels, version 4.1.0 figée et vérifiée par empreinte.
+$UrlLangues = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/4.1.0"
+$LanguesOcr = [ordered]@{
+    eng = "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+    fra = "ced037562e8c80c13122dece28dd477d399af80911a28791a66a63ac1e3445ca"
+    spa = "6f2e04d02774a18f01bed44b1111f2cd7f3ba7ac9dc4373cd3f898a40ea6b464"
+    ara = "e3206d3dc87fd50c24a0fb9f01838615911d25168f4e64415244b67d2bb3e729"
+    osd = "9cf5d576fcc47564f11265841e5ca839001e7e6f38ff7f7aacf46d15a96b00ff"
+}
 $UrlPostgres = "https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-windows-amd64/16.9.0/embedded-postgres-binaries-windows-amd64-16.9.0.jar"
 $MotDePasseDemo = "demo-ClairTransit-2026"
 
@@ -164,7 +180,8 @@ try {
     Info "Dossier d'installation : $Dossier"
     if (-not (Etape-Faite "accord")) {
         Info "Le premier lancement télécharge environ 120 Mo (Python, Node, PostgreSQL, code),"
-        Info "environ 330 Mo pour l'antivirus ClamAV et ses signatures, puis environ 300 Mo de bibliothèques."
+        Info "environ 330 Mo pour l'antivirus ClamAV et ses signatures, environ 70 Mo pour la lecture des scans (OCR),"
+        Info "puis environ 300 Mo de bibliothèques."
         Info "Il faut prévoir 2,5 Go d'espace disque."
         Info "Rien n'est installé dans Windows ; tout reste dans le dossier ci-dessus."
         $reponse = Read-Host "   Continuer ? (O/N)"
@@ -283,6 +300,70 @@ DatabaseMirror database.clamav.net
     }
     if ($miseAJour -ne 0) { Info "Mise à jour des signatures impossible (hors ligne ?) : les signatures déjà présentes sont utilisées." }
     Info "ClamAV $VersionClamav : prêt"
+
+    # OCR : lit le texte des pièces scannées ou photographiées (sans couche texte).
+    # Facultatif : en cas d'échec, l'application démarre et les scans restent à saisir à la main.
+    Titre "Lecture des scans (OCR Tesseract)"
+    $ocrPret = $false
+    try {
+        $tessDossier = Join-Path $Outils "tesseract"
+        $tessExe = Join-Path $tessDossier "tesseract.exe"
+        if (-not (Test-Path $tessExe)) {
+            $existant = @(
+                (Get-Command tesseract.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source),
+                (Join-Path $env:ProgramFiles "Tesseract-OCR\tesseract.exe"),
+                (Join-Path $env:LOCALAPPDATA "Programs\Tesseract-OCR\tesseract.exe")
+            ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+            if ($existant) {
+                $tessExe = $existant
+                $tessDossier = Split-Path $existant
+                Info "Tesseract déjà présent sur le PC : $tessDossier"
+            } else {
+                $setup = Join-Path $Telechargements "tesseract-$VersionTesseract.exe"
+                if (-not (Test-Path $setup)) { Telecharger $UrlTesseract $setup }
+                Info "Analyse de l'installateur par ClamAV avant de l'ouvrir..."
+                $ErrorActionPreference = "Continue"
+                & (Join-Path $clamDossier "clamscan.exe") "--database=$clamBase" "--no-summary" "--infected" $setup | Out-Host
+                $verdict = $LASTEXITCODE
+                $ErrorActionPreference = "Stop"
+                if ($verdict -ne 0) {
+                    Remove-Item -Force $setup
+                    throw "installateur refusé par ClamAV (code $verdict) : il a été supprimé, rien n'est installé."
+                }
+                Info "Installateur sain (SHA-256 $((Get-FileHash -Algorithm SHA256 $setup).Hash.ToLower()))."
+                Info "Installation de Tesseract $VersionTesseract (Windows peut demander une autorisation)..."
+                # NSIS : /D= doit être le dernier argument, sans guillemets.
+                $installation = Start-Process -FilePath $setup -ArgumentList "/S /D=$tessDossier" -Wait -PassThru
+                if (-not (Test-Path $tessExe)) {
+                    throw "installation non aboutie (code $($installation.ExitCode)). Autorisation refusée ?"
+                }
+            }
+        }
+        # Langues : FR, EN, ES, AR et la détection d'orientation (osd), dans le dossier ClairTransit.
+        $tessdata = Join-Path $Outils "tessdata"
+        New-Item -ItemType Directory -Force $tessdata | Out-Null
+        foreach ($langue in $LanguesOcr.Keys) {
+            $modele = Join-Path $tessdata "$langue.traineddata"
+            if ((Test-Path $modele) -and ((Get-FileHash -Algorithm SHA256 $modele).Hash.ToLower() -eq $LanguesOcr[$langue])) { continue }
+            Telecharger "$UrlLangues/$langue.traineddata" $modele
+            if ((Get-FileHash -Algorithm SHA256 $modele).Hash.ToLower() -ne $LanguesOcr[$langue]) {
+                Remove-Item -Force $modele
+                throw "modèle de langue $langue inattendu : supprimé."
+            }
+        }
+        $env:TESSDATA_PREFIX = $tessdata
+        $env:Path = $tessDossier + ";" + $env:Path
+        $ErrorActionPreference = "Continue"
+        $version = (& $tessExe --version 2>&1 | Select-Object -First 1)
+        $langues = @(& $tessExe --list-langs 2>&1 | Select-Object -Skip 1) -join ", "
+        $ErrorActionPreference = "Stop"
+        Info "$version : prêt (langues : $langues)"
+        $ocrPret = $true
+    } catch {
+        $ErrorActionPreference = "Stop"
+        Write-Host "   OCR non installé : $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "   L'application fonctionne ; les pièces scannées resteront à saisir à la main." -ForegroundColor Yellow
+    }
 
     Titre "Code de l'application"
     $marqueCode = Join-Path $Code "backend\manage.py"
@@ -575,7 +656,11 @@ for edition in TariffEdition.objects.filter(label="Jeu F (CSV fictif)", publicat
     Info "L'antivirus ClamAV tourne sans fenêtre, sur 127.0.0.1:$portClamav ; tout fichier déposé passe par lui."
     Info "Pour revérifier l'antivirus à tout moment : relancer ce script (contrôle EICAR ci-dessus)."
     Info "Pour tout arrêter : powershell -ExecutionPolicy Bypass -File .\arreter-clairtransit.ps1"
-    Info "La lecture des scans (OCR) n'est pas installée ici : les PDF à texte fonctionnent, les scans seront signalés."
+    if ($ocrPret) {
+        Info "Lecture des scans (OCR) : active, en français, anglais, espagnol et arabe."
+    } else {
+        Info "Lecture des scans (OCR) non installée : les PDF à texte fonctionnent, les scans seront signalés."
+    }
 } catch {
     Write-Host ""
     Write-Host "ERREUR : $($_.Exception.Message)" -ForegroundColor Red
