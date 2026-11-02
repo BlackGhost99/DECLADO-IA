@@ -482,6 +482,92 @@ export interface AIState {
   proposals: (AIProposal & { field: string; label: string })[];
 }
 
+/** Console > Supervision : fonctionnement de la plateforme, sans contenu de pièce ni nom de fichier. */
+export interface SupervisionEvent {
+  id: string;
+  at: string;
+  category: "antivirus" | "document" | "request" | "server";
+  level: "info" | "warning" | "error";
+  code: string;
+  message: string;
+  organization: string | null;
+  actor: string | null;
+  request_id: string;
+  details: Record<string, unknown>;
+}
+export interface AntivirusProbe {
+  state: "ok" | "unavailable";
+  engine?: string;
+  signatures?: string;
+  signatures_date?: string;
+  response_ms?: number;
+  message?: string;
+  checked_at: string;
+}
+export interface AntivirusSelfTest {
+  ok: boolean;
+  at: string;
+  steps: { step: "eicar" | "clean" | "connect"; ok: boolean; message: string }[];
+}
+export interface Supervision {
+  period_days: number;
+  generated_at: string;
+  antivirus: {
+    probe: AntivirusProbe;
+    mode: "fail_closed";
+    counts: { clean: number; malware: number; unavailable: number };
+    last_clean_at: string | null;
+    last_test: SupervisionEvent | null;
+    events: SupervisionEvent[];
+  };
+  reading: {
+    engines: {
+      pdf_text: boolean;
+      xlsx: boolean;
+      ocr: { available: boolean; version: string; languages: string[] };
+      ai: AISettings["provider"];
+    };
+    counts: { total: number; succeeded: number; failed: number; running: number; average_seconds: number | null };
+    by_reader: { reader: string; label: string; count: number; failed: number }[];
+    by_parser: { parser: string; label: string; count: number }[];
+    failures: {
+      id: string; at: string; organization: string | null; case_reference: string; reader: string; parser: string;
+      attempt: number; error_code: string; error_message: string;
+    }[];
+  };
+  ai: {
+    provider: AISettings["provider"];
+    organizations_enabled: number;
+    counts: Record<string, number>;
+    status_labels: Record<string, string>;
+    totals: {
+      input_tokens: number | null; output_tokens: number | null; cost_estimate: string | null;
+      average_latency_ms: number | null; sent_chars: number | null;
+    };
+    fields: { field: string; requested: number; found: number; rejected: number }[];
+    recent: {
+      id: string; at: string; organization: string | null; status: string; status_label: string; trigger: string;
+      provider: string; model: string; free_tier: boolean; requested: string[]; found: string[];
+      rejected: { field: string; reason: string }[]; sent_chars: number; latency_ms: number | null;
+      error_code: string; error_message: string;
+    }[];
+  };
+  rejections: SupervisionEvent[];
+  incidents: {
+    server_errors: number;
+    refused_actions: number;
+    events: SupervisionEvent[];
+    failed_jobs: {
+      id: string; at: string; organization: string | null; kind: string; phase: string; attempts: number;
+      error_code: string; error_message: string;
+    }[];
+  };
+  organizations: {
+    id: string; name: string; is_demo: boolean; cases: number; documents: number; readings: number;
+    reading_failures: number; rejected_documents: number; errors: number; ai_sent: number; last_activity: string | null;
+  }[];
+}
+
 export interface PlatformAIOrganization {
   id: string;
   name: string;
@@ -1160,6 +1246,8 @@ export const api = {
   setImporterAIRefusal: (id: string, refused: boolean) =>
     request<Importer>("PUT", `/importers/${id}/ai-refusal`, { refused }),
   platformAISettings: () => request<PlatformAISettings>("GET", "/platform/ai-settings"),
+  supervision: (days: 1 | 7 | 30) => request<Supervision>("GET", `/platform/supervision?days=${days}`),
+  antivirusSelfTest: () => request<AntivirusSelfTest>("POST", "/platform/supervision/antivirus-test"),
   savePlatformAIQuota: (id: string, data: { monthly_cap: number; row_version: number }) =>
     request<PlatformAIOrganization>("PUT", `/platform/organizations/${id}/ai-quota`, data),
   aiSettings: () => request<AISettings>("GET", "/organization/ai-settings"),

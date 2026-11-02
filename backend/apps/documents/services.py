@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from apps.audit.services import record_event
 from apps.core.exceptions import ApiError
+from apps.supervision import recorder
 
 from . import antivirus, quarantine
 from .models import Document
@@ -39,6 +40,25 @@ def find_duplicates(organization, sha256: str, *, exclude_id=None):
     return list(qs.order_by("created_at")[:10])
 
 
+def _refused(organization, actor, upload, declared_mime, code, message, *, staged=None, antivirus_event=False):
+    """Note une pièce refusée pour la console : type, taille, empreinte tronquée ; jamais le nom."""
+    name = upload.name or ""
+    recorder.note(
+        category="antivirus" if antivirus_event else "document",
+        level="error" if antivirus_event else "warning",
+        code=code,
+        message=message,
+        organization=organization,
+        actor=actor,
+        details={
+            "extension": name.rsplit(".", 1)[-1].lower()[:10] if "." in name else "",
+            "declared_mime": (declared_mime or "")[:120],
+            "bytes": getattr(staged, "size", None) or upload.size,
+            "sha256_prefix": (getattr(staged, "sha256", None) or "")[:12],
+        },
+    )
+
+
 def store_upload(
     *,
     organization,
@@ -50,6 +70,7 @@ def store_upload(
 ) -> Document:
     """Stage -> ClamAV -> inspect -> promote; external bytes never bypass the scanner."""
     if upload.size is not None and upload.size > max_bytes():
+        _refused(organization, actor, upload, declared_mime, "FILE_TOO_LARGE", "Fichier trop volumineux.")
         raise ApiError(
             "FILE_TOO_LARGE",
             f"Fichier trop volumineux ({upload.size} octets, limite {max_bytes()}).",
@@ -71,6 +92,9 @@ def store_upload(
                 organization.id,
                 getattr(staged, "sha256", None),
             )
+            _refused(organization, actor, upload, declared_mime, "MALWARE_DETECTED",
+                     "Signature malveillante détectée par ClamAV : fichier refusé.", staged=staged,
+                     antivirus_event=True)  # fmt: skip
             raise ApiError("MALWARE_DETECTED", "Fichier refusé par l'analyse antivirus.", 422) from None
         except antivirus.ScanUnavailable:
             logger.error(
@@ -78,6 +102,9 @@ def store_upload(
                 organization.id,
                 getattr(staged, "sha256", None),
             )
+            _refused(organization, actor, upload, declared_mime, "MALWARE_SCAN_UNAVAILABLE",
+                     "ClamAV n'a pas répondu : fichier refusé par prudence.", staged=staged,
+                     antivirus_event=True)  # fmt: skip
             raise ApiError(
                 "MALWARE_SCAN_UNAVAILABLE", "Contrôle antivirus indisponible. Réessayer plus tard.", 503
             ) from None
@@ -85,6 +112,7 @@ def store_upload(
         try:
             result = sniff(staged.path, name=upload.name, declared_mime=declared_mime, allow_tiff=allow_tiff)
         except Rejected as exc:
+            _refused(organization, actor, upload, declared_mime, exc.code, exc.message, staged=staged)
             status = 413 if exc.code == "FILE_TOO_LARGE" else 422
             raise ApiError(exc.code, exc.message, status, exc.details) from None
 

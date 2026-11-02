@@ -141,3 +141,47 @@ def test_document_catalog_is_precise_and_legally_non_authoritative(workspace):
     assert {"commercial_invoice", "freight_invoice", "insurance_certificate", "bill_of_lading", "air_waybill"} <= codes
     assert result.json()["version"] == "1.0"
     assert result.json()["families"]["insurance"] == "Assurance"
+
+
+def test_verifier_antivirus_proves_real_detection(capsys):
+    """Commande lancée au démarrage sur le PC : vrai clamd, EICAR reconstitué en mémoire."""
+    from apps.documents.management.commands.verifier_antivirus import eicar
+
+    assert eicar() == EICAR
+    call_command("verifier_antivirus")
+    out = capsys.readouterr().out
+    assert "ClamAV" in out
+    assert "détecté et refusé" in out
+    assert "ClamAV analyse bien les fichiers." in out
+
+
+def test_verifier_antivirus_fails_when_scanner_absent(settings):
+    from django.core.management.base import CommandError
+
+    settings.CLAMAV_PORT = 1
+    with pytest.raises(CommandError, match="ClamAV indisponible"):
+        call_command("verifier_antivirus")
+
+
+def test_verifier_antivirus_fails_when_eicar_not_detected(monkeypatch):
+    from django.core.management.base import CommandError
+
+    monkeypatch.setattr(antivirus, "version", lambda: "ClamAV fictif")
+    monkeypatch.setattr(antivirus.Stream, "verdict", lambda _stream: None)
+    with pytest.raises(CommandError, match="PAS détecté"):
+        call_command("verifier_antivirus")
+
+
+def test_verifier_antivirus_scans_local_files(tmp_path, capsys):
+    """Le tarif passé à -ImporterTarif est analysé avant son import."""
+    from django.core.management.base import CommandError
+
+    sain = tmp_path / "tarif.csv"
+    sain.write_bytes(b"code;libelle\n01012100;Chevaux fictifs\n")
+    call_command("verifier_antivirus", "--seulement-fichiers", "--fichier", str(sain))
+    assert "Fichier sain" in capsys.readouterr().out
+
+    infecte = tmp_path / "tarif-infecte.csv"
+    infecte.write_bytes(EICAR)
+    with pytest.raises(CommandError, match="refusé par l'antivirus"):
+        call_command("verifier_antivirus", "--seulement-fichiers", "--fichier", str(infecte))

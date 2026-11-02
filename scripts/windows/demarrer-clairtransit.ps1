@@ -468,6 +468,9 @@ with open(sys.argv[1], "x", encoding="ascii") as fichier:
         if ($ImporterTarif) {
             Titre "Import du tarif"
             $fichierTarif = $ImporterTarif
+            # Le tarif passe par ClamAV avant toute lecture, comme un fichier déposé dans l'application.
+            Attendre-Port $portClamav 180 "L'antivirus ClamAV"
+            Executer $python @("manage.py", "verifier_antivirus", "--seulement-fichiers", "--fichier", $fichierTarif) "Tarif refusé par l'antivirus ou antivirus indisponible : rien n'est importé"
             $extension = [IO.Path]::GetExtension($fichierTarif).ToLowerInvariant()
             $commande = switch ($extension) {
                 ".xlsx" { "import_tariff_xlsx" }
@@ -539,6 +542,21 @@ for edition in TariffEdition.objects.filter(label="Jeu F (CSV fictif)", publicat
     Attendre-Port $portInterface 60 "L'interface"
     Attendre-Port $portClamav 180 "L'antivirus ClamAV"
 
+    # Preuve à chaque démarrage : ClamAV doit détecter le fichier d'essai EICAR (reconstitué en mémoire,
+    # jamais écrit sur le disque) et accepter un contenu sain. Le port ouvert ne suffit pas.
+    Titre "Contrôle de l'antivirus"
+    Push-Location $backend
+    try {
+        $ErrorActionPreference = "Continue"
+        & $python manage.py verifier_antivirus | Out-Host
+        $antivirusOk = ($LASTEXITCODE -eq 0)
+        $ErrorActionPreference = "Stop"
+    } finally { Pop-Location }
+    if (-not $antivirusOk) {
+        Write-Host "   ATTENTION : l'antivirus ne répond pas correctement. Tout dépôt de fichier sera refusé" -ForegroundColor Red
+        Write-Host "   tant qu'il n'est pas réparé (voir $Journaux\clamd.txt)." -ForegroundColor Red
+    }
+
     $adresse = "http://127.0.0.1:$portInterface"
     Start-Process $adresse
     Titre "C'est prêt"
@@ -555,6 +573,7 @@ for edition in TariffEdition.objects.filter(label="Jeu F (CSV fictif)", publicat
     }
     Info "Deux fenêtres restent ouvertes (API et interface) : ne pas les fermer pendant l'utilisation."
     Info "L'antivirus ClamAV tourne sans fenêtre, sur 127.0.0.1:$portClamav ; tout fichier déposé passe par lui."
+    Info "Pour revérifier l'antivirus à tout moment : relancer ce script (contrôle EICAR ci-dessus)."
     Info "Pour tout arrêter : powershell -ExecutionPolicy Bypass -File .\arreter-clairtransit.ps1"
     Info "La lecture des scans (OCR) n'est pas installée ici : les PDF à texte fonctionnent, les scans seront signalés."
 } catch {

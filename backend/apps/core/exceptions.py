@@ -49,6 +49,7 @@ def api_exception_handler(exc, context):
 
     response = exception_handler(exc, context)
     if response is None:
+        _note_failure(context, "SERVER_ERROR", 500, type(exc).__name__)
         return None
 
     # La session DRF renvoie 403 pour un utilisateur anonyme ; on expose 401.
@@ -65,8 +66,41 @@ def api_exception_handler(exc, context):
         message = str(getattr(exc, "detail", default_message)) or default_message
         details = {}
 
+    _note_failure(context, code, response.status_code, message)
     return Response(
         {"code": code, "message": message, "details": details, "request_id": get_request_id()},
         status=response.status_code,
         headers={k: v for k, v in response.items()},
+    )
+
+
+# Refus vus par l'utilisateur, notés pour la console de l'exploitant (supervision). Les lectures
+# refusées (GET) et les accès non autorisés ne sont pas notés : ce ne sont pas des incidents.
+_NOT_NOTED = {401, 403, 404, 405, 429}
+
+
+def _note_failure(context, code: str, status_code: int, message: str) -> None:
+    from apps.supervision import recorder
+
+    request = context.get("request")
+    if request is None or recorder.noted(code):
+        return
+    if status_code < 500 and (request.method in ("GET", "HEAD", "OPTIONS") or status_code in _NOT_NOTED):
+        return
+    match = getattr(request, "resolver_match", None)
+    view = context.get("view")
+    recorder.note(
+        category="server" if status_code >= 500 else "request",
+        level="error" if status_code >= 500 else "warning",
+        code=code,
+        # Une exception imprévue ne montre que sa classe : son texte peut contenir des données.
+        message=message if status_code < 500 or code != "SERVER_ERROR" else f"Exception {message}",
+        organization=getattr(request, "organization", None),
+        actor=getattr(request, "user", None),
+        details={
+            "method": request.method,
+            "route": getattr(match, "route", "") or "",
+            "view": type(view).__name__ if view is not None else "",
+            "http_status": status_code,
+        },
     )

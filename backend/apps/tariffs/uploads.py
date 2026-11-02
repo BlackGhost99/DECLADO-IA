@@ -12,6 +12,7 @@ from pathlib import Path
 
 from apps.core.exceptions import ApiError
 from apps.documents import antivirus, quarantine
+from apps.supervision import recorder
 
 from . import services
 from .models import PublicationState
@@ -27,9 +28,15 @@ def _stage(upload):
             staged = quarantine.stage(upload, MAX_BYTES, on_chunk=scanner.feed)
             scanner.verdict()
     except antivirus.MalwareDetected:
+        recorder.note(category="antivirus", level="error", code="MALWARE_DETECTED",
+                      message="Signature malveillante détectée par ClamAV dans un tarif importé.",
+                      details={"bytes": upload.size, "context": "tariff_import"})  # fmt: skip
         raise ApiError("MALWARE_DETECTED", "Fichier refusé par l'analyse antivirus.", 422) from None
     except antivirus.ScanUnavailable:
         logger.error("Scanner ClamAV indisponible pendant un import de tarif")
+        recorder.note(category="antivirus", level="error", code="SCAN_UNAVAILABLE",
+                      message="ClamAV n'a pas répondu pendant un import de tarif.",
+                      details={"bytes": upload.size, "context": "tariff_import"})  # fmt: skip
         raise ApiError(
             "SCAN_UNAVAILABLE", "Analyse antivirus indisponible : réessayez quand ClamAV est démarré.", 503
         ) from None
