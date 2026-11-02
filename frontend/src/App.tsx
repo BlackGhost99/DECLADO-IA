@@ -6,9 +6,10 @@ import { CasePicker, Cases } from "./Cases";
 import { Console } from "./Console";
 import { Supervision } from "./Supervision";
 import { NewCasePage } from "./NewCase";
+import logoMiniUrl from "./assets/logo-clairtransit-mini.png";
 import { IntakePage } from "./Intake";
 import { Dashboard } from "./Dashboard";
-import { Icon, Logo, type IconName } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 import cemacMap from "./assets/cemac-map.png";
 import { LoginForm } from "./LoginForm";
 import { MFAEnrollment } from "./MFAEnrollment";
@@ -338,10 +339,10 @@ function Layout({
     <div className="app">
       <aside className="sidebar">
         <a href="#/" className="brand">
-          <Logo />
+          <span className="brand-logo"><img src={logoMiniUrl} alt="" /></span>
           <span>
             <strong>ClairTransit</strong>
-            <small>Customs AI</small>
+            <small>DECLADO IA</small>
           </span>
         </a>
         <nav aria-label={tr("nav.main")}>
