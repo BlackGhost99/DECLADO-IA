@@ -12,6 +12,7 @@ import {
 import { Icon } from "./Icon";
 import { tr, type MessageKey } from "./i18n";
 import { CodeTaxes, TaxesPanel } from "./Taxes";
+import { ExemptionsPanel } from "./Exemptions";
 import { Chip, fmtDate, PageHeader, StatCard, type Tone } from "./ui";
 
 const QUALITY: Record<string, MessageKey> = { known: "originRead", unknown: "unknownBlank", unparseable: "notNumeric" };
@@ -367,7 +368,7 @@ function NodePanel({ detail, onOpen }: { detail: NodeDetail; onOpen: (id: string
 export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
   const [editions, setEditions] = useState<Edition[] | null>(null);
   const [runs, setRuns] = useState<ImportRunInfo[] | null>(null);
-  const [tab, setTab] = useState<"tarif" | "taxes" | "versions" | "import">("tarif");
+  const [tab, setTab] = useState<"tarif" | "taxes" | "exemptions" | "versions" | "import">("tarif");
   const [file, setFile] = useState<File | null>(null);
   const [label, setLabel] = useState("");
   const [importing, setImporting] = useState(false);
@@ -422,6 +423,7 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
           [
             ["tarif", "ref.tariff", "file"],
             ["taxes", "ref.taxesRules", "layers"],
+            ["exemptions", "exo.tab", "shield"],
             ["versions", "ref.versions", "history"],
             ["import", "ref.importExcel", "upload"],
           ] as const
@@ -431,7 +433,7 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
           </button>
         ))}
       </div>
-      {tab !== "taxes" && (
+      {tab !== "taxes" && tab !== "exemptions" && (
       <div className="stats stats-3">
         <StatCard
           icon="file"
@@ -469,6 +471,7 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
       )}
 
       {tab === "taxes" && <TaxesPanel />}
+      {tab === "exemptions" && <ExemptionsPanel />}
 
       {tab === "versions" && (
       <section className="card" aria-labelledby="editions-title">

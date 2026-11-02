@@ -27,6 +27,7 @@ import { Divergences, ExtractionControls, Flags, LineEditor, OriginBadge, Totals
 import { Icon, type IconName } from "./Icon";
 import { PdfViewer, type Highlight } from "./PdfViewer";
 import { CalcLinesTable, CalcTaxesTable, useCaseCalculation, xaf } from "./Taxes";
+import { CaseExemptions } from "./Exemptions";
 import { DocumentChecklist } from "./DocumentChecklist";
 import { DocumentIntelligencePanel } from "./DocumentIntelligencePanel";
 import { ProposalsPanel } from "./Proposals";
@@ -2294,6 +2295,7 @@ function Calculation({ detail, membership, act, go }: { detail: CaseDetail; memb
       <div className="section-side">
         <SideAlerts detail={detail} go={go} />
         <ValidationActions detail={detail} membership={membership} act={act} go={go} />
+        <CaseExemptions detail={detail} membership={membership} onChanged={() => void act(() => Promise.resolve())} />
       </div>
     </div>
   );

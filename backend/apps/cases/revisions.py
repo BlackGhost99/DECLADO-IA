@@ -88,8 +88,10 @@ def create_revision(*, org, actor, case_id, reason: str) -> CaseRevision:
         ).id
 
     carried = 0
+    goods_map = {}
     for goods in old.goods_lines.all():
         copy = _clone(goods, revision_id=new.id)
+        goods_map[goods.id] = copy.id
         for src in GoodsLineSource.objects.filter(goods_line=goods):
             _clone(src, goods_line_id=copy.id, invoice_line_id=lines[src.invoice_line_id])
         decision = services.current_decision(goods)
@@ -113,6 +115,11 @@ def create_revision(*, org, actor, case_id, reason: str) -> CaseRevision:
         )
         carried += 1
 
+    # Les exonérations demandées suivent, avec leur décision (TAX-04).
+    from apps.fiscal.exemptions import copy_claims
+
+    exemptions = copy_claims(old_revision=old, new_revision=new, documents=links, goods=goods_map)
+
     case.current_revision = new
     case.save(update_fields=["current_revision"])
     services._event(
@@ -122,6 +129,12 @@ def create_revision(*, org, actor, case_id, reason: str) -> CaseRevision:
         new,
         case,
         {"revision_no": old.revision_no, "state": old.state},
-        {"revision_no": new.revision_no, "reason": new.reason, "documents": len(links), "codes_carried": carried},
+        {
+            "revision_no": new.revision_no,
+            "reason": new.reason,
+            "documents": len(links),
+            "codes_carried": carried,
+            "exemptions": exemptions,
+        },
     )
     return new

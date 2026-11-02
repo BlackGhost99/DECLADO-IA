@@ -219,3 +219,108 @@ class CaseCalculationView(APIView):
         if decision is not None:
             return Response({**decision.snapshot["calculation"], "frozen": True, "frozen_at": decision.created_at})
         return Response(calculation.case_calculation(case))
+
+
+# --- Exonérations (TAX-04) --------------------------------------------------------------------
+
+from apps.cases.api import CanDecide  # noqa: E402
+
+from . import exemptions  # noqa: E402
+from .models import ExemptionClaim, ExemptionRegime  # noqa: E402
+
+
+class ExemptionRegimeListView(APIView):
+    """Exonérations déclarées : lecture pour tous ; déclaration par l'admin ClairTransit seulement."""
+
+    def get(self, request):
+        qs = ExemptionRegime.objects.filter(territory="GA").select_related("created_by")
+        if request.query_params.get("active") == "1":
+            qs = qs.filter(is_active=True)
+        return Response(
+            {
+                "results": [exemptions.regime_json(r) for r in qs.order_by("-is_active", "code", "-created_at")[:500]],
+                "taxes": list(exemptions.EXEMPTABLE),
+                "can_edit": bool(getattr(request.user, "is_reference_manager", False)),
+            }
+        )
+
+    def post(self, request):
+        regime = exemptions.create_regime(actor=request.user, data=request.data)
+        return Response(exemptions.regime_json(regime), status=201)
+
+
+class ExemptionRegimeDeactivateView(APIView):
+    def post(self, request, regime_id):
+        regime = exemptions.deactivate_regime(
+            actor=request.user, regime_id=regime_id, reason=str(request.data.get("reason", ""))[:2000]
+        )
+        return Response(exemptions.regime_json(regime))
+
+
+def _claims(case):
+    return (
+        ExemptionClaim.objects.filter(revision=case.current_revision)
+        .select_related("regime__created_by", "requested_by", "decided_by")
+        .prefetch_related("goods_lines", "proofs")
+    )
+
+
+class CaseExemptionsView(APIView):
+    """Demandes d'exonération du dossier (révision courante)."""
+
+    permission_classes = [CanEdit]
+
+    def get(self, request, case_id):
+        case = get_case(request, case_id)
+        return Response({"results": [exemptions.claim_json(c) for c in _claims(case)]})
+
+    def post(self, request, case_id):
+        get_case(request, case_id)
+        claim = exemptions.request_claim(
+            org=request.organization, actor=request.user, case_id=case_id, data=request.data
+        )
+        return Response(exemptions.claim_json(_claims(get_case(request, case_id)).get(pk=claim.pk)), status=201)
+
+
+class CaseExemptionView(APIView):
+    """Modifier une demande en attente (pièces, articles, n° d'attestation)."""
+
+    permission_classes = [CanEdit]
+
+    def patch(self, request, case_id, claim_id):
+        from apps.core.concurrency import expected_version
+
+        get_case(request, case_id)
+        exemptions.update_claim(
+            org=request.organization,
+            actor=request.user,
+            case_id=case_id,
+            claim_id=claim_id,
+            expected=expected_version(request),
+            data=request.data,
+        )
+        return Response(exemptions.claim_json(_claims(get_case(request, case_id)).get(pk=claim_id)))
+
+
+class CaseExemptionDecisionView(APIView):
+    """Valider le justificatif, refuser (motif) ou retirer une demande."""
+
+    permission_classes = [CanDecide]
+
+    def post(self, request, case_id, claim_id, decision):
+        from apps.core.concurrency import expected_version
+
+        get_case(request, case_id)
+        if decision not in {"validate", "reject", "withdraw"}:
+            raise ApiError(*exemptions.NOT_FOUND)
+        exemptions.decide_claim(
+            org=request.organization,
+            actor=request.user,
+            membership=request.membership,
+            case_id=case_id,
+            claim_id=claim_id,
+            expected=expected_version(request),
+            decision=decision,
+            reason=str(request.data.get("reason", "")),
+        )
+        return Response(exemptions.claim_json(_claims(get_case(request, case_id)).get(pk=claim_id)))
