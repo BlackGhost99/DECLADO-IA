@@ -20,6 +20,7 @@ from apps.regulations.api import (
     OrganizationDocumentPolicyView,
 )
 from apps.scans import api as scans
+from apps.sharing import api as sharing
 from apps.supervision import api as supervision
 from apps.tariffs import api as tariffs
 
@@ -27,6 +28,13 @@ from .api import HealthView
 
 urlpatterns = [
     path("health", HealthView.as_view()),
+    path("organization/partner-code", sharing.PartnerCodeView.as_view()),
+    path("cases/<uuid:case_id>/shares", sharing.CaseSharesView.as_view()),
+    path("shares/incoming", sharing.IncomingSharesView.as_view()),
+    path("shares/<uuid:share_id>", sharing.ShareDetailView.as_view()),
+    path("shares/<uuid:share_id>/revoke", sharing.ShareRevokeView.as_view()),
+    path("shares/<uuid:share_id>/notes", sharing.ShareNotesView.as_view()),
+    path("shares/<uuid:share_id>/<str:action>", sharing.ShareDecisionView.as_view()),
     path("auth/csrf", accounts.CsrfView.as_view()),
     path("auth/login", accounts.LoginView.as_view()),
     path("auth/logout", accounts.LogoutView.as_view()),

@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.onboarding",
     "apps.fiscal",
     "apps.supervision",
+    "apps.sharing",
 ]
 
 MIDDLEWARE = [
