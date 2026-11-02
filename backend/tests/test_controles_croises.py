@@ -23,6 +23,12 @@ def cross(case):
     return [w for w in rev["completeness"]["warnings"] if w["scope"] == "case_document"], rev
 
 
+def gaps(case):
+    """Écarts entre pièces, hors chiffre de contrôle : le B/L BatiPro fictif imprime « MSCU 771205-4 »,
+    dont le chiffre de contrôle ISO 6346 serait 0 (vérifié par T102)."""
+    return [w for w in cross(case)[0] if "ISO 6346" not in w["message"]]
+
+
 def generated(case, name, content):
     file = SimpleUploadedFile(name, content, content_type="application/pdf")
     resp = case["s"].upload(f"/api/v1/cases/{case['id']}/documents", {"file": file, "usage": "auto"})
@@ -40,15 +46,15 @@ def batipro(world, session):
 
 
 def test_t88_consistent_pieces_raise_nothing(batipro):
-    warnings, rev = cross(batipro)
-    assert warnings == []
+    assert gaps(batipro) == []
     generated(batipro, "colisage.pdf", synthetic.packing_list_pdf())
-    assert cross(batipro)[0] == []
+    assert gaps(batipro) == []
 
 
 def test_t88_a_piece_citing_another_invoice_is_flagged_not_blocking(batipro):
     generated(batipro, "colisage-autre.pdf", synthetic.packing_list_pdf(invoice="TXS-2026-0001", gross="4 100 kg"))
-    warnings, rev = cross(batipro)
+    rev = cross(batipro)[1]
+    warnings = gaps(batipro)
     messages = {w["field"]: w["message"] for w in warnings}
     assert "TXS-2026-0001" in messages["related_invoice"] and "absente du dossier" in messages["related_invoice"]
     assert "4100 kg" in messages["gross_weight"] and "3940 kg" in messages["gross_weight"]
@@ -122,7 +128,7 @@ def test_t89_a_certificate_for_another_invoice_or_contradicting_ones_fill_nothin
 def test_t101_container_and_seal_compared_between_bill_of_lading_and_packing_list(batipro):
     # Même conteneur (chiffre de contrôle omis) et même scellé : rien à signaler.
     generated(batipro, "colisage.pdf", synthetic.packing_list_pdf(container="MSCU 771205"))
-    assert cross(batipro)[0] == []
+    assert gaps(batipro) == []
     bl = next(
         d for d in batipro["s"].get(f"/api/v1/cases/{batipro['id']}/documents").json()["results"]
         if d["usage"] == "transport"
@@ -133,12 +139,58 @@ def test_t101_container_and_seal_compared_between_bill_of_lading_and_packing_lis
 
 def test_t101_other_container_and_seal_are_flagged_not_blocking(batipro):
     generated(batipro, "colisage-autre.pdf", synthetic.packing_list_pdf(container="TGHU 123456-7", seal="XX000111"))
-    warnings, rev = cross(batipro)
-    by_field = {(w["field"], w["label"].split(" ")[0]): w["message"] for w in warnings}
+    rev = cross(batipro)[1]
+    by_field = {(w["field"], w["label"].split(" ")[0]): w["message"] for w in gaps(batipro)}
     pl_container = next(m for (f, label), m in by_field.items() if f == "container" and label == "Liste")
     assert "TGHU 123456-7" in pl_container and "MSCU 771205-4" in pl_container
     bl_container = next(m for (f, label), m in by_field.items() if f == "container" and label != "Liste")
     assert "MSCU 771205-4" in bl_container and "absent de la liste de colisage" in bl_container
     seal = next(m for (f, _label), m in by_field.items() if f == "seal")
     assert "XX000111" in seal and "ES449201" in seal
+    assert not any(b["scope"] == "case_document" for b in rev["completeness"]["blocking"])
+
+
+def test_t102_container_check_digit_flags_a_misread_or_misprinted_number(batipro):
+    from apps.cases.crosschecks import check_digit
+
+    assert check_digit("CSQU 305438") == 3 and check_digit("MSCU771205") == 0 and check_digit("12345") is None
+    [bl] = [w for w in cross(batipro)[0] if w["field"] == "container"]
+    assert bl["label"].startswith("Document de transport")
+    assert "MSCU 771205-4 (attendu : 0)" in bl["message"] and "mal lu ou mal imprimé" in bl["message"]
+    generated(batipro, "colisage.pdf", synthetic.packing_list_pdf(container="MSCU 771205-0"))
+    flagged = [w["label"] for w in cross(batipro)[0] if "ISO 6346" in w["message"]]
+    assert len(flagged) == 1 and flagged[0].startswith("Document de transport")  # la liste est juste
+
+
+def test_t102_packages_compared_between_the_bill_of_lading_and_its_packing_list(batipro):
+    generated(batipro, "colisage.pdf", synthetic.packing_list_pdf(packages="8 caisses bois"))
+    [warning] = gaps(batipro)
+    assert warning["field"] == "packages" and warning["label"].startswith("Liste de colisage")
+    assert warning["message"] == "8 colis, le titre de transport en indique 9."
+
+
+def test_t102_several_packing_lists_are_summed_against_the_single_bill_of_lading(batipro):
+    generated(
+        batipro, "colisage-1.pdf", synthetic.packing_list_pdf(number="PL-FIC-1", packages="5 caisses", gross="2 000 kg")
+    )
+    file = SimpleUploadedFile(
+        "colisage-2.pdf",
+        synthetic.packing_list_pdf(number="PL-FIC-2", packages="4", gross="1 940 kg"),
+        content_type="application/pdf",
+    )
+    resp = batipro["s"].upload(f"/api/v1/cases/{batipro['id']}/documents", {"file": file, "usage": "packing_list"})
+    assert resp.status_code == 201, resp.content
+    # La seconde liste n'est pas encore lue : une somme partielle n'est pas comparée.
+    assert gaps(batipro) == []
+    read_piece(batipro, resp.json())
+    assert gaps(batipro) == []  # 5 + 4 colis, 2 000 + 1 940 kg : conforme au B/L
+    generated(batipro, "colisage-3.pdf", synthetic.packing_list_pdf(number="PL-FIC-3", packages="1", gross="60 kg"))
+    rev = cross(batipro)[1]
+    messages = {w["field"]: w for w in gaps(batipro)}
+    assert messages["gross_weight"]["message"] == "Masse brute 3940 kg, les 3 listes de colisage totalisent 4000 kg."
+    assert (
+        messages["packages"]["message"]
+        == "9 colis sur le titre de transport, les 3 listes de colisage en totalisent 10."
+    )
+    assert messages["packages"]["label"].startswith("Document de transport")
     assert not any(b["scope"] == "case_document" for b in rev["completeness"]["blocking"])
