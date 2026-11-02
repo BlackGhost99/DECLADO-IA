@@ -117,3 +117,28 @@ def test_t89_a_certificate_for_another_invoice_or_contradicting_ones_fill_nothin
     assert cross(case)[1]["goods_lines"][0]["origin_country"] == ""
     generated(case, "es.pdf", synthetic.origin_certificate_pdf(invoice="F-1", country="Spain"))
     assert cross(case)[1]["goods_lines"][0]["origin_country"] == "ES"
+
+
+def test_t101_container_and_seal_compared_between_bill_of_lading_and_packing_list(batipro):
+    # Même conteneur (chiffre de contrôle omis) et même scellé : rien à signaler.
+    generated(batipro, "colisage.pdf", synthetic.packing_list_pdf(container="MSCU 771205"))
+    assert cross(batipro)[0] == []
+    bl = next(
+        d for d in batipro["s"].get(f"/api/v1/cases/{batipro['id']}/documents").json()["results"]
+        if d["usage"] == "transport"
+    )  # fmt: skip
+    fields = {f["field"]: f for f in bl["latest_extraction"]["fields"]}
+    assert fields["seal"]["raw"] == "ES449201"
+
+
+def test_t101_other_container_and_seal_are_flagged_not_blocking(batipro):
+    generated(batipro, "colisage-autre.pdf", synthetic.packing_list_pdf(container="TGHU 123456-7", seal="XX000111"))
+    warnings, rev = cross(batipro)
+    by_field = {(w["field"], w["label"].split(" ")[0]): w["message"] for w in warnings}
+    pl_container = next(m for (f, label), m in by_field.items() if f == "container" and label == "Liste")
+    assert "TGHU 123456-7" in pl_container and "MSCU 771205-4" in pl_container
+    bl_container = next(m for (f, label), m in by_field.items() if f == "container" and label != "Liste")
+    assert "MSCU 771205-4" in bl_container and "absent de la liste de colisage" in bl_container
+    seal = next(m for (f, _label), m in by_field.items() if f == "seal")
+    assert "XX000111" in seal and "ES449201" in seal
+    assert not any(b["scope"] == "case_document" for b in rev["completeness"]["blocking"])

@@ -60,6 +60,7 @@ SPECS: dict[str, tuple[FieldSpec, ...]] = {
         FieldSpec("place_of_delivery", "Lieu de livraison", labels=_k("place_of_delivery")),
         FieldSpec("related_invoice", "Facture citée", labels=_k("related_invoice")),
         FieldSpec("container", "Conteneur", labels=_k("container")),
+        FieldSpec("seal", "Scellé", labels=_k("seal")),
         FieldSpec("packages", "Colis", labels=_k("packages")),
         FieldSpec("gross_weight", "Poids brut", labels=_k("gross_weight")),
         FieldSpec("measurement", "Volume", labels=_k("measurement")),
@@ -103,6 +104,7 @@ SPECS: dict[str, tuple[FieldSpec, ...]] = {
         FieldSpec("issue_date", "Date", "date", ISSUE_DATE),
         FieldSpec("related_invoice", "Facture citée", labels=_k("related_invoice")),
         FieldSpec("container", "Conteneur", labels=_k("container")),
+        FieldSpec("seal", "Scellé", labels=_k("seal")),
         FieldSpec("packages", "Colis", labels=_k("packages", "total packages", "total colis")),
         FieldSpec("gross_weight", "Poids brut", labels=_k("gross_weight", "total gross weight", "poids brut total")),
         FieldSpec("net_weight", "Poids net", labels=("net weight", "poids net", "total net weight", "poids net total")),
@@ -122,7 +124,7 @@ SPECS: dict[str, tuple[FieldSpec, ...]] = {
 }
 # Champ « total » de chaque lecture : le dernier total imprimé de la pièce.
 TOTAL_FIELD = {INSURANCE: "premium_total", FREIGHT: "freight_total"}
-REFERENCE_FIELDS = {"transport_number", "document_number", "policy_number", "related_bl", "related_invoice"}
+REFERENCE_FIELDS = {"transport_number", "document_number", "policy_number", "related_bl", "related_invoice", "seal"}
 MEASURE_FIELDS = {"packages", "gross_weight", "net_weight", "measurement"}
 # Numéro de conteneur (ISO 6346) : quatre lettres puis six ou sept chiffres, « MSCU 771205-4 ».
 CONTAINER = re.compile(r"\b[A-Z]{4}\s?\d{6}(?:\s?-?\s?\d)?(?!\d)")
