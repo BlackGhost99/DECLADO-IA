@@ -79,6 +79,25 @@ export interface InvitationPreview {
   existing_account: boolean;
 }
 
+/** Valeurs proposées dans les dossiers de la société, « à confirmer » par l'agent. */
+export interface PreparationSettings {
+  regime: string;
+  entry_office: string;
+  updated_at: string | null;
+  updated_by: string | null;
+}
+
+/** Cours de change de la société, daté et sourcé ; ajout seul. */
+export interface CompanyRate {
+  id: string;
+  currency: string;
+  rate: string;
+  valid_from: string;
+  source: string;
+  created_at: string;
+  created_by: string;
+}
+
 export interface Agency {
   id: string;
   name: string;
@@ -1161,6 +1180,12 @@ export const api = {
   invitationAction: (id: string, action: "renew" | "revoke") =>
     request<Invitation>("POST", `/organization/invitations/${id}/${action}`),
   agencies: () => request<Agency[]>("GET", "/organization/agencies"),
+  preparationSettings: () => request<PreparationSettings>("GET", "/organization/preparation-settings"),
+  updatePreparationSettings: (data: { regime: string; entry_office: string }) =>
+    request<PreparationSettings>("PUT", "/organization/preparation-settings", data),
+  companyRates: () => request<{ results: CompanyRate[] }>("GET", "/organization/exchange-rates"),
+  addCompanyRate: (data: { currency: string; rate: string; valid_from: string; source: string }) =>
+    request<CompanyRate>("POST", "/organization/exchange-rates", data),
   createAgency: (data: { name: string; code: string }) => request<Agency>("POST", "/organization/agencies", data),
   setupStatus: () => request<{ needs_setup: boolean }>("GET", "/auth/setup"),
   setup: (data: { full_name: string; email: string; password: string }) => request<Me>("POST", "/auth/setup", data),

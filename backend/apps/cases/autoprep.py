@@ -4,7 +4,9 @@ But : l'agent n'a plus à remplir le formulaire à la main. Après chaque lectur
 seulement pour ce qui est encore vide :
 - l'édition du référentiel : la plus récente publiée et visible (opérationnelle d'abord) ;
 - la date de déclaration prévue : aujourd'hui ;
-- le régime : celui du dernier dossier de la société ;
+- le régime : celui réglé par la société, sinon celui de son dernier dossier ;
+- le bureau d'entrée : celui réglé par la société ;
+- le taux de change d'une devise facturée : le cours de la société en vigueur à la date prévue ;
 - l'origine du dossier : seulement si la facture l'imprime (« Country of origin », « Made in ») ;
 - l'importateur : le client de la société dont le nom est exactement celui de l'acheteur lu ;
 - une marchandise par ligne facturée libre, puis le contrôle de son code.
@@ -22,10 +24,11 @@ from django.utils import timezone
 
 from apps.clients.models import Importer, normalize_name
 from apps.extraction.numbers import parse_country
+from apps.fiscal.calculation import FIXED_RATES
 from apps.tariffs import services as tariffs
 from apps.tariffs.models import PublicationState
 
-from . import services
+from . import preparation, services
 from .models import CaseRevision
 
 logger = logging.getLogger(__name__)
@@ -108,12 +111,29 @@ def _prepare(run, invoice) -> dict:
         revision.planned_declaration_date = timezone.localdate()
         filled["planned_declaration_date"] = revision.planned_declaration_date.isoformat()
         proposed.append("planned_declaration_date")
+    defaults = preparation.settings_for(org)
     if not revision.regime:
-        regime = last_regime(revision)
+        regime = (defaults.regime if defaults else "") or last_regime(revision)
         if regime:
             revision.regime = regime
             filled["regime"] = regime
             proposed.append("regime")
+    if not revision.entry_office and defaults and defaults.entry_office:
+        revision.entry_office = defaults.entry_office
+        filled["entry_office"] = defaults.entry_office
+        proposed.append("entry_office")
+    currencies = {(c or "").upper() for c in revision.invoices.values_list("currency", flat=True) if c} - set(
+        FIXED_RATES
+    )
+    rates = dict(revision.exchange_rates or {})
+    for cur in sorted(currencies - set(rates)):
+        item = preparation.proposed_rate(org, cur, revision.planned_declaration_date)
+        if item is not None:
+            rates[cur] = item
+            filled.setdefault("exchange_rates", {})[cur] = item
+    if "exchange_rates" in filled:
+        revision.exchange_rates = rates
+        proposed.append("exchange_rates")
     evidence = ""
     if not revision.origin_country:
         code, evidence = printed_origin(run)
