@@ -903,12 +903,13 @@ export interface GoodsLine {
 }
 
 export interface RevisionDecision {
-  kind: "submitted" | "returned" | "validated";
+  kind: "submitted" | "returned" | "validated" | "lodged" | "archived" | "restored";
   kind_label: string;
   actor: UserBrief;
   reason: string;
   created_at: string;
   calculated?: boolean;
+  details?: { declaration_number?: string; lodged_on?: string };
 }
 
 export interface CaseExport {
@@ -950,6 +951,9 @@ export interface Revision {
   priority?: string;
   priority_label?: string;
   is_editable: boolean;
+  /** Dépôt dans SYDONIA saisi par l'agent après validation interne ; jamais vérifié par ClairTransit. */
+  customs_declaration_number?: string;
+  lodged_on?: string | null;
   row_version: number;
   target_edition: (EditionBrief & { warning: string | null }) | null;
   documents: CaseDocument[];
@@ -1414,8 +1418,10 @@ export const api = {
     request<ExemptionClaim>("PATCH", `/cases/${caseId}/exemptions/${claimId}`, body),
   decideExemption: (caseId: string, claimId: string, decision: "validate" | "reject" | "withdraw", row_version: number, reason = "") =>
     request<ExemptionClaim>("POST", `/cases/${caseId}/exemptions/${claimId}/${decision}`, { row_version, reason }),
-  workflow: (caseId: string, action: "submit" | "return" | "validate", row_version: number, reason = "") =>
+  workflow: (caseId: string, action: "submit" | "return" | "validate" | "archive" | "restore", row_version: number, reason = "") =>
     request<CaseDetail>("POST", `/cases/${caseId}/workflow/${action}`, { row_version, reason }),
+  lodge: (caseId: string, row_version: number, number: string, lodged_on: string) =>
+    request<CaseDetail>("POST", `/cases/${caseId}/workflow/lodge`, { row_version, number, lodged_on }),
   createRevision: (caseId: string, reason: string) => request<CaseDetail>("POST", `/cases/${caseId}/revisions`, { reason }),
   cases: (params: Record<string, string>) =>
     request<{ results: CaseSummary[]; states: [string, string][] }>(

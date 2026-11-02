@@ -28,6 +28,7 @@ import { Icon, type IconName } from "./Icon";
 import { PdfViewer, type Highlight } from "./PdfViewer";
 import { CalcLinesTable, CalcTaxesTable, useCaseCalculation, xaf } from "./Taxes";
 import { CaseExemptions } from "./Exemptions";
+import { CaseLifecycle } from "./Lifecycle";
 import { DocumentChecklist } from "./DocumentChecklist";
 import { DocumentIntelligencePanel } from "./DocumentIntelligencePanel";
 import { ProposalsPanel } from "./Proposals";
@@ -2436,6 +2437,7 @@ export function ValidationActions({ detail, membership, act, go }: { detail: Cas
         <button type="button" className="btn-secondary btn-block btn-row" onClick={() => go("export")}>
           <Icon name="upload" /> <span>{tr("val.prepareExport")}<small>{tr("val.prereqFiles")}</small></span> <Icon name="arrowRight" />
         </button>
+        <CaseLifecycle detail={detail} membership={membership} act={act} />
       </div>
       {(rev.decisions?.length ?? 0) > 0 && (
         <>

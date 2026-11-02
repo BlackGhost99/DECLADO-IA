@@ -228,6 +228,8 @@ Les règles en vigueur, assiettes, arrondis et conversions fiscales seront valid
 | WF-02 | P0 | Le responsable peut valider ou retourner pour correction avec un motif |
 | WF-03 | P0 | Modifier une donnée pertinente invalide le calcul concerné et impose nouvelle validation |
 | WF-04 | P0 | Une révision après validation crée une nouvelle version ; anciennes décisions et exports restent consultables |
+| WF-05 | P1 | Après validation interne, l'agent enregistre le n° et la date de la déclaration déposée dans SYDONIA ; saisis tels quels, jamais présentés comme une acceptation par la Douane |
+| WF-06 | P1 | Archiver un dossier (lecture seule, calcul validé figé) ; motif obligatoire pour un dossier non validé ; seul un administrateur le sort des archives, avec motif |
 | EXP-01 | P0 | Export PDF préparatoire : identification, marchandises/codes, valorisation, taxes, sources, état et validations |
 | EXP-02 | P0 | Export XLSX avec codes textuels, montants, unités et onglet de métadonnées ; neutraliser les cellules pouvant devenir des formules |
 | EXP-03 | P0 | Un brouillon exporté porte un marquage visible ; seul un dossier approuvé porte la validation interne |

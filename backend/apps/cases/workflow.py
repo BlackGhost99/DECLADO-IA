@@ -11,6 +11,7 @@ import hashlib
 import json
 
 from django.db import transaction
+from django.utils import timezone
 
 from apps.core.concurrency import bump, check_version
 from apps.core.exceptions import ApiError
@@ -77,7 +78,8 @@ def last_submission(revision: CaseRevision) -> RevisionDecision | None:
 
 
 def validated_decision(revision: CaseRevision) -> RevisionDecision | None:
-    if revision.state != State.VALIDATED:
+    """Décision de validation qui fait foi ; un dossier archivé après validation la garde."""
+    if revision.state not in (State.VALIDATED, State.ARCHIVED):
         return None
     return revision.decisions.filter(kind=RevisionDecision.Kind.VALIDATED).order_by("-created_at").first()
 
@@ -139,3 +141,96 @@ def validate(*, org, actor, membership, case_id, expected, reason: str = "") -> 
     return _decide(
         org, actor, case, revision, RevisionDecision.Kind.VALIDATED, State.VALIDATED, reason=reason.strip(), calc=calc
     )
+
+
+# --- Fin de vie : dépôt en douane déclaré par l'agent, archivage, sortie des archives ----------
+
+
+def _record(org, actor, case, revision, kind, *, reason="", snapshot=None, previous=None, current=None):
+    validated = revision.decisions.filter(kind=RevisionDecision.Kind.VALIDATED).order_by("-created_at").first()
+    bump(revision)
+    revision.save()
+    decision = RevisionDecision.objects.create(
+        organization=org,
+        revision=revision,
+        kind=kind,
+        actor=actor,
+        reason=reason,
+        fingerprint=validated.fingerprint if validated else "",
+        snapshot=snapshot or {},
+    )
+    services._event(org, actor, f"revision.{kind}", revision, case, previous, current)
+    return decision
+
+
+@transaction.atomic
+def lodge(*, org, actor, case_id, expected, number: str, lodged_on, reason: str = "") -> RevisionDecision:
+    """Après validation interne : l'agent indique le n° et la date de dépôt dans SYDONIA."""
+    from datetime import date
+
+    case, revision = _lock(org, case_id)
+    check_version(revision, expected)
+    if revision.state != State.VALIDATED:
+        raise ApiError("INVALID_TRANSITION", "Seul un dossier validé en interne se déclare déposé en douane.", 409)
+    if revision.customs_declaration_number:
+        raise ApiError("ALREADY_LODGED", "Le dépôt de cette révision est déjà enregistré.", 409)
+    number = " ".join((number or "").split())[:60]
+    if not number:
+        raise ApiError("VALIDATION_ERROR", "Le n° de déclaration est obligatoire.", 400, {"field": "number"})
+    try:
+        day = lodged_on if isinstance(lodged_on, date) else date.fromisoformat(str(lodged_on or ""))
+    except ValueError:
+        raise ApiError(
+            "VALIDATION_ERROR", "Date de dépôt invalide (AAAA-MM-JJ).", 400, {"field": "lodged_on"}
+        ) from None
+    if day > date.today():
+        raise ApiError("VALIDATION_ERROR", "La date de dépôt ne peut pas être future.", 400, {"field": "lodged_on"})
+    revision.customs_declaration_number = number
+    revision.lodged_on = day
+    data = {"declaration_number": number, "lodged_on": day.isoformat()}
+    return _record(org, actor, case, revision, RevisionDecision.Kind.LODGED, reason=(reason or "").strip()[:2000],
+                   snapshot=data, current=data)  # fmt: skip
+
+
+@transaction.atomic
+def archive(*, org, actor, membership, case_id, expected, reason: str = "") -> RevisionDecision:
+    """Classe le dossier : lecture seule. Avant validation (abandon), le motif est obligatoire."""
+    _require_validator(membership)
+    case, revision = _lock(org, case_id)
+    check_version(revision, expected)
+    previous = revision.state
+    if previous not in (State.VALIDATED, *CaseRevision.EDITABLE_STATES):
+        raise ApiError(
+            "INVALID_TRANSITION", f"Dossier « {revision.get_state_display()} » : à décider avant d'archiver.", 409
+        )
+    reason = (reason or "").strip()[:2000]
+    if previous != State.VALIDATED and not reason:
+        raise ApiError("VALIDATION_ERROR", "Motif obligatoire pour archiver un dossier non validé.", 400,
+                       {"field": "reason"})  # fmt: skip
+    revision.state = State.ARCHIVED
+    case.archived_at = timezone.now()
+    case.save(update_fields=["archived_at"])
+    return _record(org, actor, case, revision, RevisionDecision.Kind.ARCHIVED, reason=reason,
+                   snapshot={"previous_state": previous}, previous={"state": previous},
+                   current={"state": State.ARCHIVED})  # fmt: skip
+
+
+@transaction.atomic
+def restore(*, org, actor, membership, case_id, expected, reason: str) -> RevisionDecision:
+    """Sort un dossier des archives (administrateur de la société), dans l'état qu'il avait."""
+    if not membership.has_role(Role.ORG_ADMIN):
+        raise ApiError("FORBIDDEN", "Seul un administrateur de la société sort un dossier des archives.", 403)
+    case, revision = _lock(org, case_id)
+    check_version(revision, expected)
+    if revision.state != State.ARCHIVED:
+        raise ApiError("INVALID_TRANSITION", "Ce dossier n'est pas archivé.", 409)
+    reason = (reason or "").strip()[:2000]
+    if not reason:
+        raise ApiError("VALIDATION_ERROR", "Le motif est obligatoire.", 400, {"field": "reason"})
+    last = revision.decisions.filter(kind=RevisionDecision.Kind.ARCHIVED).order_by("-created_at").first()
+    target = (last.snapshot.get("previous_state") if last else None) or State.VALIDATED
+    revision.state = target
+    case.archived_at = None
+    case.save(update_fields=["archived_at"])
+    return _record(org, actor, case, revision, RevisionDecision.Kind.RESTORED, reason=reason,
+                   previous={"state": State.ARCHIVED}, current={"state": target})  # fmt: skip

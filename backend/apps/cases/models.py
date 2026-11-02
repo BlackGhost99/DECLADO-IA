@@ -106,6 +106,9 @@ class CaseRevision(OrganizationOwnedModel):
     # Taux de change saisis par un agent pour ce dossier : {"USD": {"rate": "605.5", "source": "…"}}.
     # Jamais déduits ni téléchargés ; l'euro et le franc CFA ont une parité fixe et n'y figurent pas.
     exchange_rates = models.JSONField(default=dict, blank=True)
+    # Dépôt dans SYDONIA, saisi par l'agent après validation interne (texte, jamais vérifié ici).
+    customs_declaration_number = models.CharField(max_length=60, blank=True)
+    lodged_on = models.DateField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
 
     class Meta:
@@ -440,6 +443,10 @@ class RevisionDecision(OrganizationOwnedModel):
         SUBMITTED = "submitted", "Soumis pour validation"
         RETURNED = "returned", "Retourné pour correction"
         VALIDATED = "validated", "Validé en interne"
+        # Déclaré par l'agent : ClairTransit ne vérifie ni le dépôt ni l'acceptation par la Douane.
+        LODGED = "lodged", "Déposé en douane (déclaré par l'agent)"
+        ARCHIVED = "archived", "Archivé"
+        RESTORED = "restored", "Sorti des archives"
 
     revision = models.ForeignKey(CaseRevision, on_delete=models.PROTECT, related_name="decisions")
     kind = models.CharField(max_length=20, choices=Kind.choices)
