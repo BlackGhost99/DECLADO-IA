@@ -60,7 +60,10 @@ $UrlClamav = "https://github.com/Cisco-Talos/clamav/releases/download/clamav-$Ve
 # Empreinte de l'archive officielle, contrôlée avec la signature GPG Talos (clé 707F0DB480836771).
 $Sha256Clamav = "0d9e0228b2674137ea1a2853566c98a0278ad52ab2582c3d6dbd75373848c395"
 $VersionTesseract = "5.5.0.20241111"
-$UrlTesseract = "https://github.com/UB-Mannheim/tesseract/releases/download/v$VersionTesseract/tesseract-ocr-w64-setup-$VersionTesseract.exe"
+# Installateur Windows (UB Mannheim) publié sur les versions officielles du projet Tesseract.
+# L'ancien emplacement UB-Mannheim/tesseract répond 404 depuis le déplacement des installateurs.
+$UrlTesseract = "https://github.com/tesseract-ocr/tesseract/releases/download/5.5.0/tesseract-ocr-w64-setup-$VersionTesseract.exe"
+$Sha256Tesseract = "f3fc4236425b690c8be756f35793f77394ee004be0a6460a440c754d892f68bc"
 # Modèles de langue « fast » officiels, version 4.1.0 figée et vérifiée par empreinte.
 $UrlLangues = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/4.1.0"
 $LanguesOcr = [ordered]@{
@@ -199,6 +202,8 @@ try {
     $env:npm_config_cache = Join-Path $Dossier "cache\npm"
     $env:PYTHONUTF8 = "1"
     $env:PYTHONIOENCODING = "utf-8"
+    # Les sorties Python (UTF-8) s'affichent sans « d├®tect├® » dans la console Windows.
+    try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
 
     Titre "Outils"
     $uv = Join-Path $Outils "uv\uv.exe"
@@ -321,6 +326,10 @@ DatabaseMirror database.clamav.net
             } else {
                 $setup = Join-Path $Telechargements "tesseract-$VersionTesseract.exe"
                 if (-not (Test-Path $setup)) { Telecharger $UrlTesseract $setup }
+                if ((Get-FileHash -Algorithm SHA256 $setup).Hash.ToLower() -ne $Sha256Tesseract) {
+                    Remove-Item -Force $setup
+                    throw "installateur Tesseract inattendu (empreinte différente) : supprimé, rien n'est installé."
+                }
                 Info "Analyse de l'installateur par ClamAV avant de l'ouvrir..."
                 $ErrorActionPreference = "Continue"
                 & (Join-Path $clamDossier "clamscan.exe") "--database=$clamBase" "--no-summary" "--infected" $setup | Out-Host
