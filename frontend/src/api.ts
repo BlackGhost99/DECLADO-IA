@@ -141,6 +141,46 @@ export interface BusinessInfo {
 export const canDeclare = (m: Membership | null | undefined) =>
   !m?.organization?.capabilities || m.organization.capabilities.includes("declaration");
 
+/** Partage d'un dossier avec une autre société (COL-01 à COL-07). */
+export interface CaseShare {
+  id: string;
+  case_reference: string;
+  case_title: string;
+  direction: "outgoing" | "incoming";
+  organization: { name: string; profiles: BusinessProfile[] };
+  level: "read" | "comment";
+  status: "pending" | "accepted" | "refused" | "revoked";
+  message: string;
+  created_at: string;
+  created_by: string;
+  decided_at: string | null;
+  revoked_at: string | null;
+  row_version: number;
+  case_id: string | null;
+}
+
+export interface ShareNote { id: string; text: string; author: string; organization: string; own: boolean; created_at: string }
+
+export interface SharedCaseSnapshot {
+  reference: string;
+  title: string;
+  owner: string;
+  importer: string | null;
+  state: string;
+  state_label: string;
+  revision_no: number;
+  regime: string;
+  transport_mode: string;
+  entry_office: string;
+  customs_declaration_number: string;
+  lodged_on: string | null;
+  documents: { usage: string; usage_label: string; name: string; added_at: string }[];
+  invoices: { number: string; supplier: string; date: string | null; currency: string; incoterm: string; total: string | null }[];
+  goods: { ordinal: number; description: string; origin_country: string; code: string | null }[];
+}
+
+export interface ShareDetail { share: CaseShare; case?: SharedCaseSnapshot; notes: ShareNote[] }
+
 export interface HabilitationInput {
   kind: HabilitationKind;
   country_code: string;
@@ -1367,6 +1407,16 @@ export const scanPageImage = (page: Pick<ScanPageInfo, "id" | "rotation">, thumb
 
 export const api = {
   me: () => request<Me>("GET", "/me"),
+  partnerCode: () => request<{ code: string }>("GET", "/organization/partner-code"),
+  renewPartnerCode: () => request<{ code: string }>("POST", "/organization/partner-code"),
+  caseShares: (caseId: string) => request<{ results: CaseShare[] }>("GET", `/cases/${caseId}/shares`),
+  createShare: (caseId: string, data: { code: string; level: "read" | "comment"; message: string }) =>
+    request<CaseShare>("POST", `/cases/${caseId}/shares`, data),
+  revokeShare: (id: string, reason: string) => request<CaseShare>("POST", `/shares/${id}/revoke`, { reason }),
+  incomingShares: () => request<{ results: CaseShare[] }>("GET", "/shares/incoming"),
+  decideShare: (id: string, action: "accept" | "refuse") => request<CaseShare>("POST", `/shares/${id}/${action}`),
+  shareDetail: (id: string) => request<ShareDetail>("GET", `/shares/${id}`),
+  addShareNote: (id: string, text: string) => request<{ notes: ShareNote[] }>("POST", `/shares/${id}/notes`, { text }),
   login: (email: string, password: string) => request<Me | { mfa_required: true }>("POST", "/auth/login", { email, password }),
   verifyMfa: (code: string) => request<Me>("POST", "/auth/mfa/verify", { code }),
   setupMfa: () => request<{ secret: string; provisioning_uri: string }>("POST", "/auth/mfa/setup"),

@@ -176,6 +176,13 @@ Limites initiales proposées : 50 Mo par fichier, 500 pages par facture PDF et 1
 | MET-04 | P1 | Préparer un projet de déclaration (DAU) et enregistrer un dépôt en douane : réservé au métier transitaire, ou à une société dont une habilitation déclarante est vérifiée, en vigueur et du pays de la société ; refus serveur `CAPABILITY_REQUIRED` sinon ; le PDF d'une société non habilitée ne contient que le récapitulatif |
 | MET-05 | P1 | Capacités de chaque société exposées à l'interface (session et console) ; l'interface masque ce que le serveur refuse, sans jamais s'y substituer |
 | MET-06 | P1 | Un conseil ou un expert agréé ne reçoit jamais le droit de déclarer par son métier |
+| COL-01 | P1 | Chaque société a un code partenaire (CT-XXXX-XXXX), lisible par ses membres et renouvelable par son administrateur ; pas d'annuaire des sociétés |
+| COL-02 | P1 | Un déclarant, validateur ou administrateur invite une société par son code sur un dossier, en « lecture » ou « lecture et remarques » ; un seul partage vivant par dossier et par société ; partage avec soi-même refusé |
+| COL-03 | P1 | La société invitée voit l'invitation dans « Partagés avec nous » ; un validateur ou un administrateur l'accepte ou la refuse ; rien du dossier n'est lisible avant acceptation |
+| COL-04 | P1 | Le propriétaire retire un partage en attente ou accepté ; l'accès cesse aussitôt ; un nouveau partage reste possible |
+| COL-05 | P1 | Remarques des deux côtés sur un partage accepté « lecture et remarques », jamais modifiées ni supprimées |
+| COL-06 | P1 | Le partenaire lit un instantané (état, pièces sans contenu, factures, marchandises et codes retenus), jamais les écrans de travail ; chaque consultation, décision et remarque est journalisée chez les deux sociétés |
+| COL-07 | P1 | Une société tierce reçoit 404 sur tout partage qui ne la concerne pas |
 | IAL-01 | P1 | IA en ligne facultative : sans fournisseur configuré, lecture et saisie fonctionnent sans internet ; rien n’est envoyé ni journalisé |
 | IAL-02 | P1 | Deux verrous : clé posée sur le serveur par l’exploitant (`donnees\ia.json` ou variables `AI_*`) et activation par l’administrateur de la société ; la clé n’est jamais affichée ni envoyée au navigateur |
 | IAL-03 | P1 | Seules les informations « non trouvées » par la lecture, ni proposées ni saisies, sont demandées ; une information déjà demandée sur la même lecture n’est pas redemandée |

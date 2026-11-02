@@ -211,6 +211,10 @@ Aucune fixture ne doit présenter un taux synthétique comme un taux gabonais r�
 | T104 | MET-03, MET-04 | Habilitation déclarée : rien d'ouvert ; vérifiée dans un autre pays : rien ; vérifiée dans le pays de la société : déclaration ouverte ; expirée : fermée ; retirée : fermée et non revérifiable ; accès croisé (admin d'une autre société, autre société) refusé |
 | T105 | MET-05 | La session expose, pour chaque société de l'utilisateur, ses métiers et ses capacités |
 | T106 | MET-04 | Société importateur sans habilitation : dépôt en douane et export DAU refusés (403), PDF = récapitulatif sans projet de déclaration |
+| T107 | COL-01 | Code partenaire stable, propre à chaque société, lu par tout membre, renouvelé par l'administrateur seul (journalisé) |
+| T108 | COL-02, COL-03, COL-06 | Code inconnu, propre code, doublon refusés ; invitation en attente sans accès ; déclarant de la société invitée ne décide pas ; acceptation ; instantané lu ; écrans du dossier toujours 404 pour le partenaire ; consultation journalisée chez le propriétaire |
+| T109 | COL-05 | Partage en lecture : remarque refusée ; « lecture et remarques » : remarques des deux sociétés, dans l'ordre, marquées « les nôtres » |
+| T110 | COL-04, COL-07 | Société tierce : 404 partout ; le partenaire ne retire pas ; retrait par le propriétaire, accès fermé, invitation retirée de la liste, nouveau partage possible |
 
 Tests T01, T11, T20–T29, T31–T35 bloquants avant mise en service du périmètre correspondant. Les autres tests P0 restent obligatoires ; les exigences P1 peuvent être reportées explicitement dans une livraison réduite.
 
