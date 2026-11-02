@@ -68,6 +68,17 @@ TEXT = {
     "schedule": "Barème",
     "exchange_rate": "Taux de change {cur} (saisi pour le dossier)",
     "decisions": "Décisions",
+    "lodged": "Déposé en douane (saisi par l'agent)",
+    "lodged_value": "Déclaration n° {number} du {date} ; non vérifié par ClairTransit, ce n'est pas une acceptation",
+    "exemptions": "Exonérations appliquées",
+    "exemption": "Exonération",
+    "exempted_taxes": "Taxes",
+    "exempted_lines": "Lignes",
+    "proof": "Justificatif",
+    "exempted_rate": "{tax} {rate} % au lieu de {schedule} %",
+    "exemptions_note": (
+        "Appliquées après validation interne du justificatif joint au dossier, dans le champ de l'exonération."
+    ),
     "generated": "Généré le {date} par {actor}",
     "fingerprint": "Empreinte du calcul",
     "code_status": "État du code",
@@ -159,6 +170,12 @@ def _context(case, revision, actor):
         (TEXT["office"], revision.entry_office or TEXT["unknown"]),
         (TEXT["date"], calc.get("date") or ""),
     ]
+    if revision.customs_declaration_number:
+        lodged = TEXT["lodged_value"].format(
+            number=revision.customs_declaration_number,
+            date=revision.lodged_on.isoformat() if revision.lodged_on else "?",
+        )
+        identification.append((TEXT["lodged"], lodged))
     sources = [
         (TEXT["rules_version"], calc.get("rules_version") or ""),
         (TEXT["taxes_version"], str(calc.get("taxes_version") or "")),
@@ -180,8 +197,37 @@ def _context(case, revision, actor):
         "identification": identification,
         "sources": sources,
         "decisions": decisions,
+        "exemptions": _exemptions(calc),
         "generated": TEXT["generated"].format(date=_when(timezone.now()), actor=actor.full_name or actor.email),
     }
+
+
+def _exemptions(calc) -> list[dict]:
+    """Exonérations appliquées au calcul, une ligne par exonération : taxes, lignes, texte, justificatif."""
+    found: dict[str, dict] = {}
+    for a in calc.get("articles") or []:
+        for t in a.get("taxes") or []:
+            e = t.get("exemption")
+            if not e:
+                continue
+            item = found.setdefault(
+                e["code"],
+                {
+                    "code": e["code"],
+                    "label": e.get("label") or "",
+                    "taxes": [],
+                    "lines": [],
+                    "source": e.get("source_reference") or "",
+                    "proof": e.get("proof_reference") or "",
+                },
+            )
+            rate = TEXT["exempted_rate"].format(tax=t["code"], rate=t.get("rate") or "0",
+                                                schedule=t.get("schedule_rate") or "?")  # fmt: skip
+            if rate not in item["taxes"]:
+                item["taxes"].append(rate)
+            if str(a.get("ordinal")) not in item["lines"]:
+                item["lines"].append(str(a.get("ordinal")))
+    return list(found.values())
 
 
 def _tax_totals(calc) -> list[tuple[str, str, str]]:
@@ -289,6 +335,15 @@ def _summary_story(ctx) -> list:
     table = grid(summary, [130 * mm, 40 * mm], header=False, numeric=(1,))
     table.setStyle(TableStyle([("FONT", (1, 1), (1, 1), "Vera-Bold", 9)]))
     story += [Spacer(1, 4), table]
+
+    if ctx["exemptions"]:
+        story.append(p(TEXT["exemptions"], h2))
+        rows = [[TEXT["exemption"], TEXT["exempted_taxes"], TEXT["exempted_lines"], TEXT["proof"]]]
+        for e in ctx["exemptions"]:
+            name = f"{e['code']} · {e['label']}" + (f"\n{e['source']}" if e["source"] else "")
+            rows.append([p(name), p(" ; ".join(e["taxes"])), p(", ".join(e["lines"])), p(e["proof"] or "—")])
+        story.append(grid(rows, [62 * mm, 58 * mm, 18 * mm, 32 * mm]))
+        story.append(p(TEXT["exemptions_note"], small))
 
     story.append(p(TEXT["sources"], h2))
     story.append(grid([[p(k), p(v)] for k, v in ctx["sources"]], [45 * mm, 125 * mm], header=False))
@@ -403,6 +458,20 @@ def build_xlsx(ctx) -> bytes:
     put(taxes, r, 2, TEXT["ri"])
     taxes.column_dimensions["B"].width = 48
     taxes.column_dimensions["C"].width = 18
+
+    if ctx["exemptions"]:
+        exo = wb.create_sheet(TEXT["exemptions"][:31])
+        heads = (TEXT["exemption"], TEXT["label"], TEXT["exempted_taxes"], TEXT["exempted_lines"], TEXT["sources"],
+                 TEXT["proof"])  # fmt: skip
+        for col, h in enumerate(heads, 1):
+            put(exo, 1, col, h).font = bold
+        for i, e in enumerate(ctx["exemptions"], 2):
+            values = (e["code"], e["label"], " ; ".join(e["taxes"]), ", ".join(e["lines"]), e["source"], e["proof"])
+            for col, v in enumerate(values, 1):
+                put(exo, i, col, v)
+        put(exo, len(ctx["exemptions"]) + 3, 1, TEXT["exemptions_note"])
+        for letter, width in zip("ABCDEF", (18, 36, 40, 10, 36, 20), strict=True):
+            exo.column_dimensions[letter].width = width
 
     meta = wb.create_sheet(TEXT["meta"])
     put(meta, 1, 1, TEXT["field"]).font = bold

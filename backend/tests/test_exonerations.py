@@ -155,3 +155,43 @@ def test_t96_reject_needs_a_reason_withdraw_and_other_companies_see_nothing(
     assert withdrawn.json()["status"] == "withdrawn"
     assert ExemptionClaim.objects.filter(status="requested").count() == 0
     assert [c["status"] for c in case["s"].get(url).json()["results"]] == ["rejected", "withdrawn"]
+
+
+def test_t100_exports_list_applied_exemptions_and_the_declared_lodging(
+    world, schedule, edition, session, monkeypatch, manager
+):
+    import io
+
+    from openpyxl import load_workbook
+
+    from tests.test_exports import export, pdf_text
+
+    case, regime, proof_id = setup_case(world, edition, session, monkeypatch, manager)
+    url = f"/api/v1/cases/{case['id']}/exemptions"
+    claim = case["s"].post(url, {"regime_id": regime["id"], "proof_ids": [proof_id], "proof_reference": "ATT-9"})
+    claim = claim.json()
+    validator = {**case, "s": session("validateur@a.test")}
+    assert (
+        validator["s"].post(f"{url}/{claim['id']}/validate", {"row_version": claim["row_version"]}).status_code == 200
+    )
+    rev = case["s"].get(f"/api/v1/cases/{case['id']}").json()["revision"]
+    rev = act(case, "submit", rev["row_version"]).json()["revision"]
+    rev = act(validator, "validate", rev["row_version"]).json()["revision"]
+    lodged = act(case, "lodge", rev["row_version"], number="L 1234", lodged_on="2026-11-02")
+    assert lodged.status_code == 200, lodged.content
+
+    _, raw = export(case, "xlsx")
+    wb = load_workbook(io.BytesIO(raw))
+    sheet = wb["Exonérations appliquées"]
+    assert [c.value for c in sheet[2]][:4] == [
+        "EXO-FICTIF-1",
+        "Exonération fictive d'essai",
+        "DDI 0 % au lieu de 10 % ; TVA 0 % au lieu de 18 %",
+        "1",
+    ]
+    assert sheet["F2"].value == "ATT-9"
+    meta = {r[0].value: r[1].value for r in wb["Métadonnées"].iter_rows(min_row=2) if r[0].value}
+    assert meta["Déposé en douane (saisi par l'agent)"].startswith("Déclaration n° L 1234 du 2026-11-02")
+    _, raw = export(case, "pdf")
+    text = pdf_text(raw)
+    assert "Exonérations appliquées" in text and "EXO-FICTIF-1" in text and "L 1234" in text
