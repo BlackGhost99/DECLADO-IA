@@ -6,9 +6,11 @@ import { CasePicker, Cases } from "./Cases";
 import { Console } from "./Console";
 import { Supervision } from "./Supervision";
 import { NewCasePage } from "./NewCase";
+import logoMiniUrl from "./assets/logo-clairtransit-mini.png";
 import { IntakePage } from "./Intake";
 import { Dashboard } from "./Dashboard";
-import { Icon, Logo, type IconName } from "./Icon";
+import { DevCredit } from "./DevCredit";
+import { Icon, type IconName } from "./Icon";
 import cemacMap from "./assets/cemac-map.png";
 import { LoginForm } from "./LoginForm";
 import { MFAEnrollment } from "./MFAEnrollment";
@@ -22,6 +24,16 @@ import { LanguageSelector, tr, useBusinessLabels, useI18n, type MessageKey } fro
 import { useLocaleSync } from "./i18n/sync";
 
 export default function App() {
+  // Chaque écran (connexion, chargement, choix de société, application) porte la mention de l'éditeur.
+  return (
+    <div className="page-frame">
+      <Screens />
+      <DevCredit />
+    </div>
+  );
+}
+
+function Screens() {
   const { t } = useI18n();
   const { onAuthenticated, onSignedOut } = useLocaleSync();
   const route = useRoute();
@@ -338,10 +350,10 @@ function Layout({
     <div className="app">
       <aside className="sidebar">
         <a href="#/" className="brand">
-          <Logo />
+          <span className="brand-logo"><img src={logoMiniUrl} alt="" /></span>
           <span>
             <strong>ClairTransit</strong>
-            <small>Customs AI</small>
+            <small>DECLADO IA</small>
           </span>
         </a>
         <nav aria-label={tr("nav.main")}>
@@ -405,6 +417,7 @@ function Layout({
           <CountryMenu />
         </div>
         <main className="content">{children(route)}</main>
+        <DevCredit />
       </div>
     </div>
   );
