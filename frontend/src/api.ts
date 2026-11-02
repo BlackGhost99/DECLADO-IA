@@ -524,7 +524,13 @@ export interface Supervision {
     engines: {
       pdf_text: boolean;
       xlsx: boolean;
-      ocr: { available: boolean; version: string; languages: string[] };
+      ocr: {
+        available: boolean;
+        version: string;
+        languages: string[];
+        reason?: "" | "library_missing" | "not_found" | "broken" | "languages_unreadable" | "languages_missing";
+        error?: string;
+      };
       ai: AISettings["provider"];
     };
     counts: { total: number; succeeded: number; failed: number; running: number; average_seconds: number | null };

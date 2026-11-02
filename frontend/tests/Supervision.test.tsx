@@ -19,7 +19,7 @@ const data = {
     last_test: null, events: [event],
   },
   reading: {
-    engines: { pdf_text: true, xlsx: true, ocr: { available: false, version: "", languages: [] },
+    engines: { pdf_text: true, xlsx: true, ocr: { available: false, version: "5.5.0", languages: ["eng"], reason: "languages_missing" },
       ai: { name: null, label: null, model: null, configured: false, free_tier: false } },
     counts: { total: 10, succeeded: 9, failed: 1, running: 0, average_seconds: 2.5 },
     by_reader: [{ reader: "invoice", label: "Facture commerciale", count: 10, failed: 1 }],
@@ -64,7 +64,7 @@ describe("Console > Supervision (T90-T93)", () => {
     expect((await screen.findAllByText("Actif, il répond")).length).toBeGreaterThan(0);
     expect(screen.getByText("ClamAV 1.5.4")).toBeInTheDocument();
     expect(screen.getByText(/27800/)).toBeInTheDocument();
-    expect(screen.getByText(/Tesseract absent/)).toBeInTheDocument();
+    expect(screen.getByText(/aucune langue FR, EN, ES ou AR/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Lancer l'essai" }));
     expect(await screen.findByText("Fichier d'essai EICAR détecté et refusé.")).toBeInTheDocument();

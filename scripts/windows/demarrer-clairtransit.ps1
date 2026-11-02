@@ -352,6 +352,7 @@ DatabaseMirror database.clamav.net
             }
         }
         $env:TESSDATA_PREFIX = $tessdata
+        $env:OCR_TESSERACT_CMD = $tessExe  # lu par l'API, indépendamment du PATH
         $env:Path = $tessDossier + ";" + $env:Path
         $ErrorActionPreference = "Continue"
         $version = (& $tessExe --version 2>&1 | Select-Object -First 1)

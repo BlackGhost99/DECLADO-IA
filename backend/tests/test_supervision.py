@@ -160,3 +160,33 @@ def test_t93_antivirus_self_test_proves_detection_and_is_logged(world, operator,
     failed = operator.post(f"{URL}/antivirus-test").json()
     assert failed["ok"] is False and failed["steps"][0]["ok"] is False
     assert operator.get(URL).json()["antivirus"]["last_test"]["code"] == "SELF_TEST_FAILED"
+
+
+def test_t90_ocr_unavailable_says_why_without_paths(world, operator, settings, monkeypatch):  # noqa: F811
+    import pytesseract
+
+    def not_found():
+        raise pytesseract.TesseractNotFoundError()
+
+    monkeypatch.setattr(pytesseract, "get_tesseract_version", not_found)
+    ocr = operator.get(URL).json()["reading"]["engines"]["ocr"]
+    assert ocr["available"] is False and ocr["reason"] == "not_found"
+
+    monkeypatch.setattr(pytesseract, "get_tesseract_version", lambda: "5.5.0")
+    monkeypatch.setattr(pytesseract, "get_languages", lambda config="": ["osd", "deu"])
+    ocr = operator.get(URL).json()["reading"]["engines"]["ocr"]
+    assert ocr["reason"] == "languages_missing" and ocr["languages"] == ["deu"]
+
+    monkeypatch.setattr(pytesseract, "get_languages", lambda config="": ["osd", "eng", "fra"])
+    ocr = operator.get(URL).json()["reading"]["engines"]["ocr"]
+    assert ocr == {"available": True, "version": "5.5.0", "languages": ["eng", "fra"], "reason": ""}
+
+
+def test_ocr_tesseract_cmd_setting_points_pytesseract_to_the_binary(settings, monkeypatch):
+    import pytesseract
+    from django.apps import apps
+
+    monkeypatch.setattr(pytesseract.pytesseract, "tesseract_cmd", "tesseract")
+    settings.OCR_TESSERACT_CMD = r"C:\ClairTransit\outils\tesseract\tesseract.exe"
+    apps.get_app_config("extraction").ready()
+    assert pytesseract.pytesseract.tesseract_cmd == settings.OCR_TESSERACT_CMD
