@@ -9,6 +9,7 @@ import { NewCasePage } from "./NewCase";
 import logoMiniUrl from "./assets/logo-clairtransit-mini.png";
 import { IntakePage } from "./Intake";
 import { Dashboard } from "./Dashboard";
+import { DevCredit } from "./DevCredit";
 import { Icon, type IconName } from "./Icon";
 import cemacMap from "./assets/cemac-map.png";
 import { LoginForm } from "./LoginForm";
@@ -23,6 +24,16 @@ import { LanguageSelector, tr, useBusinessLabels, useI18n, type MessageKey } fro
 import { useLocaleSync } from "./i18n/sync";
 
 export default function App() {
+  // Chaque écran (connexion, chargement, choix de société, application) porte la mention de l'éditeur.
+  return (
+    <div className="page-frame">
+      <Screens />
+      <DevCredit />
+    </div>
+  );
+}
+
+function Screens() {
   const { t } = useI18n();
   const { onAuthenticated, onSignedOut } = useLocaleSync();
   const route = useRoute();
@@ -406,6 +417,7 @@ function Layout({
           <CountryMenu />
         </div>
         <main className="content">{children(route)}</main>
+        <DevCredit />
       </div>
     </div>
   );

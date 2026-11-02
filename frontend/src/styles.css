@@ -738,3 +738,13 @@ input,select,textarea{min-height:39px;border-radius:7px;border-color:#dfe6e2}
 /* Logo de l'application dans la barre latérale : pastille blanche pour garder ses couleurs sur le fond vert. */
 .brand-logo { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 44px; background: #fff; border-radius: 10px; padding: 3px; box-sizing: border-box; }
 .brand-logo img { max-width: 100%; max-height: 100%; display: block; }
+
+/* Mention de l'éditeur en bas de chaque page (et des écrans de chargement). */
+.page-frame { min-height: 100vh; display: flex; flex-direction: column; }
+.page-frame > :not(.dev-credit) { flex: 1 0 auto; min-height: 0; }
+.page-frame > .app ~ .dev-credit { display: none; }
+.dev-credit { display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.6rem 1rem; color: var(--muted, #6b7280); font-size: 12px; }
+.dev-credit img { height: 26px; width: auto; display: block; }
+.main-col > .dev-credit { margin-top: auto; }
+.page-frame > .login-page + .dev-credit { background: var(--side); color: rgba(255, 255, 255, 0.82); }
+.page-frame > .login-page + .dev-credit img { background: rgba(255, 255, 255, 0.92); border-radius: 6px; padding: 2px 4px; }
