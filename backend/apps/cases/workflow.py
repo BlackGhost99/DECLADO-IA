@@ -100,10 +100,36 @@ def submit(*, org, actor, case_id, expected) -> RevisionDecision:
             {"blocking": blocking},
         )
     calc = case_calculation(case)
-    if revision.mode == CaseRevision.Mode.OPERATIONAL and calc["totals"]["total"] is None:
-        raise ApiError(
-            "SUBMISSION_BLOCKED", "Calcul incomplet : une taxe ou une valeur reste inconnue.", 409, {"blocking": []}
-        )
+    if revision.mode == CaseRevision.Mode.OPERATIONAL:
+        if calc["totals"]["total"] is None:
+            raise ApiError(
+                "SUBMISSION_BLOCKED", "Calcul incomplet : une taxe ou une valeur reste inconnue.", 409, {"blocking": []}
+            )
+        if calc.get("provisional"):
+            raise ApiError(
+                "SUBMISSION_BLOCKED",
+                "Calcul provisoire : vérifier les données et justificatifs avant de soumettre.",
+                409,
+                {
+                    "blocking": [
+                        {
+                            "scope": "revision",
+                            "id": str(revision.id),
+                            "field": "calculation",
+                            "message": reason,
+                        }
+                        for reason in calc.get("provisional_reasons", [])
+                    ]
+                    or [
+                        {
+                            "scope": "revision",
+                            "id": str(revision.id),
+                            "field": "calculation",
+                            "message": "Le calcul est encore provisoire.",
+                        }
+                    ]
+                },
+            )
     return _decide(org, actor, case, revision, RevisionDecision.Kind.SUBMITTED, State.TO_VALIDATE, calc=calc)
 
 
