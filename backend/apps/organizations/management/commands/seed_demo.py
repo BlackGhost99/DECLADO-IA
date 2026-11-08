@@ -49,7 +49,9 @@ class Command(BaseCommand):
         parser.add_argument("--password", help="Mot de passe des comptes de démonstration.")
         parser.add_argument("--no-case", action="store_true", help="Ne pas déposer de fichier fictif avant ClamAV.")
         parser.add_argument("--hide-password", action="store_true", help="Masquer le mot de passe dans les journaux.")
-        parser.add_argument("--with-platform-operator", action="store_true", help="Ajoute un exploitant fictif de recette.")
+        parser.add_argument(
+            "--with-platform-operator", action="store_true", help="Ajoute un exploitant fictif de recette."
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
