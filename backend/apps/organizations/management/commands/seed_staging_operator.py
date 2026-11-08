@@ -2,6 +2,7 @@
 
 Credentials are supplied via Render environment variables, never in source.
 """
+
 import os
 
 from django.conf import settings
