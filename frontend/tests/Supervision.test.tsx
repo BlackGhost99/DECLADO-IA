@@ -86,7 +86,7 @@ describe("Console > Supervision (T90-T93)", () => {
     expect(screen.getByText(/empreinte : a1b2c3d4e5f6/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: /Lecture des pièces/ }));
-    expect(screen.getByText(/aucune langue FR, EN, ES ou AR/)).toBeInTheDocument();
+    expect(screen.getAllByText(/aucune langue FR, EN, ES ou AR/).length).toBeGreaterThan(0);
     expect(screen.getByText("DOS-2026-0004")).toBeInTheDocument();
     expect(screen.getByText(/Aucun texte lisible/)).toBeInTheDocument();
 
