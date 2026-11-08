@@ -327,7 +327,7 @@ function PlatformPulse() {
             })}
           </p>
           {r.clamav.demo_bypass && <p className="note-amber small">{tr("sup.demoBypassWarning")}</p>}
-          {r.clamav.blocking_uploads && <p className="error small">{tr("sup.uploadsBlocked")}</p>
+          {r.clamav.blocking_uploads && <p className="error small">{tr("sup.uploadsBlocked")}</p>}
         </>
       )}
     </section>
