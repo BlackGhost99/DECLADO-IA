@@ -17,8 +17,9 @@ if [ "${STAGING_SEED_DEMO:-false}" = "true" ]; then
   fi
   # DEBUG is enabled for the CLI seed command only; public Gunicorn remains secure.
   DJANGO_DEBUG=true python manage.py seed_demo \
-    --no-case --hide-password --with-platform-operator
+    --no-case --hide-password
 fi
+python manage.py seed_staging_operator
 if [ "${STAGING_EMBEDDED_WORKER:-false}" = "true" ]; then
   celery -A config worker -B -l info --pool=solo --concurrency=1 &
 fi

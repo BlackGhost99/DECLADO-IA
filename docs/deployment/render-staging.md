@@ -38,3 +38,10 @@ files. ClamAV, Redis, background workers and durable documents cannot
 be presumed functional until provisioned and tested. Do not upload any
 actual commercial/client documentation in this test environment. Do not
 report functional parity unless every relevant check passes.
+
+## Super-administrateur staging
+Provisionné par la commande `seed_staging_operator` au démarrage. Configurez
+`STAGING_OPERATOR_EMAIL` et `STAGING_OPERATOR_PASSWORD` dans Render (Environment),
+jamais dans le dépôt. Il a les droits exploitant et administrateur Django ;
+les comptes des deux sociétés de démo utilisent un autre mot de passe,
+`DEMO_PASSWORD`. MFA désactivée uniquement pour `APP_ENV=staging`.
