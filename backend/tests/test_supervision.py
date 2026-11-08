@@ -216,7 +216,9 @@ def test_tesseract_found_in_the_install_folder_without_the_startup_script_variab
     assert found == str(program_files / "Tesseract-OCR" / "tesseract.exe")
 
 
-def test_staging_operations_status_and_journal_are_private(world, operator, session, settings, monkeypatch):
+def test_staging_operations_status_and_journal_are_private(  # noqa: F811
+    world, operator, session, settings, monkeypatch
+):
     from apps.core.models import OutboxEvent
 
     fake_scanner(monkeypatch, clean)
@@ -231,7 +233,7 @@ def test_staging_operations_status_and_journal_are_private(world, operator, sess
     assert session("admin@a.test").post(f"{URL}/ocr-test").status_code == 403
 
 
-def test_staging_ocr_self_test_writes_safe_event(world, operator, monkeypatch):
+def test_staging_ocr_self_test_writes_safe_event(world, operator, monkeypatch):  # noqa: F811
     import pytesseract
 
     monkeypatch.setattr(pytesseract, "image_to_string", lambda *args, **kwargs: "DECLADO 2026")
