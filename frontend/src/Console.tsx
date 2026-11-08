@@ -307,8 +307,8 @@ function PlatformPulse() {
           <div className="platform-pulse-grid">
             <span><Chip tone={r.database.state === "ok" ? "green" : "red"}>DB</Chip>
               {tr("sup.database")}</span>
-            <span><Chip tone={r.clamav.state === "ok" ? "green" : "red"}>ClamAV</Chip>
-              {r.clamav.state === "ok" ? tr("sup.available") : tr("sup.avDown")}</span>
+            <span><Chip tone={r.clamav.demo_bypass ? "amber" : r.clamav.state === "ok" ? "green" : "red"}>ClamAV</Chip>
+              {r.clamav.demo_bypass ? tr("sup.avDemoBypass") : r.clamav.state === "ok" ? tr("sup.available") : tr("sup.avDown")}</span>
             <span><Chip tone={r.ocr.state === "ok" ? "green" : "amber"}>OCR</Chip>
               {r.ocr.state === "ok" ? tr("sup.available") : tr("sup.partial")}</span>
             <span><Chip tone={r.ai.state === "configured" ? "green" : "gray"}>IA</Chip>
@@ -326,7 +326,8 @@ function PlatformPulse() {
               companies: data.organizations.length,
             })}
           </p>
-          {r.clamav.blocking_uploads && <p className="error small">{tr("sup.uploadsBlocked")}</p>}
+          {r.clamav.demo_bypass && <p className="note-amber small">{tr("sup.demoBypassWarning")}</p>}
+          {r.clamav.blocking_uploads && <p className="error small">{tr("sup.uploadsBlocked")}</p>
         </>
       )}
     </section>
