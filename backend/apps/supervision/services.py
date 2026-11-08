@@ -125,13 +125,18 @@ def antivirus_section(since, names) -> dict:
     last_test = events.filter(code__in=("SELF_TEST_PASSED", "SELF_TEST_FAILED")).select_related("actor").first()
     return {
         "probe": probe_antivirus(),
-        "mode": "fail_closed",
+        "mode": "staging_demo_bypass" if settings.STAGING_SKIP_ANTIVIRUS else "fail_closed",
         "counts": {
-            "clean": AuditEvent.objects.filter(event_type="document.stored", at__gte=since).count(),
+            "clean": AuditEvent.objects.filter(
+                event_type="document.stored", at__gte=since, current__antivirus="clamav_clean"
+            ).count(),
+            "unscanned": in_period.filter(code="STAGING_SCAN_BYPASSED").count(),
             "malware": in_period.filter(code="MALWARE_DETECTED").count(),
             "unavailable": in_period.filter(code__in=SCAN_UNAVAILABLE_CODES).count(),
         },
-        "last_clean_at": AuditEvent.objects.filter(event_type="document.stored").aggregate(m=Max("at"))["m"],
+        "last_clean_at": AuditEvent.objects.filter(
+            event_type="document.stored", current__antivirus="clamav_clean"
+        ).aggregate(m=Max("at"))["m"],
         "last_test": _event_payload(last_test, names) if last_test else None,
         "events": [_event_payload(e, names) for e in events.select_related("actor")[:RECENT]],
     }
@@ -482,9 +487,15 @@ def runtime_section(av: dict, reading: dict, ai_info: dict, operations: dict) ->
     installed = reading["engines"]["ocr"].get("languages", [])
     missing = [lang for lang in expected if lang and lang not in installed]
     staging = settings.STAGING_SIMPLE_LOGIN
+    demo_bypass = settings.STAGING_SKIP_ANTIVIRUS
     return {
         "database": {"state": "ok"},  # les requêtes précédentes ont réussi
-        "clamav": {"state": av["probe"]["state"], "blocking_uploads": av["probe"]["state"] != "ok"},
+        "clamav": {
+            "state": "demo_bypass" if demo_bypass else av["probe"]["state"],
+            "scanner_state": av["probe"]["state"],
+            "demo_bypass": demo_bypass,
+            "blocking_uploads": not demo_bypass and av["probe"]["state"] != "ok",
+        },
         "ocr": {
             "state": "ok"
             if reading["engines"]["ocr"]["available"] and not missing
