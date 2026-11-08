@@ -36,6 +36,7 @@ def test_non_manager_and_non_staging_still_require_scanning(settings, monkeypatc
     settings.DEBUG = False
     settings.PRIVATE_STORAGE_ROOT = tmp_path
     monkeypatch.setenv("APP_ENV", "staging")
+    monkeypatch.setattr(uploads.recorder, "note", lambda **_kwargs: None)
     manager = SimpleNamespace(is_authenticated=True, is_reference_manager=True)
     non_manager = SimpleNamespace(is_authenticated=True, is_reference_manager=False)
     monkeypatch.setattr(antivirus, "open_stream", lambda: (_ for _ in ()).throw(antivirus.ScanUnavailable("offline")))
