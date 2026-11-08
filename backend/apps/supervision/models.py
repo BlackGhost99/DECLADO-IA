@@ -20,6 +20,7 @@ class OperationalEvent(models.Model):
         DOCUMENT = "document", "Pièce refusée"
         REQUEST = "request", "Action refusée"
         SERVER = "server", "Erreur serveur"
+        ENGINE = "engine", "Diagnostic moteur"
 
     class Level(models.TextChoices):
         INFO = "info", "Information"

@@ -221,6 +221,7 @@ LOGGING = {
 
 # Stockage privé des sources et pièces : jamais servi directement par le serveur web.
 PRIVATE_STORAGE_ROOT = Path(env("PRIVATE_STORAGE_ROOT", default=str(BASE_DIR / "var" / "private")))
+STAGING_PERSISTENT_FILES = env.bool("STAGING_PERSISTENT_FILES", default=False)
 
 # Pièces des dossiers (DOC-01) : limites configurables, à réviser après mesure.
 DOCUMENT_MAX_BYTES = env.int("DOCUMENT_MAX_BYTES", default=50 * 1024 * 1024)

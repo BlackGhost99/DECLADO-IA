@@ -43,6 +43,7 @@ urlpatterns = [
     path("platform/access-requests/<uuid:request_id>/refuse", onboarding.PlatformAccessRequestRefuseView.as_view()),
     path("platform/supervision", supervision.SupervisionView.as_view()),
     path("platform/supervision/antivirus-test", supervision.AntivirusSelfTestView.as_view()),
+    path("platform/supervision/ocr-test", supervision.OcrSelfTestView.as_view()),
     path("platform/ai-settings", ai_settings.PlatformAISettingsView.as_view()),
     path("platform/organizations/<uuid:organization_id>/ai-quota", ai_settings.PlatformAIQuotaView.as_view()),
     path("platform/organizations", onboarding.PlatformOrganizationListView.as_view()),

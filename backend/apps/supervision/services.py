@@ -377,14 +377,159 @@ def organizations_section(since) -> list[dict]:
 def dashboard(days: int) -> dict:
     since = timezone.now() - timedelta(days=days)
     names = _names()
+    antivirus_data = antivirus_section(since, names)
+    reading_data = reading_section(since, names)
+    ai_data = ai_section(since, names)
+    operations = operations_section(since, names)
     return {
         "period_days": days,
         "since": since,
         "generated_at": timezone.now(),
-        "antivirus": antivirus_section(since, names),
-        "reading": reading_section(since, names),
-        "ai": ai_section(since, names),
+        "antivirus": antivirus_data,
+        "reading": reading_data,
+        "ai": ai_data,
+        "runtime": runtime_section(antivirus_data, reading_data, ai_data, operations),
+        "operations": operations,
+        "journal": journal_section(since, names),
         "rejections": rejections_section(since, names),
         "incidents": incidents_section(since, names),
         "organizations": organizations_section(since),
     }
+
+
+# --- Diagnostic d'exploitation (compteurs en base, sans accès aux documents) --------------------
+
+
+def operations_section(since, names: dict) -> dict:
+    """Expose le travail réellement en attente et les dernières erreurs techniques."""
+    from apps.core.models import OutboxEvent
+
+    now = timezone.now()
+    waiting = OutboxEvent.objects.filter(dispatched_at__isnull=True)
+    jobs = BackgroundJob.objects.filter(created_at__gte=since)
+    recent_jobs = jobs.select_related("organization").order_by("-created_at")[:30]
+    return {
+        "execution": "inline" if settings.CELERY_TASK_ALWAYS_EAGER else "worker",
+        "worker_verified": False,  # un courtier configuré ne prouve pas qu'un worker répond
+        "outbox_pending": waiting.count(),
+        "outbox_stale": waiting.filter(created_at__lt=now - timedelta(minutes=15)).count(),
+        "outbox_errors": waiting.exclude(last_error="").count(),
+        "outbox_recent": [
+            {
+                "at": e.created_at,
+                "topic": e.topic,
+                "attempts": e.attempts,
+                "error": e.last_error,
+            }
+            for e in waiting.order_by("-created_at")[:15]
+        ],
+        "jobs": {
+            "queued": jobs.filter(state=BackgroundJob.State.QUEUED).count(),
+            "running": jobs.filter(state=BackgroundJob.State.RUNNING).count(),
+            "failed": jobs.filter(state=BackgroundJob.State.FAILED).count(),
+            "succeeded": jobs.filter(state=BackgroundJob.State.SUCCEEDED).count(),
+        },
+        "recent_jobs": [
+            {
+                "at": j.created_at,
+                "organization": names.get(j.organization_id),
+                "kind": j.kind,
+                "state": j.state,
+                "phase": j.phase,
+                "attempts": j.attempts,
+                "error_code": j.error_code,
+                "error_message": j.error_message,
+            }
+            for j in recent_jobs
+        ],
+    }
+
+
+def journal_section(since, names: dict) -> dict:
+    """Journal centralisé *applicatif*, non les flux stdout privés de Render."""
+    operations = (
+        OperationalEvent.objects.filter(at__gte=since).select_related("actor").order_by("-at")
+    )
+    audits = AuditEvent.objects.filter(at__gte=since).select_related("actor").order_by("-at")
+    rows = [
+        {
+            **_event_payload(e, names),
+            "source": "operation",
+        }
+        for e in operations[:75]
+    ]
+    rows.extend(
+        {
+            "id": str(e.id),
+            "at": e.at,
+            "source": "audit",
+            "category": "audit",
+            "level": "info",
+            "code": e.event_type,
+            "message": "",
+            "organization": names.get(e.organization_id),
+            "actor": (e.actor.full_name or e.actor.email) if e.actor_id else None,
+            "request_id": e.request_id,
+            "details": {},  # jamais previous/current/scope ni le contenu d'une pièce
+        }
+        for e in audits[:75]
+    )
+    rows.sort(key=lambda e: e["at"], reverse=True)
+    return {"events": rows[:100], "operational_count": operations.count(), "audit_count": audits.count()}
+
+
+def runtime_section(av: dict, reading: dict, ai_info: dict, operations: dict) -> dict:
+    """Diagnostic explicite, y compris les limitations connues du staging gratuit."""
+    expected = settings.OCR_LANGUAGES.split("+")
+    installed = reading["engines"]["ocr"].get("languages", [])
+    missing = [lang for lang in expected if lang and lang not in installed]
+    staging = settings.STAGING_SIMPLE_LOGIN
+    return {
+        "database": {"state": "ok"},  # les requêtes précédentes ont réussi
+        "clamav": {"state": av["probe"]["state"], "blocking_uploads": av["probe"]["state"] != "ok"},
+        "ocr": {
+            "state": "ok" if reading["engines"]["ocr"]["available"] and not missing else "partial"
+            if reading["engines"]["ocr"]["available"] else "unavailable",
+            "expected_languages": expected,
+            "missing_languages": missing,
+        },
+        "ai": {"state": "configured" if ai_info["provider"]["configured"] else "disabled"},
+        "tasks": {
+            "state": "inline" if operations["execution"] == "inline" else "unverified",
+            "pending": operations["outbox_pending"],
+            "stale": operations["outbox_stale"],
+        },
+        "documents": {
+            "mode": "local",
+            "state": "ephemeral" if staging and not settings.STAGING_PERSISTENT_FILES else "unverified",
+        },
+        "staging": staging,
+    }
+
+
+def ocr_self_test(actor) -> dict:
+    """Test Tesseract sur une image générée, sans pièce cliente ni fournisseur externe."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    steps = []
+    try:
+        import pytesseract
+
+        image = Image.new("RGB", (1000, 240), "white")
+        draw = ImageDraw.Draw(image)
+        draw.text((35, 50), "DECLADO 2026", fill="black", font=ImageFont.load_default(size=75))
+        text = pytesseract.image_to_string(image, lang="eng", config="--psm 7", timeout=15)
+        ok = "DECLADO" in text.upper() and "2026" in text
+        steps.append({"step": "recognition", "ok": ok, "message": "Lecture de l'image fictive."})
+    except Exception as exc:  # uniquement le type d'erreur, jamais ses arguments
+        ok = False
+        steps.append({"step": "recognition", "ok": False, "message": type(exc).__name__})
+    recorder.note(
+        category="engine",
+        level="info" if ok else "error",
+        code="OCR_SELF_TEST_PASSED" if ok else "OCR_SELF_TEST_FAILED",
+        message="Auto-test OCR fictif terminé." if ok else "Auto-test OCR fictif en échec.",
+        actor=actor,
+        details={"steps": steps},
+    )
+    return {"ok": ok, "steps": steps, "at": timezone.now()}
