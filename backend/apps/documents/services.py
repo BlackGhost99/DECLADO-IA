@@ -2,6 +2,7 @@
 
 import io
 import logging
+import os
 from datetime import datetime, timedelta
 from urllib.parse import quote
 
@@ -30,6 +31,8 @@ def staging_demo_bypass(organization) -> bool:
     """The only antivirus exemption: explicit flag, non-debug staging and fictitious company."""
     return bool(
         settings.STAGING_SKIP_ANTIVIRUS
+        and settings.STAGING_SIMPLE_LOGIN
+        and os.environ.get("APP_ENV", "").lower() == "staging"
         and not settings.DEBUG
         and organization.is_demo
     )
