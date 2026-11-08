@@ -43,9 +43,7 @@ def me_payload(request) -> dict:
         "interface_locale": user.interface_locale,
         "is_reference_manager": user.is_reference_manager,
         "is_platform_operator": user.is_platform_operator,
-        "staging_av_demo_mode": bool(
-            settings.STAGING_SKIP_ANTIVIRUS and active and active.organization.is_demo
-        ),
+        "staging_av_demo_mode": bool(settings.STAGING_SKIP_ANTIVIRUS and active and active.organization.is_demo),
         "mfa_enabled": TotpDevice.objects.filter(user=user, confirmed_at__isnull=False).exists(),
         "mfa_verified_session": bool(request.session.get("mfa_passed")),
         "mfa_required_for_access": settings.MFA_ENFORCE
