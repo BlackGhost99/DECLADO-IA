@@ -12,7 +12,9 @@ from apps.supervision.models import OperationalEvent
 
 
 @pytest.fixture
-def demo_world(world, settings, tmp_path):
+def demo_world(world, settings, tmp_path, monkeypatch):
+    monkeypatch.setenv("APP_ENV", "staging")
+    settings.STAGING_SIMPLE_LOGIN = True
     settings.PRIVATE_STORAGE_ROOT = tmp_path / "private"
     settings.STAGING_SKIP_ANTIVIRUS = True
     settings.STAGING_UNSCANNED_MAX_BYTES = 10 * 1024 * 1024
@@ -48,6 +50,24 @@ def test_demo_upload_succeeds_without_scanner_but_never_claims_clamav_clean(demo
         organization=org,
         code="STAGING_SCAN_BYPASSED",
     ).exists()
+
+
+@pytest.mark.django_db
+def test_demo_upload_through_real_http_api_from_mobile(demo_world, session, monkeypatch):
+    _org, _user = demo_world
+
+    def no_scanner():
+        raise AssertionError("ClamAV unexpectedly called for demo request")
+
+    monkeypatch.setattr(antivirus, "open_stream", no_scanner)
+    client = session("declarant@a.test")
+    case = client.post("/api/v1/cases", {"title": "Dossier fictif mobile"})
+    assert case.status_code == 201, case.content
+    response = client.upload(
+        f"/api/v1/cases/{case.json()['id']}/documents",
+        {"file": SimpleUploadedFile("facture.pdf", make_pdf(["Facture de test"]), content_type="application/pdf")},
+    )
+    assert response.status_code == 201, response.content
 
 
 @pytest.mark.django_db
