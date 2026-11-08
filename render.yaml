@@ -25,7 +25,11 @@ services:
         fromDatabase:
           name: declado-staging-db
           property: connectionString
+      - key: APP_ENV
+        value: staging
       - key: MFA_ENFORCE
+        value: "false"
+      - key: STAGING_SIMPLE_LOGIN
         value: "true"
       - key: MFA_ENCRYPTION_KEY
         generateValue: true
@@ -38,7 +42,7 @@ services:
       - key: STAGING_EMBEDDED_WORKER
         value: "false"
       - key: STAGING_SEED_DEMO
-        value: "false"
+        value: "true"
       - key: AI_PROVIDER
         value: disabled
       - key: OCR_LANGUAGES

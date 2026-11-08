@@ -143,6 +143,10 @@ PUBLIC_APP_URL = env("PUBLIC_APP_URL", default="")
 MFA_ENFORCE = env.bool("MFA_ENFORCE", default=not DEBUG)
 MFA_ENCRYPTION_KEY = env("MFA_ENCRYPTION_KEY", default="")
 AUTH_RATE_LIMIT_ENABLED = env.bool("AUTH_RATE_LIMIT_ENABLED", default=not DEBUG)
+# Explicit, non-production-only test setting. Production remains MFA-protected.
+STAGING_SIMPLE_LOGIN = env("APP_ENV", default="").lower() == "staging" and env.bool(
+    "STAGING_SIMPLE_LOGIN", default=False
+)
 if MFA_ENFORCE and not MFA_ENCRYPTION_KEY:
     raise ImproperlyConfigured("MFA_ENCRYPTION_KEY is required when MFA_ENFORCE is enabled")
 

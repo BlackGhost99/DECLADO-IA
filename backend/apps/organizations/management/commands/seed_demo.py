@@ -49,6 +49,7 @@ class Command(BaseCommand):
         parser.add_argument("--password", help="Mot de passe des comptes de démonstration.")
         parser.add_argument("--no-case", action="store_true", help="Ne pas déposer de fichier fictif avant ClamAV.")
         parser.add_argument("--hide-password", action="store_true", help="Masquer le mot de passe dans les journaux.")
+        parser.add_argument("--with-platform-operator", action="store_true", help="Ajoute un exploitant fictif de recette.")
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -73,6 +74,21 @@ class Command(BaseCommand):
                 Membership.objects.update_or_create(
                     organization=orgs[key], user=user, defaults={"roles": list(roles), "active": True}
                 )
+
+        if options["with_platform_operator"]:
+            # Explicit option for staging only; never elevate an existing user.
+            User.objects.get_or_create(
+                email="operateur@demo.demo",
+                defaults={
+                    "full_name": "Exploitant ClairTransit (démo)",
+                    "is_platform_operator": True,
+                    "is_reference_manager": True,
+                },
+            )
+            operator = User.objects.get(email="operateur@demo.demo")
+            if not operator.has_usable_password():
+                operator.set_password(password)
+                operator.save(update_fields=["password"])
 
         for key, items in IMPORTERS.items():
             for name, identifiers in items:
