@@ -4,6 +4,10 @@
  */
 export const supervision = {
   fr: {
+    "sup.avDemoBypass": "Désactivé (démo)",
+    "sup.demoBypassWarning": "Mode test : antivirus désactivé pour les sociétés fictives uniquement. Fichiers non analysés : n'utilisez jamais de documents réels.",
+    "sup.unscannedCount": "Pièces déposées sans antivirus (test)",
+    "sup.demoBanner": "MODE TEST — Antivirus désactivé pour cette société fictive. Déposez uniquement des documents de test.",
     "sup.liveTitle": "État de la plateforme",
     "sup.liveHelp": "État réel des moteurs et traitements. Actualisation chaque minute.",
     "sup.openSupervision": "Voir diagnostics et journaux",
@@ -170,6 +174,10 @@ export const supervision = {
     "sup.privacy": "Aucun contenu de pièce, nom de fichier, valeur lue ou clé n'est affiché ici.",
   },
   en: {
+    "sup.avDemoBypass": "Disabled (demo)",
+    "sup.demoBypassWarning": "Test mode: antivirus disabled for fictitious companies only. Files are not scanned: never upload real documents.",
+    "sup.unscannedCount": "Files uploaded without antivirus (test)",
+    "sup.demoBanner": "TEST MODE — Antivirus disabled for this fictitious company. Upload test documents only.",
     "sup.liveTitle": "Platform health",
     "sup.liveHelp": "Real service and job status. Refreshes every minute.",
     "sup.openSupervision": "View diagnostics and logs",
@@ -336,6 +344,10 @@ export const supervision = {
     "sup.privacy": "No document content, file name, read value or key is shown here.",
   },
   es: {
+    "sup.avDemoBypass": "Desactivado (demo)",
+    "sup.demoBypassWarning": "Modo de prueba: antivirus desactivado solo para empresas ficticias. Los archivos no se analizan: nunca suba documentos reales.",
+    "sup.unscannedCount": "Archivos cargados sin antivirus (prueba)",
+    "sup.demoBanner": "MODO PRUEBA — Antivirus desactivado para esta empresa ficticia. Use solo documentos de prueba.",
     "sup.liveTitle": "Estado de la plataforma",
     "sup.liveHelp": "Estado real de servicios y tareas. Cada minuto.",
     "sup.openSupervision": "Ver diagnósticos y registros",
@@ -502,6 +514,10 @@ export const supervision = {
     "sup.privacy": "Aquí no se muestra contenido de documentos, nombres de archivo, valores leídos ni claves.",
   },
   ar: {
+    "sup.avDemoBypass": "معطّل (تجريبي)",
+    "sup.demoBypassWarning": "وضع الاختبار: مكافحة الفيروسات معطلة للشركات الوهمية فقط. لا يتم فحص الملفات؛ لا ترفع مستندات حقيقية.",
+    "sup.unscannedCount": "ملفات مرفوعة دون فحص فيروسات (اختبار)",
+    "sup.demoBanner": "وضع الاختبار — فحص الفيروسات معطل لهذه الشركة الوهمية. ارفع مستندات تجريبية فقط.",
     "sup.liveTitle": "حالة المنصة",
     "sup.liveHelp": "الحالة الفعلية للخدمات والمهام. تحديث كل دقيقة.",
     "sup.openSupervision": "عرض التشخيص والسجلات",
