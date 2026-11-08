@@ -27,6 +27,7 @@ export interface Me {
   mfa_enabled: boolean;
   mfa_verified_session: boolean;
   mfa_required_for_access: boolean;
+  staging_av_demo_mode?: boolean;
 }
 
 export interface Importer {
