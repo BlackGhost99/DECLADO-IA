@@ -1,0 +1,44 @@
+/* Staging: layout refinements only, with no changes to business logic. */
+@media (max-width: 600px) {
+  html, body, #root { max-width: 100%; }
+  body { overflow-x: hidden; }
+  .app, .main-col, .content { min-width: 0; max-width: 100%; }
+  .sidebar { padding: 10px 10px 8px; }
+  .sidebar nav { overflow-x: auto; overscroll-behavior-inline: contain; }
+  .sidebar .nav-item { min-height: 44px; }
+  .topbar { padding: 10px 12px; }
+  .topbar-right { max-width: 100%; }
+  .content { padding: 12px !important; }
+  .card { max-width: 100%; min-width: 0; }
+  .page-header, .page-actions, .card-head, .actions-row,
+  .goods-actions, .case-head, .case-header { flex-wrap: wrap; }
+  .page-header h1 { font-size: clamp(22px, 6vw, 28px); }
+  .dash .hero h1 { font-size: clamp(26px, 7vw, 34px); }
+  .stats, .stats.stats-3, .stats.stats-4, .kpis,
+  .goods-tiles, .final-docs, .team-kpis, .console-stats {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .new-case-shell, .new-case-form-grid, .new-case-side,
+  .case-detail-controles .split-panel, .case-detail-export .grid-2-1,
+  .case-detail .split-panel, .doc-layout, .scan-ways,
+  .tx-pair, .tx-choices { grid-template-columns: minmax(0, 1fr) !important; }
+  .case-detail-controles .case-aside, .case-detail-export .case-aside {
+    min-width: 0; width: 100%;
+  }
+  .head-stepper, .tabs, .case-tabs, .new-case-steps {
+    max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain;
+  }
+  .viewer { height: min(65vh, 520px) !important; min-height: 280px; }
+  .doc-side { min-width: 0; }
+  .dash-cases, .goods-preview, .goods-list, .cases-filter-card,
+  .table-wrap, .table-scroll, .data-wrap, .table-responsive,
+  .tx-row, .tx-ro { max-width: 100%; overflow-x: auto; }
+  .data { display: block; max-width: 100%; overflow-x: auto; }
+  .nc-file, .nc-field, .intake-group { min-width: 0; max-width: 100%; }
+  .nc-field input, .nc-field select, .nc-field textarea,
+  .intake-group input, .intake-group select { max-width: 100%; }
+  .ia-grid, .ia-lists, .onb-split, .console-detail-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .login-logo img { max-width: min(280px, 75vw); }
+}
