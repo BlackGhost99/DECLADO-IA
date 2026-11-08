@@ -159,6 +159,14 @@ CACHES = {
 }
 
 
+# Free staging fallback: retains cross-worker rate-limit counters in PostgreSQL.
+# Production still uses Redis; this does not disable MFA or throttling.
+if env.bool("STAGING_DATABASE_CACHE", default=False) and not DEBUG:
+    CACHES["default"] = {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "clairtransit_staging_cache",
+    }
+
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30

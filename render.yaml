@@ -1,0 +1,55 @@
+# Temporary DECLADO staging; all listed resources are on the free plan.
+services:
+  - type: web
+    name: declado-ia-staging
+    runtime: docker
+    branch: staging/render-mobile-test-20261108
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_ALLOWED_HOSTS
+        value: declado-ia-staging.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://declado-ia-staging.onrender.com
+      - key: PUBLIC_APP_URL
+        value: https://declado-ia-staging.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: declado-staging-db
+          property: connectionString
+      - key: MFA_ENFORCE
+        value: "true"
+      - key: MFA_ENCRYPTION_KEY
+        generateValue: true
+      - key: AUTH_RATE_LIMIT_ENABLED
+        value: "true"
+      - key: STAGING_DATABASE_CACHE
+        value: "true"
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: "true"
+      - key: STAGING_EMBEDDED_WORKER
+        value: "false"
+      - key: STAGING_SEED_DEMO
+        value: "false"
+      - key: AI_PROVIDER
+        value: disabled
+      - key: OCR_LANGUAGES
+        value: fra+eng+spa+ara
+      - key: CLAMAV_HOST
+        value: 127.0.0.1
+      - key: CLAMAV_PORT
+        value: "3310"
+databases:
+  - name: declado-staging-db
+    plan: free
+    postgresMajorVersion: "16"
+    region: frankfurt
+    ipAllowList: []

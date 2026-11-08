@@ -7,6 +7,9 @@ if [ "${DJANGO_DEBUG:-false}" = "true" ]; then
 fi
 python manage.py migrate --noinput
 python manage.py seed_document_types
+if [ "${STAGING_DATABASE_CACHE:-false}" = "true" ]; then
+  python manage.py createcachetable clairtransit_staging_cache
+fi
 if [ "${STAGING_SEED_DEMO:-false}" = "true" ]; then
   if [ -z "${DEMO_PASSWORD:-}" ]; then
     echo "DEMO_PASSWORD must be set before seeding staging accounts" >&2
