@@ -94,8 +94,7 @@ def import_upload(*, actor, upload, label: str = "") -> dict:
                     if total > STAGING_UNSCANNED_TARIFF_MAX_UNPACKED_BYTES or len(entries) > 250:
                         raise ApiError("UNSAFE_ARCHIVE", "Classeur de test trop volumineux une fois décompressé.", 413)
                     if any(
-                        entry.file_size > 0 and entry.file_size / max(entry.compress_size, 1) > 150
-                        for entry in entries
+                        entry.file_size > 0 and entry.file_size / max(entry.compress_size, 1) > 150 for entry in entries
                     ):
                         raise ApiError("UNSAFE_ARCHIVE", "Archive de test anormalement compressée.", 422)
                     if archive.testzip() is not None:
