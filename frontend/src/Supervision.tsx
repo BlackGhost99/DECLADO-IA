@@ -89,8 +89,8 @@ function Overview({ data }: { data: Data }) {
   const provider = data.ai.provider;
   return (
     <div className="stats" aria-label={tr("sup.overview")}>
-      <StatCard icon="shield" tone={av.probe.state === "ok" ? "green" : "red"} label={tr("sup.antivirus")}
-        value={tr(av.probe.state === "ok" ? "sup.avOk" : "sup.avDown")}
+      <StatCard icon="shield" tone={av.mode === "staging_demo_bypass" ? "amber" : av.probe.state === "ok" ? "green" : "red"} label={tr("sup.antivirus")}
+        value={av.mode === "staging_demo_bypass" ? tr("sup.avDemoBypass") : tr(av.probe.state === "ok" ? "sup.avOk" : "sup.avDown")}
         hint={tr("sup.scanned", { n: av.counts.clean, refused: av.counts.malware })} />
       <StatCard icon="file" tone={data.reading.counts.failed ? "amber" : "green"} label={tr("sup.readings")}
         value={num(data.reading.counts.total)}
@@ -137,15 +137,16 @@ function AntivirusTab({ data, onTested }: { data: Data; onTested: () => void }) 
           ) : (
             <><dt>{tr("sup.reason")}</dt><dd>{av.probe.message}</dd></>
           )}
-          <dt>{tr("sup.mode")}</dt><dd>{tr("sup.failClosed")}</dd>
+          <dt>{tr("sup.mode")}</dt><dd>{tr(av.mode === "staging_demo_bypass" ? "sup.demoBypassWarning" : "sup.failClosed")}</dd>
           <dt>{tr("sup.cleanCount")}</dt><dd>{num(av.counts.clean)}</dd>
+          {av.mode === "staging_demo_bypass" && <><dt>{tr("sup.unscannedCount")}</dt><dd>{num(av.counts.unscanned ?? 0)}</dd></>}
           <dt>{tr("sup.malwareCount")}</dt><dd>{num(av.counts.malware)}</dd>
           <dt>{tr("sup.unavailableCount")}</dt><dd>{num(av.counts.unavailable)}</dd>
           <dt>{tr("sup.lastClean")}</dt><dd>{av.last_clean_at ? relativeTime(av.last_clean_at) : "—"}</dd>
           <dt>{tr("sup.lastTest")}</dt>
           <dd>{av.last_test ? <><Chip tone={LEVEL_TONE[av.last_test.level]}>{tr(av.last_test.code === "SELF_TEST_PASSED" ? "sup.testOk" : "sup.testFailed")}</Chip> {relativeTime(av.last_test.at)}{av.last_test.actor ? ` · ${av.last_test.actor}` : ""}</> : tr("sup.never")}</dd>
         </dl>
-        <p className="note-blue small">{tr("sup.avNote")}</p>
+        <p className="note-blue small">{tr(av.mode === "staging_demo_bypass" ? "sup.demoBypassWarning" : "sup.avNote")}</p>
       </section>
       <section className="card" aria-labelledby="sup-test-title">
         <h2 id="sup-test-title" className="card-title">{tr("sup.testTitle")}</h2>
@@ -384,7 +385,7 @@ function OperationsTab({ data }: { data: Data }) {
         <p className="muted small">{tr("sup.runtimeHelp")}</p>
         <div className="platform-pulse-grid">
           <span><Chip tone={r.database.state === "ok" ? "green" : "red"}>{r.database.state}</Chip> {tr("sup.database")}</span>
-          <span><Chip tone={r.clamav.state === "ok" ? "green" : "red"}>{r.clamav.state}</Chip> ClamAV</span>
+          <span><Chip tone={r.clamav.demo_bypass ? "amber" : r.clamav.state === "ok" ? "green" : "red"}>{r.clamav.demo_bypass ? tr("sup.avDemoBypass") : r.clamav.state}</Chip> ClamAV</span>
           <span><Chip tone={r.ocr.state === "ok" ? "green" : "amber"}>{r.ocr.state}</Chip> OCR</span>
           <span><Chip tone={r.ai.state === "configured" ? "green" : "gray"}>{r.ai.state}</Chip> IA</span>
           <span><Chip tone="amber">{r.tasks.state}</Chip> {tr("sup.jobsTitle")}</span>
@@ -393,7 +394,8 @@ function OperationsTab({ data }: { data: Data }) {
         {r.ocr.missing_languages.length > 0 && (
           <p className="muted small">{tr("sup.missingLanguages", { list: r.ocr.missing_languages.join(", ") })}</p>
         )}
-        {r.clamav.blocking_uploads && <p className="error small">{tr("sup.uploadsBlocked")}</p>}
+        {r.clamav.demo_bypass && <p className="note-amber small">{tr("sup.demoBypassWarning")}</p>}
+        {r.clamav.blocking_uploads && <p className="error small">{tr("sup.uploadsBlocked")}</p>
         {r.documents.state === "ephemeral" && <p className="error small">{tr("sup.storageWarning")}</p>}
         {r.tasks.state === "inline" && <p className="muted small">{tr("sup.inlineHelp")}</p>}
       </section>
