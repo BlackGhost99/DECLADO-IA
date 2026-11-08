@@ -227,7 +227,18 @@ STAGING_PERSISTENT_FILES = env.bool("STAGING_PERSISTENT_FILES", default=False)
 DOCUMENT_MAX_BYTES = env.int("DOCUMENT_MAX_BYTES", default=50 * 1024 * 1024)
 DOCUMENT_LINK_TTL_SECONDS = env.int("DOCUMENT_LINK_TTL_SECONDS", default=300)
 
-# Security gate for every external document upload. Never bypass the daemon.
+# Exception explicitly opt-in for synthetic demo organizations on public staging only.
+# In production or development this remains False even if the env flag is set.
+STAGING_SKIP_ANTIVIRUS = (
+    env("APP_ENV", default="").lower() == "staging"
+    and STAGING_SIMPLE_LOGIN
+    and env.bool("STAGING_SEED_DEMO", default=False)
+    and not DEBUG
+    and env.bool("STAGING_SKIP_ANTIVIRUS", default=False)
+)
+STAGING_UNSCANNED_MAX_BYTES = 10 * 1024 * 1024
+
+# Default: ClamAV is mandatory for every external document upload.
 CLAMAV_HOST = env("CLAMAV_HOST", default="127.0.0.1")
 CLAMAV_PORT = env.int("CLAMAV_PORT", default=3310)
 CLAMAV_CONNECT_TIMEOUT = env.int("CLAMAV_CONNECT_TIMEOUT", default=5)
