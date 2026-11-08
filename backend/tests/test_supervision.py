@@ -113,7 +113,7 @@ def test_t91_rejected_pieces_are_kept_with_their_reason_but_never_their_name(wor
     assert malware["details"]["sha256_prefix"] and malware["details"]["bytes"] > 0
     assert by_code["CONTENT_TYPE_MISMATCH"]["category"] == "document"
     assert by_code["CONTENT_TYPE_MISMATCH"]["message"]
-    assert data["antivirus"]["counts"] == {"clean": 1, "malware": 1, "unavailable": 0}
+    assert data["antivirus"]["counts"] == {"clean": 1, "unscanned": 0, "malware": 1, "unavailable": 0}
     org_a = next(o for o in data["organizations"] if o["name"] == "Société A")
     assert org_a["rejected_documents"] == 2 and org_a["documents"] == 1 and org_a["cases"] == 1
 
