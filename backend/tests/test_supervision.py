@@ -214,3 +214,29 @@ def test_tesseract_found_in_the_install_folder_without_the_startup_script_variab
     exe.unlink()
     found, _ = locate_tesseract(backend, {"ProgramFiles": str(program_files)}, no_path)
     assert found == str(program_files / "Tesseract-OCR" / "tesseract.exe")
+
+
+def test_staging_operations_status_and_journal_are_private(world, operator, session, settings, monkeypatch):
+    from apps.core.models import OutboxEvent
+
+    fake_scanner(monkeypatch, clean)
+    OutboxEvent.objects.create(topic="system.ping", payload={})
+    response = operator.get(URL)
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["runtime"]["database"]["state"] == "ok"
+    assert payload["operations"]["outbox_pending"] >= 1
+    assert "events" in payload["journal"]
+    assert "payload" not in str(payload["operations"]["outbox_recent"])
+    assert session("admin@a.test").post(f"{URL}/ocr-test").status_code == 403
+
+
+def test_staging_ocr_self_test_writes_safe_event(world, operator, monkeypatch):
+    import pytesseract
+
+    monkeypatch.setattr(pytesseract, "image_to_string", lambda *args, **kwargs: "DECLADO 2026")
+    response = operator.post(f"{URL}/ocr-test")
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    events = operator.get(URL).json()["journal"]["events"]
+    assert any(e["code"] == "OCR_SELF_TEST_PASSED" and e["source"] == "operation" for e in events)

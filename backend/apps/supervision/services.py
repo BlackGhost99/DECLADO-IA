@@ -447,9 +447,7 @@ def operations_section(since, names: dict) -> dict:
 
 def journal_section(since, names: dict) -> dict:
     """Journal centralisé *applicatif*, non les flux stdout privés de Render."""
-    operations = (
-        OperationalEvent.objects.filter(at__gte=since).select_related("actor").order_by("-at")
-    )
+    operations = OperationalEvent.objects.filter(at__gte=since).select_related("actor").order_by("-at")
     audits = AuditEvent.objects.filter(at__gte=since).select_related("actor").order_by("-at")
     rows = [
         {
@@ -488,8 +486,11 @@ def runtime_section(av: dict, reading: dict, ai_info: dict, operations: dict) ->
         "database": {"state": "ok"},  # les requêtes précédentes ont réussi
         "clamav": {"state": av["probe"]["state"], "blocking_uploads": av["probe"]["state"] != "ok"},
         "ocr": {
-            "state": "ok" if reading["engines"]["ocr"]["available"] and not missing else "partial"
-            if reading["engines"]["ocr"]["available"] else "unavailable",
+            "state": "ok"
+            if reading["engines"]["ocr"]["available"] and not missing
+            else "partial"
+            if reading["engines"]["ocr"]["available"]
+            else "unavailable",
             "expected_languages": expected,
             "missing_languages": missing,
         },
