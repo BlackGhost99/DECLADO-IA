@@ -1,9 +1,7 @@
 """Staging-only antivirus exception for SWD reference workbooks; never in production."""
 
-from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
-from zipfile import ZipFile, ZIP_DEFLATED
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
