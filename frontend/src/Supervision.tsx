@@ -395,7 +395,7 @@ function OperationsTab({ data }: { data: Data }) {
           <p className="muted small">{tr("sup.missingLanguages", { list: r.ocr.missing_languages.join(", ") })}</p>
         )}
         {r.clamav.demo_bypass && <p className="note-amber small">{tr("sup.demoBypassWarning")}</p>}
-        {r.clamav.blocking_uploads && <p className="error small">{tr("sup.uploadsBlocked")}</p>
+        {r.clamav.blocking_uploads && <p className="error small">{tr("sup.uploadsBlocked")}</p>}
         {r.documents.state === "ephemeral" && <p className="error small">{tr("sup.storageWarning")}</p>}
         {r.tasks.state === "inline" && <p className="muted small">{tr("sup.inlineHelp")}</p>}
       </section>
