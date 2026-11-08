@@ -47,6 +47,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--password", help="Mot de passe des comptes de démonstration.")
+        parser.add_argument("--no-case", action="store_true", help="Ne pas déposer de fichier fictif avant ClamAV.")
+        parser.add_argument("--hide-password", action="store_true", help="Masquer le mot de passe dans les journaux.")
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -76,13 +78,15 @@ class Command(BaseCommand):
             for name, identifiers in items:
                 Importer.objects.get_or_create(organization=orgs[key], name=name, defaults={"identifiers": identifiers})
 
-        self._demo_case(orgs["alpha"])
+        if not options["no_case"]:
+            self._demo_case(orgs["alpha"])
         self.stdout.write(self.style.SUCCESS("Jeu de démonstration prêt (données fictives)."))
         for email, _, affiliations in USERS:
             detail = ", ".join(f"{ORGS[k]}: {'/'.join(r.value for r in v)}" for k, v in affiliations.items())
             detail = detail or "gestionnaire du référentiel (aucune société)"
             self.stdout.write(f"  {email:28} {detail}")
-        self.stdout.write(f"Mot de passe commun : {password}")
+        if not options["hide_password"]:
+            self.stdout.write(f"Mot de passe commun : {password}")
 
     def _demo_case(self, org):
         """Dossier fictif d'Alpha : facture PDF synthétique, une ligne avec code douanier et référence article."""

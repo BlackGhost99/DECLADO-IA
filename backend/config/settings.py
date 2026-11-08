@@ -46,6 +46,10 @@ INSTALLED_APPS = [
     "apps.supervision",
 ]
 
+# Compiled React can be served on the same origin as the authenticated API.
+SERVE_FRONTEND = env.bool("SERVE_FRONTEND", default=False)
+FRONTEND_DIST_DIR = Path(env("FRONTEND_DIST_DIR", default=str(BASE_DIR / "frontend_dist")))
+
 MIDDLEWARE = [
     "apps.core.middleware.RequestIdMiddleware",
     "apps.supervision.recorder.SupervisionMiddleware",
@@ -58,6 +62,10 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+if SERVE_FRONTEND:
+    security_index = MIDDLEWARE.index("django.middleware.security.SecurityMiddleware")
+    MIDDLEWARE.insert(security_index + 1, "whitenoise.middleware.WhiteNoiseMiddleware")
 
 ROOT_URLCONF = "config.urls"
 
@@ -102,6 +110,8 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+if SERVE_FRONTEND:
+    WHITENOISE_ROOT = FRONTEND_DIST_DIR
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Sessions serveur, cookie HttpOnly ; Secure hors développement.
