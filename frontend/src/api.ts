@@ -616,7 +616,7 @@ export interface Supervision {
   };
   runtime: {
     database: { state: string };
-    clamav: { state: string; blocking_uploads: boolean };
+    clamav: { state: string; scanner_state?: string; demo_bypass?: boolean; blocking_uploads: boolean };
     ocr: { state: string; expected_languages: string[]; missing_languages: string[] };
     ai: { state: string };
     tasks: { state: string; pending: number; stale: number };
