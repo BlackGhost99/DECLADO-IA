@@ -26,6 +26,15 @@ def max_bytes() -> int:
     return settings.DOCUMENT_MAX_BYTES
 
 
+def staging_demo_bypass(organization) -> bool:
+    """The only antivirus exemption: explicit flag, non-debug staging and fictitious company."""
+    return bool(
+        settings.STAGING_SKIP_ANTIVIRUS
+        and not settings.DEBUG
+        and organization.is_demo
+    )
+
+
 def limits() -> dict:
     return {
         "max_bytes": max_bytes(),
@@ -68,24 +77,30 @@ def store_upload(
     supersedes: Document | None = None,
     allow_tiff: bool = False,
 ) -> Document:
-    """Stage -> ClamAV -> inspect -> promote; external bytes never bypass the scanner."""
-    if upload.size is not None and upload.size > max_bytes():
+    """Stage -> ClamAV (or explicitly marked staging demo bypass) -> inspect -> promote."""
+    bypass = staging_demo_bypass(organization)
+    size_limit = min(max_bytes(), settings.STAGING_UNSCANNED_MAX_BYTES) if bypass else max_bytes()
+    if upload.size is not None and upload.size > size_limit:
         _refused(organization, actor, upload, declared_mime, "FILE_TOO_LARGE", "Fichier trop volumineux.")
         raise ApiError(
             "FILE_TOO_LARGE",
-            f"Fichier trop volumineux ({upload.size} octets, limite {max_bytes()}).",
+            f"Fichier trop volumineux ({upload.size} octets, limite {size_limit}).",
             413,
-            {"bytes": upload.size, "max_bytes": max_bytes()},
+            {"bytes": upload.size, "max_bytes": size_limit},
         )
     staged = None
     stored = None
     try:
         try:
-            # The bytes reach clamd while they are staged: the verdict never needs the quarantined
-            # file again, which a desktop antivirus may already have locked or removed.
-            with antivirus.open_stream() as scanner:
-                staged = quarantine.stage(upload, max_bytes(), on_chunk=scanner.feed)
-                scanner.verdict()
+            if bypass:
+                # Explicitly unscanned: do not pretend the file received an antivirus verdict.
+                # The size, real file type and private quarantine controls still apply.
+                staged = quarantine.stage(upload, size_limit)
+            else:
+                # Stream to clamd before staging any byte; production remains fail-closed.
+                with antivirus.open_stream() as scanner:
+                    staged = quarantine.stage(upload, size_limit, on_chunk=scanner.feed)
+                    scanner.verdict()
         except antivirus.MalwareDetected:
             logger.warning(
                 "Document malveillant refusé organisation=%s sha256=%s",
@@ -147,9 +162,19 @@ def store_upload(
                     "version": document.version,
                     "readability": document.readability,
                     "supersedes": str(supersedes.id) if supersedes else None,
-                    "antivirus": "clamav_clean",
+                    "antivirus": "not_scanned_staging" if bypass else "clamav_clean",
                 },
             )
+            if bypass:
+                recorder.note(
+                    category="antivirus",
+                    level="warning",
+                    code="STAGING_SCAN_BYPASSED",
+                    message="Pièce fictive déposée sans vérification antivirus (staging uniquement).",
+                    organization=organization,
+                    actor=actor,
+                    details={"bytes": document.bytes, "sha256_prefix": document.sha256[:12]},
+                )
         except Exception:
             storage.discard(stored.key)
             raise
