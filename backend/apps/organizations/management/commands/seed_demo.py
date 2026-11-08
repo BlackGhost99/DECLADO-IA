@@ -4,6 +4,9 @@ Données entièrement synthétiques, marquées is_demo. Refusé hors mode DEBUG.
 Le mot de passe de démonstration n'est pas un secret : il ne doit jamais servir ailleurs.
 """
 
+import base64
+import hashlib
+import hmac
 import os
 from decimal import Decimal
 
@@ -27,14 +30,24 @@ USERS = [
     ("declarant@alpha.demo", "Déclarant Alpha", {"alpha": [Role.DECLARANT]}),
     ("validateur@alpha.demo", "Validateur Alpha", {"alpha": [Role.VALIDATOR]}),
     ("admin@alpha.demo", "Admin Alpha", {"alpha": [Role.ORG_ADMIN]}),
+    ("agent2@alpha.demo", "Déclarant Alpha 2", {"alpha": [Role.DECLARANT]}),
+    ("agent3@alpha.demo", "Validateur Alpha 2", {"alpha": [Role.VALIDATOR]}),
     ("declarant@beta.demo", "Déclarant Bêta", {"beta": [Role.DECLARANT]}),
     ("validateur@beta.demo", "Validateur Bêta", {"beta": [Role.VALIDATOR]}),
     ("admin@beta.demo", "Admin Bêta", {"beta": [Role.ORG_ADMIN, Role.DECLARANT]}),
+    ("agent2@beta.demo", "Déclarant Bêta 2", {"beta": [Role.DECLARANT]}),
+    ("agent3@beta.demo", "Validateur Bêta 2", {"beta": [Role.VALIDATOR]}),
     ("multi@demo.demo", "Agent multi-sociétés", {"alpha": [Role.DECLARANT], "beta": [Role.DECLARANT]}),
     # Gestionnaire du référentiel : permission distincte, sans accès métier aux sociétés.
     ("referentiel@demo.demo", "Gestionnaire du référentiel", {}),
 ]
 REFERENCE_MANAGERS = {"referentiel@demo.demo"}
+
+
+def staging_password(seed: str, email: str) -> str:
+    """Derive an individual stable staging password from a Render-only secret."""
+    digest = hmac.new(seed.encode(), f"declado-staging:{email}".encode(), hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(digest).decode().rstrip("=")[:22]
 
 IMPORTERS = {
     "alpha": [("Société Fictive Import Alpha", {"nif": "DEMO-A-0001"})],
@@ -58,20 +71,37 @@ class Command(BaseCommand):
         if not settings.DEBUG:
             raise CommandError("seed_demo est réservé au développement (DJANGO_DEBUG=true).")
         password = options["password"] or os.environ.get("DEMO_PASSWORD") or DEFAULT_DEMO_PASSWORD
+        is_staging = os.environ.get("APP_ENV", "").lower() == "staging"
+        staging_seed = os.environ.get("STAGING_DEMO_PASSWORD_SEED", "")
+        if is_staging and len(staging_seed) < 32:
+            raise CommandError("STAGING_DEMO_PASSWORD_SEED doit contenir au moins 32 caractères.")
 
         orgs = {}
         for key, name in ORGS.items():
             orgs[key], _ = Organization.objects.get_or_create(name=name, defaults={"is_demo": True})
+            if is_staging and not orgs[key].is_demo:
+                raise CommandError("Société existante non fictive : initialisation interrompue.")
 
         for email, full_name, affiliations in USERS:
             user = User.objects.filter(email=email).first()
+            if is_staging and user is not None and (
+                user.is_platform_operator
+                or user.is_superuser
+                or user.is_staff
+                or user.memberships.filter(organization__is_demo=False).exists()
+            ):
+                raise CommandError("Un compte de démonstration est associé à des droits réels.")
+            account_password = staging_password(staging_seed, email) if is_staging else password
             if user is None:
                 user = User.objects.create_user(
                     email=email,
-                    password=password,
+                    password=account_password,
                     full_name=full_name,
                     is_reference_manager=email in REFERENCE_MANAGERS,
                 )
+            elif is_staging and not user.check_password(account_password):
+                user.set_password(account_password)
+                user.save(update_fields=["password"])
             for key, roles in affiliations.items():
                 Membership.objects.update_or_create(
                     organization=orgs[key], user=user, defaults={"roles": list(roles), "active": True}
@@ -104,7 +134,10 @@ class Command(BaseCommand):
             detail = detail or "gestionnaire du référentiel (aucune société)"
             self.stdout.write(f"  {email:28} {detail}")
         if not options["hide_password"]:
-            self.stdout.write(f"Mot de passe commun : {password}")
+            if is_staging:
+                self.stdout.write("Mots de passe individuels fournis séparément ; aucun secret affiché.")
+            else:
+                self.stdout.write(f"Mot de passe commun : {password}")
 
     def _demo_case(self, org):
         """Dossier fictif d'Alpha : facture PDF synthétique, une ligne avec code douanier et référence article."""
