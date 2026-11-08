@@ -560,8 +560,8 @@ export interface Supervision {
   generated_at: string;
   antivirus: {
     probe: AntivirusProbe;
-    mode: "fail_closed";
-    counts: { clean: number; malware: number; unavailable: number };
+    mode: "fail_closed" | "staging_demo_bypass";
+    counts: { clean: number; unscanned?: number; malware: number; unavailable: number };
     last_clean_at: string | null;
     last_test: SupervisionEvent | null;
     events: SupervisionEvent[];
