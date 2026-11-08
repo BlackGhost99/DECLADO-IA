@@ -7,8 +7,10 @@ import {
   type Invitation,
   type NewOrganizationInput,
   type PlatformOrganization,
+  type Supervision as SupervisionData,
 } from "./api";
 import { PlatformAIPanel } from "./PlatformAI";
+import { navigate } from "./router";
 import { Icon } from "./Icon";
 import { tr } from "./i18n";
 import { ActivationLink, issuedLink, type IssuedLink, CountrySelect, countryLabel, Field, LOCALES, ProfileChoice, profileLabel, SecondaryProfiles } from "./Onboarding";
@@ -54,6 +56,7 @@ export function Console({ view }: { view: "home" | "requests" }) {
       </PageHeader>
       {error && <p role="alert" className="error">⚠ {error}</p>}
       {issued && <ActivationLink {...issued} />}
+      {view === "home" && <PlatformPulse />}
       {view === "home" && <PlatformAIPanel />}
       {view === "home" && organizations && <CompanyStats items={organizations} />}
       {(view === "requests" || requests === null || requests.length > 0) && (
@@ -266,5 +269,66 @@ function NewCompany({
       {error && <p role="alert" className="error">⚠ {error}</p>}
       <button type="submit" className="btn-primary btn-block" disabled={busy}>{tr("con.create")}</button>
     </form>
+  );
+}
+
+/** Synthèse de l'exploitation accessible dès l'accueil du super-administrateur. */
+function PlatformPulse() {
+  const [data, setData] = useState<SupervisionData | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      void api.supervision(1).then(
+        next => { if (active) { setData(next); setError(false); } },
+        () => { if (active) setError(true); },
+      );
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 60000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+  const r = data?.runtime;
+  return (
+    <section className="card platform-pulse" aria-label={tr("sup.liveTitle")}>
+      <div className="card-head pulse-head">
+        <div>
+          <h2 className="card-title">{tr("sup.liveTitle")}</h2>
+          <p className="muted small">{tr("sup.liveHelp")}</p>
+        </div>
+        <button type="button" className="btn-primary" onClick={() => navigate("/supervision")}>
+          <Icon name="chart" size={18} /> {tr("sup.openSupervision")}
+        </button>
+      </div>
+      {error && <p role="alert" className="error">{tr("sup.loadError")}</p>}
+      {!data && !error && <p className="muted">{tr("loading")}</p>}
+      {r && (
+        <>
+          <div className="platform-pulse-grid">
+            <span><Chip tone={r.database.state === "ok" ? "green" : "red"}>DB</Chip>
+              {tr("sup.database")}</span>
+            <span><Chip tone={r.clamav.state === "ok" ? "green" : "red"}>ClamAV</Chip>
+              {r.clamav.state === "ok" ? tr("sup.available") : tr("sup.avDown")}</span>
+            <span><Chip tone={r.ocr.state === "ok" ? "green" : "amber"}>OCR</Chip>
+              {r.ocr.state === "ok" ? tr("sup.available") : tr("sup.partial")}</span>
+            <span><Chip tone={r.ai.state === "configured" ? "green" : "gray"}>IA</Chip>
+              {r.ai.state === "configured" ? tr("sup.available") : tr("sup.aiOff")}</span>
+            <span><Chip tone="amber">Jobs</Chip>
+              {r.tasks.state === "inline" ? tr("sup.inline") : tr("sup.workerUnverified")}</span>
+            <span><Chip tone={r.documents.state === "ephemeral" ? "red" : "gray"}>Files</Chip>
+              {r.documents.state === "ephemeral" ? tr("sup.ephemeral") : tr("sup.storageUnknown")}</span>
+          </div>
+          <p className="muted small">
+            {tr("sup.queueSummary", {
+              pending: data.operations.outbox_pending,
+              blocked: data.operations.outbox_stale,
+              errors: data.incidents.server_errors,
+              companies: data.organizations.length,
+            })}
+          </p>
+          {r.clamav.blocking_uploads && <p className="error small">{tr("sup.uploadsBlocked")}</p>}
+        </>
+      )}
+    </section>
   );
 }

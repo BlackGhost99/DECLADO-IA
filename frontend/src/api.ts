@@ -613,6 +613,27 @@ export interface Supervision {
       error_code: string; error_message: string;
     }[];
   };
+  runtime: {
+    database: { state: string };
+    clamav: { state: string; blocking_uploads: boolean };
+    ocr: { state: string; expected_languages: string[]; missing_languages: string[] };
+    ai: { state: string };
+    tasks: { state: string; pending: number; stale: number };
+    documents: { mode: string; state: string };
+    staging: boolean;
+  };
+  operations: {
+    execution: string; worker_verified: boolean; outbox_pending: number; outbox_stale: number;
+    outbox_errors: number;
+    outbox_recent: { at: string; topic: string; attempts: number; error: string }[];
+    jobs: { queued: number; running: number; failed: number; succeeded: number };
+    recent_jobs: { at: string; organization: string | null; kind: string; state: string;
+      phase: string; attempts: number; error_code: string; error_message: string }[];
+  };
+  journal: {
+    operational_count: number; audit_count: number;
+    events: (Omit<SupervisionEvent, "category"> & { source: "operation" | "audit"; category: string })[];
+  };
   organizations: {
     id: string; name: string; is_demo: boolean; cases: number; documents: number; readings: number;
     reading_failures: number; rejected_documents: number; errors: number; ai_sent: number; last_activity: string | null;
@@ -1381,6 +1402,9 @@ export const api = {
   platformAISettings: () => request<PlatformAISettings>("GET", "/platform/ai-settings"),
   supervision: (days: 1 | 7 | 30) => request<Supervision>("GET", `/platform/supervision?days=${days}`),
   antivirusSelfTest: () => request<AntivirusSelfTest>("POST", "/platform/supervision/antivirus-test"),
+  ocrSelfTest: () => request<{ ok: boolean; steps: { ok: boolean; message: string }[]; at: string }>(
+    "POST", "/platform/supervision/ocr-test",
+  ),
   savePlatformAIQuota: (id: string, data: { monthly_cap: number; row_version: number }) =>
     request<PlatformAIOrganization>("PUT", `/platform/organizations/${id}/ai-quota`, data),
   aiSettings: () => request<AISettings>("GET", "/organization/ai-settings"),

@@ -42,3 +42,16 @@
   }
   .login-logo img { max-width: min(280px, 75vw); }
 }
+
+/* Staging: operational overview, work queue and journal on desktops and phones. */
+.platform-pulse { margin-bottom: 20px; }
+.pulse-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.platform-pulse-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 14px 0; }
+.platform-pulse-grid > span { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.pulse-filters { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+.pulse-filters label { display: grid; gap: 4px; min-width: 150px; }
+@media (max-width: 600px) {
+  .platform-pulse-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pulse-head > button { width: 100%; justify-content: center; }
+  .pulse-filters label { width: 100%; }
+}
