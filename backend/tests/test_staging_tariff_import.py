@@ -20,7 +20,8 @@ def test_reference_manager_can_stage_xlsx_in_staging_without_clamav(settings, mo
     actor = SimpleNamespace(is_authenticated=True, is_reference_manager=True)
     monkeypatch.setattr(uploads.recorder, "note", lambda **_kwargs: None)
     monkeypatch.setattr(
-        antivirus, "open_stream",
+        antivirus,
+        "open_stream",
         lambda: (_ for _ in ()).throw(AssertionError("ClamAV must not be called")),
     )
     staged = uploads._stage(SimpleUploadedFile("tarif.xlsx", b"synthetic-test"), actor=actor, kind="xlsx")
