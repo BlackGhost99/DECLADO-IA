@@ -4,10 +4,12 @@ import { Icon } from "./Icon";
 import { tr, type MessageKey } from "./i18n";
 import { Chip, PageHeader, StatCard, errorText, relativeTime, type Tone } from "./ui";
 
-type Tab = "antivirus" | "reading" | "ai" | "rejections" | "incidents" | "companies";
+type Tab = "operations" | "journal" | "antivirus" | "reading" | "ai" | "rejections" | "incidents" | "companies";
 type Days = 1 | 7 | 30;
 
-const TABS: { id: Tab; label: MessageKey; icon: "shield" | "file" | "layers" | "alert" | "x" | "users" }[] = [
+const TABS: { id: Tab; label: MessageKey; icon: "shield" | "file" | "layers" | "alert" | "x" | "users" | "clock" | "history" }[] = [
+  { id: "operations", label: "sup.tabOperations", icon: "clock" },
+  { id: "journal", label: "sup.tabJournal", icon: "history" },
   { id: "antivirus", label: "sup.tabAntivirus", icon: "shield" },
   { id: "reading", label: "sup.tabReading", icon: "file" },
   { id: "ai", label: "sup.tabAI", icon: "layers" },
@@ -23,7 +25,7 @@ const num = (n: number | null | undefined) => (n === null || n === undefined ? "
 /** Console > Supervision : l'exploitant voit si la plateforme fonctionne, jamais le contenu des pièces. */
 export function Supervision() {
   const [days, setDays] = useState<Days>(7);
-  const [tab, setTab] = useState<Tab>("antivirus");
+  const [tab, setTab] = useState<Tab>("operations");
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -66,8 +68,10 @@ export function Supervision() {
               </button>
             ))}
           </div>
+          {tab === "operations" && <OperationsTab data={data} />}
+          {tab === "journal" && <JournalTab data={data} />}
           {tab === "antivirus" && <AntivirusTab data={data} onTested={load} />}
-          {tab === "reading" && <ReadingTab data={data} />}
+          {tab === "reading" && <ReadingTab data={data} onTested={load} />}
           {tab === "ai" && <AITab data={data} />}
           {tab === "rejections" && <EventsCard title={tr("sup.rejectionsTitle")} help={tr("sup.rejectionsHelp")} items={data.rejections} />}
           {tab === "incidents" && <IncidentsTab data={data} />}
@@ -163,7 +167,7 @@ function AntivirusTab({ data, onTested }: { data: Data; onTested: () => void }) 
   );
 }
 
-function ReadingTab({ data }: { data: Data }) {
+function ReadingTab({ data, onTested }: { data: Data; onTested: () => void }) {
   const r = data.reading;
   return (
     <>
@@ -196,6 +200,7 @@ function ReadingTab({ data }: { data: Data }) {
           <Table head={[tr("sup.engine"), tr("sup.count")]} rows={r.by_parser.map((x) => [x.label, num(x.count)])} empty={tr("sup.none")} />
         </section>
       </div>
+      <OcrSelfTest onTested={onTested} />
       <section className="card" aria-labelledby="sup-fail-title">
         <h2 id="sup-fail-title" className="card-title">{tr("sup.readingFailures")}</h2>
         <Table
@@ -334,5 +339,128 @@ function Table({ head, rows, empty }: { head: string[]; rows: ReactNode[][]; emp
         <tbody>{rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>)}</tbody>
       </table>
     </div>
+  );
+}
+
+function OcrSelfTest({ onTested }: { onTested: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; steps: { ok: boolean; message: string }[] } | null>(null);
+  const [error, setError] = useState("");
+  const run = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const next = await api.ocrSelfTest();
+      setResult(next);
+      onTested();
+    } catch (err) {
+      setError(errorText(err, tr("sup.loadError")));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="card">
+      <h2 className="card-title">{tr("sup.ocrTestTitle")}</h2>
+      <p className="muted small">{tr("sup.ocrTestHelp")}</p>
+      <button type="button" className="btn-secondary" disabled={busy} onClick={() => void run()}>
+        <Icon name="file" size={18} /> {tr(busy ? "sup.testing" : "sup.ocrTestRun")}
+      </button>
+      {error && <p role="alert" className="error">{error}</p>}
+      {result && <p role="status">
+        <Chip tone={result.ok ? "green" : "red"}>{tr(result.ok ? "sup.testOk" : "sup.testFailed")}</Chip>
+        {" "}{result.steps.map(s => s.message).join(" · ")}
+      </p>}
+    </section>
+  );
+}
+
+function OperationsTab({ data }: { data: Data }) {
+  const { runtime: r, operations: o } = data;
+  return (
+    <>
+      <section className="card">
+        <h2 className="card-title">{tr("sup.runtimeTitle")}</h2>
+        <p className="muted small">{tr("sup.runtimeHelp")}</p>
+        <div className="platform-pulse-grid">
+          <span><Chip tone={r.database.state === "ok" ? "green" : "red"}>{r.database.state}</Chip> {tr("sup.database")}</span>
+          <span><Chip tone={r.clamav.state === "ok" ? "green" : "red"}>{r.clamav.state}</Chip> ClamAV</span>
+          <span><Chip tone={r.ocr.state === "ok" ? "green" : "amber"}>{r.ocr.state}</Chip> OCR</span>
+          <span><Chip tone={r.ai.state === "configured" ? "green" : "gray"}>{r.ai.state}</Chip> IA</span>
+          <span><Chip tone="amber">{r.tasks.state}</Chip> {tr("sup.jobsTitle")}</span>
+          <span><Chip tone={r.documents.state === "ephemeral" ? "red" : "gray"}>{r.documents.state}</Chip> {tr("sup.storage")}</span>
+        </div>
+        {r.ocr.missing_languages.length > 0 && (
+          <p className="muted small">{tr("sup.missingLanguages", { list: r.ocr.missing_languages.join(", ") })}</p>
+        )}
+        {r.clamav.blocking_uploads && <p className="error small">{tr("sup.uploadsBlocked")}</p>}
+        {r.documents.state === "ephemeral" && <p className="error small">{tr("sup.storageWarning")}</p>}
+        {r.tasks.state === "inline" && <p className="muted small">{tr("sup.inlineHelp")}</p>}
+      </section>
+      <div className="stats">
+        <StatCard icon="clock" label={tr("sup.pending")} tone={o.outbox_pending ? "amber" : "green"} value={num(o.outbox_pending)} />
+        <StatCard icon="alert" label={tr("sup.stale")} tone={o.outbox_stale ? "red" : "green"} value={num(o.outbox_stale)} />
+        <StatCard icon="file" label={tr("sup.running")} tone="blue" value={num(o.jobs.running)} />
+        <StatCard icon="x" label={tr("sup.failed")} tone={o.jobs.failed ? "red" : "green"} value={num(o.jobs.failed)} />
+      </div>
+      <section className="card">
+        <h2 className="card-title">{tr("sup.recentJobs")}</h2>
+        <Table
+          head={[tr("sup.when"), tr("sup.company"), tr("sup.job"), tr("sup.state"), tr("sup.error")]}
+          rows={o.recent_jobs.map(j => [
+            when(j.at), j.organization ?? "—", j.kind + (j.phase ? " · " + j.phase : ""),
+            j.state, j.error_code ? j.error_code + " · " + j.error_message : "—",
+          ])}
+          empty={tr("sup.none")}
+        />
+        <h3 className="card-title">{tr("sup.pendingEvents")}</h3>
+        <Table
+          head={[tr("sup.when"), tr("sup.what"), tr("sup.attempt"), tr("sup.error")]}
+          rows={o.outbox_recent.map(e => [when(e.at), e.topic, num(e.attempts), e.error || "—"])}
+          empty={tr("sup.none")}
+        />
+      </section>
+    </>
+  );
+}
+
+function JournalTab({ data }: { data: Data }) {
+  const [level, setLevel] = useState("all");
+  const [company, setCompany] = useState("all");
+  const items = data.journal.events.filter(e => (level === "all" || e.level === level)
+    && (company === "all" || (e.organization ?? "") === company));
+  const orgs = [...new Set(data.organizations.map(o => o.name))].sort();
+  return (
+    <section className="card">
+      <h2 className="card-title">{tr("sup.journalTitle")}</h2>
+      <p className="muted small">
+        {tr("sup.journalHelp", { ops: data.journal.operational_count, audits: data.journal.audit_count })}
+      </p>
+      <div className="pulse-filters">
+        <label>{tr("sup.severity")}
+          <select value={level} onChange={e => setLevel(e.target.value)}>
+            <option value="all">{tr("sup.all")}</option>
+            <option value="error">error</option>
+            <option value="warning">warning</option>
+            <option value="info">info</option>
+          </select>
+        </label>
+        <label>{tr("sup.company")}
+          <select value={company} onChange={e => setCompany(e.target.value)}>
+            <option value="all">{tr("sup.all")}</option>
+            {orgs.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </label>
+      </div>
+      <Table
+        head={[tr("sup.when"), tr("sup.company"), tr("sup.who"), tr("sup.what"), tr("sup.details")]}
+        rows={items.map(e => [
+          when(e.at), e.organization ?? "—", e.actor ?? "—",
+          <><Chip tone={LEVEL_TONE[e.level]}>{e.source}</Chip> <code>{e.code}</code></>,
+          <>{e.message}{e.request_id ? " · " + e.request_id.slice(0, 8) : ""}</>,
+        ])}
+        empty={tr("sup.nothing")}
+      />
+    </section>
   );
 }
