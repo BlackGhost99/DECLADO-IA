@@ -64,7 +64,7 @@ def test_non_demo_organization_remains_fail_closed(demo_world, world, monkeypatc
             actor=world["users"]["b_admin"],
             upload=SimpleUploadedFile("facture.pdf", make_pdf(["Fictif"]), content_type="application/pdf"),
         )
-    assert error.value.code == "MALWARE_SCAN_UNAVAILABLE"
+    assert error.value.error_code == "MALWARE_SCAN_UNAVAILABLE"
 
 
 @pytest.mark.django_db
@@ -82,7 +82,7 @@ def test_demo_bypass_cannot_be_used_in_debug(demo_world, settings, monkeypatch):
             actor=user,
             upload=SimpleUploadedFile("facture.pdf", make_pdf(["Fictif"]), content_type="application/pdf"),
         )
-    assert error.value.code == "MALWARE_SCAN_UNAVAILABLE"
+    assert error.value.error_code == "MALWARE_SCAN_UNAVAILABLE"
 
 
 @pytest.mark.django_db
@@ -95,7 +95,7 @@ def test_demo_bypass_keeps_size_cap_and_mime_checks(demo_world, settings):
             actor=user,
             upload=SimpleUploadedFile("facture.pdf", b"x" * 81, content_type="application/pdf"),
         )
-    assert error.value.code == "FILE_TOO_LARGE"
+    assert error.value.error_code == "FILE_TOO_LARGE"
 
     settings.STAGING_UNSCANNED_MAX_BYTES = 10 * 1024 * 1024
     with pytest.raises(ApiError) as error:
@@ -104,7 +104,7 @@ def test_demo_bypass_keeps_size_cap_and_mime_checks(demo_world, settings):
             actor=user,
             upload=SimpleUploadedFile("facture.pdf", make_png(), content_type="application/pdf"),
         )
-    assert error.value.code == "CONTENT_TYPE_MISMATCH"
+    assert error.value.error_code == "CONTENT_TYPE_MISMATCH"
 
 
 @pytest.mark.django_db
