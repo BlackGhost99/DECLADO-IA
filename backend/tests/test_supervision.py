@@ -216,14 +216,13 @@ def test_tesseract_found_in_the_install_folder_without_the_startup_script_variab
     assert found == str(program_files / "Tesseract-OCR" / "tesseract.exe")
 
 
-def test_staging_operations_status_and_journal_are_private(
-    world, operator, session, settings, monkeypatch  # noqa: F811
-):
+def test_staging_operations_status_and_journal_are_private(world, session, monkeypatch, request):
+    admin = request.getfixturevalue("operator")
     from apps.core.models import OutboxEvent
 
     fake_scanner(monkeypatch, clean)
     OutboxEvent.objects.create(topic="system.ping", payload={})
-    response = operator.get(URL)
+    response = admin.get(URL)
     assert response.status_code == 200
     payload = response.json()
     assert payload["runtime"]["database"]["state"] == "ok"
@@ -233,12 +232,13 @@ def test_staging_operations_status_and_journal_are_private(
     assert session("admin@a.test").post(f"{URL}/ocr-test").status_code == 403
 
 
-def test_staging_ocr_self_test_writes_safe_event(world, operator, monkeypatch):  # noqa: F811
+def test_staging_ocr_self_test_writes_safe_event(world, monkeypatch, request):
+    admin = request.getfixturevalue("operator")
     import pytesseract
 
     monkeypatch.setattr(pytesseract, "image_to_string", lambda *args, **kwargs: "DECLADO 2026")
-    response = operator.post(f"{URL}/ocr-test")
+    response = admin.post(f"{URL}/ocr-test")
     assert response.status_code == 200
     assert response.json()["ok"] is True
-    events = operator.get(URL).json()["journal"]["events"]
+    events = admin.get(URL).json()["journal"]["events"]
     assert any(e["code"] == "OCR_SELF_TEST_PASSED" and e["source"] == "operation" for e in events)
