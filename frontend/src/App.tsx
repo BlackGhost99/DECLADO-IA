@@ -404,7 +404,14 @@ function Layout({
         <div className="country-slot">
           <CountryMenu />
         </div>
-        <main className="content">{children(route)}</main>
+        <main className="content">
+          {active?.organization.is_demo && me.staging_av_demo_mode && (
+            <p role="status" className="note-amber">
+              <Icon name="alert" size={18} /> {tr("sup.demoBanner")}
+            </p>
+          )}
+          {children(route)}
+        </main>
       </div>
     </div>
   );
