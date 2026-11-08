@@ -49,6 +49,7 @@ def staging_password(seed: str, email: str) -> str:
     digest = hmac.new(seed.encode(), f"declado-staging:{email}".encode(), hashlib.sha256).digest()
     return base64.urlsafe_b64encode(digest).decode().rstrip("=")[:22]
 
+
 IMPORTERS = {
     "alpha": [("Société Fictive Import Alpha", {"nif": "DEMO-A-0001"})],
     "beta": [("Comptoir Fictif Bêta", {"nif": "DEMO-B-0001"})],
@@ -84,11 +85,15 @@ class Command(BaseCommand):
 
         for email, full_name, affiliations in USERS:
             user = User.objects.filter(email=email).first()
-            if is_staging and user is not None and (
-                user.is_platform_operator
-                or user.is_superuser
-                or user.is_staff
-                or user.memberships.filter(organization__is_demo=False).exists()
+            if (
+                is_staging
+                and user is not None
+                and (
+                    user.is_platform_operator
+                    or user.is_superuser
+                    or user.is_staff
+                    or user.memberships.filter(organization__is_demo=False).exists()
+                )
             ):
                 raise CommandError("Un compte de démonstration est associé à des droits réels.")
             account_password = staging_password(staging_seed, email) if is_staging else password
