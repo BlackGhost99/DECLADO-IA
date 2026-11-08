@@ -216,8 +216,8 @@ def test_tesseract_found_in_the_install_folder_without_the_startup_script_variab
     assert found == str(program_files / "Tesseract-OCR" / "tesseract.exe")
 
 
-def test_staging_operations_status_and_journal_are_private(  # noqa: F811
-    world, operator, session, settings, monkeypatch
+def test_staging_operations_status_and_journal_are_private(
+    world, operator, session, settings, monkeypatch  # noqa: F811
 ):
     from apps.core.models import OutboxEvent
 
