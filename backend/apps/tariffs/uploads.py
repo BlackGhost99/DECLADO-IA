@@ -107,7 +107,13 @@ def import_upload(*, actor, upload, label: str = "") -> dict:
 
             if is_swd_workbook(path):
                 try:
-                    schedule = import_swd(path, label=label, title=name, actor=actor)
+                    schedule = import_swd(
+                        path,
+                        label=label,
+                        title=name,
+                        actor=actor,
+                        low_pressure=staging_tariff_bypass(actor=actor, kind=kind),
+                    )
                 except LayoutError as exc:
                     raise ApiError("INVALID_LAYOUT", str(exc), 400) from exc
                 activate_schedule(schedule=schedule)
