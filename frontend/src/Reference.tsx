@@ -430,9 +430,11 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
     if (!file) return;
     setImporting(true);
     setImportMsg(null);
+    let queued = false;
     try {
       const r = await api.importTariff(file, label.trim());
       if ("job_id" in r) {
+        queued = true;
         setImportMsg({ ok: true, text: r.message });
         setImportJobId(r.job_id);
         return;
@@ -447,10 +449,7 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
     } catch (err) {
       setImportMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
     } finally {
-      if (!importJobId) {
-        // Async jobs keep this form disabled until the status endpoint reports completion.
-        setImporting(false);
-      }
+      if (!queued) setImporting(false);
     }
   }
 
