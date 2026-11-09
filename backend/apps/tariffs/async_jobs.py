@@ -89,7 +89,7 @@ def job_for_actor(*, job_id, actor) -> dict:
         if cache.get(ACTIVE_KEY) == str(job_id):
             cache.delete(ACTIVE_KEY)
         cache.delete(_key(str(job_id)) + ":data")
-    return {k: v for k, v in state.items() if k not in ("actor_id", "created_timestamp")}
+    return {k: v for k, v in state.items() if k not in ("actor_id", "created_timestamp", "worker_epoch")}
 
 
 def _execute(job_id: str, actor_id: str, filename: str, label: str) -> None:
