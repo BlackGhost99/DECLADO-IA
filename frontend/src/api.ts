@@ -307,6 +307,20 @@ export interface EditionBrief {
   publication_state: "draft" | "consultation" | "operational" | "withdrawn";
 }
 
+export type TariffImportResult = {
+  edition: EditionBrief;
+  counts: Record<string, number>;
+  taxes: { id: string; label: string; active: boolean } | null;
+};
+export type TariffImportSubmission = TariffImportResult | { job_id: string; state: "queued"; message: string };
+export type TariffImportJob = {
+  job_id: string;
+  state: "queued" | "running" | "succeeded" | "failed";
+  message: string;
+  result?: TariffImportResult;
+  error_code?: string;
+};
+
 export interface Edition extends EditionBrief {
   warning: string | null;
   hs_version?: string;
@@ -1470,11 +1484,9 @@ export const api = {
     const form = new FormData();
     form.append("file", file);
     form.append("label", label);
-    return upload<{ edition: EditionBrief; counts: Record<string, number>; taxes: { id: string; label: string; active: boolean } | null }>(
-      "/tariffs/imports",
-      form,
-    );
+    return upload<TariffImportSubmission>("/tariffs/imports", form);
   },
+  tariffImportJob: (id: string) => request<TariffImportJob>("GET", `/tariffs/imports/jobs/${id}`),
   taxOverview: () => request<TaxOverview>("GET", "/fiscal/taxes"),
   taxReview: (kind: string, page = 1) =>
     request<{ count: number; page: number; results: ScheduleLineInfo[] }>("GET", `/fiscal/taxes/review/${kind}?page=${page}`),
