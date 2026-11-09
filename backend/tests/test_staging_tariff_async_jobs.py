@@ -60,3 +60,21 @@ def test_non_manager_cannot_start_unscanned_background_import(job_env):
     with pytest.raises(ApiError) as error:
         async_jobs.queue_import(actor=no_role, upload=SimpleUploadedFile("test.xlsx", _fake_xlsx()), label="CEMAC")
     assert error.value.error_code == "FORBIDDEN"
+
+
+@pytest.mark.django_db
+def test_previous_worker_import_is_reported_interrupted_and_unblocks_queue(job_env):
+    actor = job_env
+    previous = async_jobs.queue_import(
+        actor=actor, upload=SimpleUploadedFile("old.xlsx", _fake_xlsx()), label="Old"
+    )
+    state = async_jobs._state(previous["job_id"])
+    state["worker_epoch"] = "previous-deployment"
+    state["created_timestamp"] -= async_jobs.ORPHAN_GRACE_SECONDS + 1
+    async_jobs._put(previous["job_id"], state)
+
+    replacement = async_jobs.queue_import(
+        actor=actor, upload=SimpleUploadedFile("new.xlsx", _fake_xlsx()), label="New"
+    )
+    assert replacement["job_id"] != previous["job_id"]
+    assert async_jobs.job_for_actor(job_id=previous["job_id"], actor=actor)["state"] == "failed"
