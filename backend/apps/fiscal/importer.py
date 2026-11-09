@@ -80,7 +80,7 @@ def _tec_reference(wb) -> tuple[str, dict[str, dict]]:
         return "", {}
     col = {h: i for i, h in enumerate(header)}
     out: dict[str, dict] = {}
-    for row in ws.iter_rows(min_row=2):
+    for n, row in enumerate(ws.iter_rows(min_row=2), start=2):
         code = cell_text(row[col["Code SH"]].value).replace(".", "").strip()
         sp = _digits(cell_text(row[col["SP"]].value), 2) if "SP" in col else "00"
         if len(code) != 6 or not code.isdigit() or len(sp) != 2:
@@ -94,7 +94,7 @@ def _tec_reference(wb) -> tuple[str, dict[str, dict]]:
         out.setdefault(
             code + sp,
             {
-                "row": row[0].row,
+                "row": n,
                 "dd_raw": dd_raw,
                 "dd_percent": format(dd, "f") if dd is not None else None,
                 "tva_raw": cell_text(row[col["TVA"]].value).strip() if "TVA" in col else "",
@@ -144,8 +144,9 @@ def import_swd(
     reference_sheet, tec = _tec_reference(wb_v)
 
     rows = []  # (numéro de ligne, code 8, sous-position nationale, valeurs texte, formules)
-    for row_f, row_v in zip(ws_f.iter_rows(min_row=2), ws_v.iter_rows(min_row=2), strict=True):
-        n = row_v[0].row
+    for n, (row_f, row_v) in enumerate(
+        zip(ws_f.iter_rows(min_row=2), ws_v.iter_rows(min_row=2), strict=True), start=2
+    ):
         values = [cell_text(c.value) for c in row_v]
         if not any(v.strip() for v in values):
             continue
