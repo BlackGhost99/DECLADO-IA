@@ -373,7 +373,14 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
   const [label, setLabel] = useState("");
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [importJobId, setImportJobId] = useState<string | null>(null);
+  const [importJobId, setImportJobId] = useState<string | null>(() => {
+    if (!canSeeImports) return null;
+    try {
+      return window.sessionStorage.getItem("declado.staging.tariffImportJob");
+    } catch {
+      return null;
+    }
+  });
 
   const load = useCallback(() => {
     api.editions().then(setEditions, () => setEditions([]));
@@ -383,7 +390,17 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
   useEffect(load, [load]);
 
   useEffect(() => {
+    try {
+      if (importJobId) window.sessionStorage.setItem("declado.staging.tariffImportJob", importJobId);
+      else window.sessionStorage.removeItem("declado.staging.tariffImportJob");
+    } catch {
+      // The status is still tracked while this page remains open.
+    }
+  }, [importJobId]);
+
+  useEffect(() => {
     if (!importJobId) return;
+    setImporting(true);
     let cancelled = false;
     let handle: ReturnType<typeof setTimeout> | undefined;
     async function poll() {
@@ -413,6 +430,15 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
         }
       } catch (err) {
         if (cancelled) return;
+        const temporary = (err instanceof ApiError && [500, 502, 503, 504].includes(err.status))
+          || err instanceof TypeError;
+        if (temporary) {
+          // A recovering free Postgres instance must not cause users to re-upload
+          // while the worker may still be writing the tariff edition.
+          setImportMsg({ ok: true, text: tr("sup.importDbRetry") });
+          handle = setTimeout(() => { void poll(); }, 9000);
+          return;
+        }
         setImportMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
         setImporting(false);
         setImportJobId(null);
