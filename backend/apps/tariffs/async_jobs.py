@@ -70,9 +70,7 @@ def _cleanup(job_id: str) -> None:
 
 def _abandoned(state: dict) -> bool:
     age = time.time() - state["created_timestamp"]
-    return age > STALE_SECONDS or (
-        age > ORPHAN_GRACE_SECONDS and state.get("worker_epoch") != WORKER_EPOCH
-    )
+    return age > STALE_SECONDS or (age > ORPHAN_GRACE_SECONDS and state.get("worker_epoch") != WORKER_EPOCH)
 
 
 def job_for_actor(*, job_id, actor) -> dict:
