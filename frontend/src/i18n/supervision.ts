@@ -4,6 +4,7 @@
  */
 export const supervision = {
   fr: {
+    "sup.importDbRetry": "La base de données est temporairement indisponible. Le suivi reprendra automatiquement ; ne relancez pas l'import.",
     "sup.avDemoBypass": "Désactivé (démo)",
     "sup.demoBypassWarning": "Mode test : antivirus désactivé pour les sociétés fictives uniquement. Fichiers non analysés : n'utilisez jamais de documents réels.",
     "sup.unscannedCount": "Pièces déposées sans antivirus (test)",
@@ -174,6 +175,7 @@ export const supervision = {
     "sup.privacy": "Aucun contenu de pièce, nom de fichier, valeur lue ou clé n'est affiché ici.",
   },
   en: {
+    "sup.importDbRetry": "The database is temporarily unavailable. Import tracking will resume automatically; do not upload again.",
     "sup.avDemoBypass": "Disabled (demo)",
     "sup.demoBypassWarning": "Test mode: antivirus disabled for fictitious companies only. Files are not scanned: never upload real documents.",
     "sup.unscannedCount": "Files uploaded without antivirus (test)",
@@ -344,6 +346,7 @@ export const supervision = {
     "sup.privacy": "No document content, file name, read value or key is shown here.",
   },
   es: {
+    "sup.importDbRetry": "La base de datos no está disponible temporalmente. El seguimiento se reanudará automáticamente; no vuelva a cargar el archivo.",
     "sup.avDemoBypass": "Desactivado (demo)",
     "sup.demoBypassWarning": "Modo de prueba: antivirus desactivado solo para empresas ficticias. Los archivos no se analizan: nunca suba documentos reales.",
     "sup.unscannedCount": "Archivos cargados sin antivirus (prueba)",
@@ -514,6 +517,7 @@ export const supervision = {
     "sup.privacy": "Aquí no se muestra contenido de documentos, nombres de archivo, valores leídos ni claves.",
   },
   ar: {
+    "sup.importDbRetry": "قاعدة البيانات غير متاحة مؤقتًا. سيُستأنف تتبّع الاستيراد تلقائيًا؛ لا ترفع الملف مرة أخرى.",
     "sup.avDemoBypass": "معطّل (تجريبي)",
     "sup.demoBypassWarning": "وضع الاختبار: مكافحة الفيروسات معطلة للشركات الوهمية فقط. لا يتم فحص الملفات؛ لا ترفع مستندات حقيقية.",
     "sup.unscannedCount": "ملفات مرفوعة دون فحص فيروسات (اختبار)",
