@@ -28,6 +28,8 @@ ACTIVE_KEY = "declado:staging:tariff-import:active"
 JOB_PREFIX = "declado:staging:tariff-import:"
 CACHE_TTL = 60 * 60
 STALE_SECONDS = 60 * 60
+WORKER_EPOCH = uuid.uuid4().hex
+ORPHAN_GRACE_SECONDS = 5 * 60
 
 
 def _key(job_id: str) -> str:
@@ -66,15 +68,22 @@ def _cleanup(job_id: str) -> None:
         logger.warning("Staging tariff cache cleanup postponed after PostgreSQL interruption")
 
 
+def _abandoned(state: dict) -> bool:
+    age = time.time() - state["created_timestamp"]
+    return age > STALE_SECONDS or (
+        age > ORPHAN_GRACE_SECONDS and state.get("worker_epoch") != WORKER_EPOCH
+    )
+
+
 def job_for_actor(*, job_id, actor) -> dict:
     state = _state(str(job_id))
     if state is None or state.get("actor_id") != str(actor.pk):
         raise ApiError("NOT_FOUND", "Import de test introuvable.", 404)
-    if state["state"] in ("queued", "running") and time.time() - state["created_timestamp"] > STALE_SECONDS:
+    if state["state"] in ("queued", "running") and _abandoned(state):
         state = {
             **state,
             "state": "failed",
-            "message": "Import interrompu ou trop long. Le serveur de test doit être vérifié.",
+            "message": "Import interrompu ou trop long ; vérifiez les éditions avant un nouvel envoi.",
         }
         _put(str(job_id), state)
         if cache.get(ACTIVE_KEY) == str(job_id):
@@ -162,8 +171,16 @@ def queue_import(*, actor, upload, label: str) -> dict:
     if running_id:
         active_state = _state(running_id)
         if active_state and active_state.get("state") in ("queued", "running"):
-            if time.time() - active_state["created_timestamp"] < STALE_SECONDS:
+            if not _abandoned(active_state):
                 raise ApiError("IMPORT_BUSY", "Un import de tarif est déjà en cours. Attendez sa fin.", 409)
+            _put(
+                running_id,
+                {
+                    **active_state,
+                    "state": "failed",
+                    "message": "Import interrompu par un redémarrage. Consultez les éditions avant de reprendre.",
+                },
+            )
         cache.delete(ACTIVE_KEY)
 
     job_id = str(uuid.uuid4())
@@ -175,6 +192,7 @@ def queue_import(*, actor, upload, label: str) -> dict:
         "state": "queued",
         "message": "Fichier reçu. Import planifié…",
         "created_timestamp": time.time(),
+        "worker_epoch": WORKER_EPOCH,
         "sha256_prefix": hashlib.sha256(raw).hexdigest()[:12],
     }
     try:
