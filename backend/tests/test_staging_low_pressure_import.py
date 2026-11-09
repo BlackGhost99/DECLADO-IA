@@ -2,18 +2,24 @@
 
 import pytest
 
+from apps.accounts.models import User
 from apps.fiscal.importer import import_swd
 from apps.fiscal.models import ScheduleLine, ScheduleRate, TaxSchedule
 from apps.tariffs.models import PublicationState, TariffNode
+from tests.conftest import PASSWORD
 from tests.test_fiscal import workbook
+
+@pytest.fixture
+def manager(db):
+    return User.objects.create_user(email="low-pressure@test.test", password=PASSWORD, is_reference_manager=True)
 
 
 @pytest.mark.django_db
-def test_paced_swd_preserves_tax_rates_and_only_creates_draft(settings, monkeypatch, tmp_path, manager):
+def test_paced_swd_preserves_tax_rates_and_only_creates_draft(settings, tmp_path, manager):
     settings.STAGING_SKIP_ANTIVIRUS = True
     settings.STAGING_SIMPLE_LOGIN = True
     settings.DEBUG = False
-    monkeypatch.setattr("apps.tariffs.importers.common.time.sleep", lambda _seconds: None)
+    settings.PRIVATE_STORAGE_ROOT = tmp_path / "private"
     schedule = import_swd(
         workbook(tmp_path / "paced-swd.xlsx"),
         label="CEMAC SWD test",
@@ -34,6 +40,7 @@ def test_paced_swd_preserves_tax_rates_and_only_creates_draft(settings, monkeypa
 def test_paced_import_refused_unless_explicitly_in_staging(settings, tmp_path, manager):
     settings.STAGING_SKIP_ANTIVIRUS = False
     settings.STAGING_SIMPLE_LOGIN = False
+    settings.PRIVATE_STORAGE_ROOT = tmp_path / "private"
     with pytest.raises(ValueError, match="restricted to staging"):
         import_swd(
             workbook(tmp_path / "not-staging.xlsx"),
