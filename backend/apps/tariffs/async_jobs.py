@@ -17,7 +17,7 @@ from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import close_old_connections, transaction
+from django.db import OperationalError, close_old_connections, transaction
 
 from apps.core.exceptions import ApiError
 
@@ -27,19 +27,43 @@ logger = logging.getLogger(__name__)
 ACTIVE_KEY = "declado:staging:tariff-import:active"
 JOB_PREFIX = "declado:staging:tariff-import:"
 CACHE_TTL = 60 * 60
-STALE_SECONDS = 35 * 60
+STALE_SECONDS = 60 * 60
 
 
 def _key(job_id: str) -> str:
     return f"{JOB_PREFIX}{job_id}"
 
 
+def _retry_database_cache(action):
+    """Staging Postgres may restart briefly; never lose an import verdict immediately."""
+    for attempt in range(5):
+        try:
+            return action()
+        except OperationalError:
+            close_old_connections()
+            if attempt == 4:
+                raise
+            time.sleep(2**attempt)
+
+
 def _state(job_id: str) -> dict | None:
-    return cache.get(_key(job_id))
+    return _retry_database_cache(lambda: cache.get(_key(job_id)))
 
 
 def _put(job_id: str, data: dict) -> None:
-    cache.set(_key(job_id), data, timeout=CACHE_TTL)
+    _retry_database_cache(lambda: cache.set(_key(job_id), data, timeout=CACHE_TTL))
+
+
+def _cleanup(job_id: str) -> None:
+    def clean():
+        cache.delete(_key(job_id) + ":data")
+        if cache.get(ACTIVE_KEY) == job_id:
+            cache.delete(ACTIVE_KEY)
+
+    try:
+        _retry_database_cache(clean)
+    except OperationalError:
+        logger.warning("Staging tariff cache cleanup postponed after PostgreSQL interruption")
 
 
 def job_for_actor(*, job_id, actor) -> dict:
@@ -98,9 +122,7 @@ def _execute(job_id: str, actor_id: str, filename: str, label: str) -> None:
             },
         )
     finally:
-        cache.delete(_key(job_id) + ":data")
-        if cache.get(ACTIVE_KEY) == job_id:
-            cache.delete(ACTIVE_KEY)
+        _cleanup(job_id)
         close_old_connections()
 
 
