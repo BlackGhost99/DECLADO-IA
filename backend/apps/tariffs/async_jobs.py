@@ -47,7 +47,11 @@ def job_for_actor(*, job_id, actor) -> dict:
     if state is None or state.get("actor_id") != str(actor.pk):
         raise ApiError("NOT_FOUND", "Import de test introuvable.", 404)
     if state["state"] in ("queued", "running") and time.time() - state["created_timestamp"] > STALE_SECONDS:
-        state = {**state, "state": "failed", "message": "Import interrompu ou trop long. Le serveur de test doit être vérifié."}
+        state = {
+            **state,
+            "state": "failed",
+            "message": "Import interrompu ou trop long. Le serveur de test doit être vérifié.",
+        }
         _put(str(job_id), state)
         if cache.get(ACTIVE_KEY) == str(job_id):
             cache.delete(ACTIVE_KEY)
@@ -68,7 +72,11 @@ def _execute(job_id: str, actor_id: str, filename: str, label: str) -> None:
         actor = get_user_model().objects.get(pk=actor_id)
         result = import_upload(
             actor=actor,
-            upload=SimpleUploadedFile(filename, raw, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            upload=SimpleUploadedFile(
+                filename,
+                raw,
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
             label=label,
         )
         state = _state(job_id) or {}
@@ -80,7 +88,15 @@ def _execute(job_id: str, actor_id: str, filename: str, label: str) -> None:
     except Exception:
         logger.exception("Staging tariff import %s failed", job_id)
         state = _state(job_id) or {}
-        _put(job_id, {**state, "state": "failed", "message": "L'import a échoué côté serveur. Consulter les journaux Render.", "error_code": "IMPORT_FAILED"})
+        _put(
+            job_id,
+            {
+                **state,
+                "state": "failed",
+                "message": "L'import a échoué côté serveur. Consulter les journaux Render.",
+                "error_code": "IMPORT_FAILED",
+            },
+        )
     finally:
         cache.delete(_key(job_id) + ":data")
         if cache.get(ACTIVE_KEY) == job_id:
@@ -112,7 +128,10 @@ def queue_import(*, actor, upload, label: str) -> dict:
             raise ApiError("UNSAFE_ARCHIVE", "Archive Excel trop volumineuse après décompression.", 413)
         if any(item.file_size > 0 and item.file_size / max(item.compress_size, 1) > 150 for item in entries):
             raise ApiError("UNSAFE_ARCHIVE", "Archive Excel anormalement compressée.", 422)
-        if any(item.filename.startswith("../") or "/../" in item.filename or item.filename.startswith("/") for item in entries):
+        if any(
+            item.filename.startswith("../") or "/../" in item.filename or item.filename.startswith("/")
+            for item in entries
+        ):
             raise ApiError("UNSAFE_ARCHIVE", "Archive Excel non conforme.", 422)
         if archive.testzip() is not None:
             raise ApiError("INVALID_FILE", "Classeur Excel endommagé.", 422)
