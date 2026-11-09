@@ -144,9 +144,7 @@ def import_swd(
     reference_sheet, tec = _tec_reference(wb_v)
 
     rows = []  # (numéro de ligne, code 8, sous-position nationale, valeurs texte, formules)
-    for n, (row_f, row_v) in enumerate(
-        zip(ws_f.iter_rows(min_row=2), ws_v.iter_rows(min_row=2), strict=True), start=2
-    ):
+    for n, (row_f, row_v) in enumerate(zip(ws_f.iter_rows(min_row=2), ws_v.iter_rows(min_row=2), strict=True), start=2):
         values = [cell_text(c.value) for c in row_v]
         if not any(v.strip() for v in values):
             continue
