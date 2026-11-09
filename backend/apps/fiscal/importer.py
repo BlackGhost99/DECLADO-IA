@@ -126,8 +126,9 @@ def import_swd(
         provenance_note=provenance_note,
     )
     data = source_path(source).read_bytes()
-    wb_f = openpyxl.load_workbook(io.BytesIO(data), data_only=False)
-    wb_v = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
+    # Streaming avoids materializing two complete Excel cell graphs on the 512 MiB demo server.
+    wb_f = openpyxl.load_workbook(io.BytesIO(data), data_only=False, read_only=True, keep_links=False)
+    wb_v = openpyxl.load_workbook(io.BytesIO(data), data_only=True, read_only=True, keep_links=False)
     ws_f, ws_v = wb_f.worksheets[0], wb_v.worksheets[0]
     header = _header(ws_v)
     missing = [h for h in REQUIRED if h not in header]
@@ -148,7 +149,7 @@ def import_swd(
         values = [cell_text(c.value) for c in row_v]
         if not any(v.strip() for v in values):
             continue
-        formulas = {c.column_letter: str(c.value) for c in row_f if c.data_type == "f"}
+        formulas = {openpyxl.utils.get_column_letter(c.column): str(c.value) for c in row_f if c.data_type == "f"}
         code = _digits(values[col["Code SH"]], 6) + _digits(values[col["Sous position CEMAC"]], 2)
         national = _digits(values[col["Sous position nationale"]], 3)
         if len(code) != 8 or not code.isdigit():
@@ -278,7 +279,7 @@ def import_swd(
         "schedule_lines": len(lines),
         "codes": len(by_code),
     }
-    finish_run(run, counts=counts, coverage={"dimensions": ws_v.dimensions}, issues=issues)
+    finish_run(run, counts=counts, coverage={"dimensions": ws_v.calculate_dimension()}, issues=issues)
     schedule.counts = {
         "lines": len(lines),
         "codes": len(by_code),
