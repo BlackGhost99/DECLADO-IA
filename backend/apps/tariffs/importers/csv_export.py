@@ -90,6 +90,7 @@ def load_table(
             low_pressure_create(model, items)
         else:
             model.objects.bulk_create(items, batch_size=batch_size)
+
     records = [
         RawTariffRecord(
             run=run,
