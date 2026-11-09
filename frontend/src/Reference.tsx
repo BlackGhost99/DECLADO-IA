@@ -373,6 +373,7 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
   const [label, setLabel] = useState("");
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [importJobId, setImportJobId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     api.editions().then(setEditions, () => setEditions([]));
@@ -381,6 +382,49 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
   }, [canSeeImports]);
   useEffect(load, [load]);
 
+  useEffect(() => {
+    if (!importJobId) return;
+    let cancelled = false;
+    let handle: ReturnType<typeof setTimeout> | undefined;
+    async function poll() {
+      try {
+        const job = await api.tariffImportJob(importJobId!);
+        if (cancelled) return;
+        if (job.state === "succeeded" && job.result) {
+          const result = job.result;
+          setImportMsg({
+            ok: true,
+            text: tr(result.taxes ? "ref.importDoneTaxes" : "ref.importDone", {
+              label: result.edition.label, n: result.counts.tariff_lines ?? 0,
+            }),
+          });
+          setFile(null);
+          setLabel("");
+          setImporting(false);
+          setImportJobId(null);
+          load();
+        } else if (job.state === "failed") {
+          setImportMsg({ ok: false, text: job.message });
+          setImporting(false);
+          setImportJobId(null);
+        } else {
+          setImportMsg({ ok: true, text: job.message });
+          handle = setTimeout(() => { void poll(); }, 4000);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setImportMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
+        setImporting(false);
+        setImportJobId(null);
+      }
+    }
+    void poll();
+    return () => {
+      cancelled = true;
+      if (handle !== undefined) clearTimeout(handle);
+    };
+  }, [importJobId, load]);
+
   async function importTariff(e: FormEvent) {
     e.preventDefault();
     if (!file) return;
@@ -388,6 +432,11 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
     setImportMsg(null);
     try {
       const r = await api.importTariff(file, label.trim());
+      if ("job_id" in r) {
+        setImportMsg({ ok: true, text: r.message });
+        setImportJobId(r.job_id);
+        return;
+      }
       setImportMsg({
         ok: true,
         text: tr(r.taxes ? "ref.importDoneTaxes" : "ref.importDone", { label: r.edition.label, n: r.counts.tariff_lines ?? 0 }),
@@ -398,7 +447,10 @@ export function ReferenceAdmin({ canSeeImports }: { canSeeImports: boolean }) {
     } catch (err) {
       setImportMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
     } finally {
-      setImporting(false);
+      if (!importJobId) {
+        // Async jobs keep this form disabled until the status endpoint reports completion.
+        setImporting(false);
+      }
     }
   }
 
