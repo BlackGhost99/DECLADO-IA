@@ -48,13 +48,9 @@ def test_returns_queued_job_without_waiting_for_workbook_import(job_env):
 @pytest.mark.django_db
 def test_second_import_rejected_while_first_is_pending(job_env):
     user = job_env
-    async_jobs.queue_import(
-        actor=user, upload=SimpleUploadedFile("first.xlsx", _fake_xlsx()), label="CEMAC 2022"
-    )
+    async_jobs.queue_import(actor=user, upload=SimpleUploadedFile("first.xlsx", _fake_xlsx()), label="CEMAC 2022")
     with pytest.raises(ApiError) as error:
-        async_jobs.queue_import(
-            actor=user, upload=SimpleUploadedFile("second.xlsx", _fake_xlsx()), label="CEMAC 2022"
-        )
+        async_jobs.queue_import(actor=user, upload=SimpleUploadedFile("second.xlsx", _fake_xlsx()), label="CEMAC 2022")
     assert error.value.error_code == "IMPORT_BUSY"
 
 
@@ -62,7 +58,5 @@ def test_second_import_rejected_while_first_is_pending(job_env):
 def test_non_manager_cannot_start_unscanned_background_import(job_env):
     no_role = SimpleNamespace(pk=uuid4(), is_authenticated=True, is_reference_manager=False)
     with pytest.raises(ApiError) as error:
-        async_jobs.queue_import(
-            actor=no_role, upload=SimpleUploadedFile("test.xlsx", _fake_xlsx()), label="CEMAC"
-        )
+        async_jobs.queue_import(actor=no_role, upload=SimpleUploadedFile("test.xlsx", _fake_xlsx()), label="CEMAC")
     assert error.value.error_code == "FORBIDDEN"
