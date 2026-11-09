@@ -9,6 +9,7 @@ from apps.tariffs.models import PublicationState, TariffNode
 from tests.conftest import PASSWORD
 from tests.test_fiscal import workbook
 
+
 @pytest.fixture
 def manager(db):
     return User.objects.create_user(email="low-pressure@test.test", password=PASSWORD, is_reference_manager=True)
