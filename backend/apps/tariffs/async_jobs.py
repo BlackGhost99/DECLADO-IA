@@ -148,8 +148,11 @@ def queue_import(*, actor, upload, label: str) -> dict:
     if not cache.add(ACTIVE_KEY, job_id, timeout=CACHE_TTL):
         raise ApiError("IMPORT_BUSY", "Un import de tarif est déjà en cours.", 409)
     state = {
-        "job_id": job_id, "actor_id": str(actor.pk), "state": "queued",
-        "message": "Fichier reçu. Import planifié…", "created_timestamp": time.time(),
+        "job_id": job_id,
+        "actor_id": str(actor.pk),
+        "state": "queued",
+        "message": "Fichier reçu. Import planifié…",
+        "created_timestamp": time.time(),
         "sha256_prefix": hashlib.sha256(raw).hexdigest()[:12],
     }
     try:
