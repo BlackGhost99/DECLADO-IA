@@ -13,9 +13,17 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import openpyxl
+from django.conf import settings
 from django.db import transaction
 
-from apps.tariffs.importers.common import IssueCollector, finish_run, register_source, source_path
+from apps.tariffs.importers.common import (
+    IssueCollector,
+    finish_run,
+    low_pressure_create,
+    low_pressure_update,
+    register_source,
+    source_path,
+)
 from apps.tariffs.importers.csv_export import load_table
 from apps.tariffs.importers.xlsx import cell_text
 from apps.tariffs.models import ImportIssue, ImportRun, RawTariffRecord, SourceKind, TariffEdition
@@ -104,8 +112,7 @@ def _tec_reference(wb) -> tuple[str, dict[str, dict]]:
     return ws.title, out
 
 
-@transaction.atomic
-def import_swd(
+def _import_swd_impl(
     path: Path,
     *,
     label: str,
@@ -114,6 +121,7 @@ def import_swd(
     actor=None,
     publisher_claimed: str = "",
     provenance_note: str = "",
+    low_pressure: bool = False,
 ) -> TaxSchedule:
     source = register_source(
         path,
@@ -180,7 +188,15 @@ def import_swd(
             syn_formulas[ordinal] = {"L": formulas["P"]}
         real_rows[ordinal] = item
     table_counts = load_table(
-        run, edition, issues, syn_header, syn_body, sheet=ws_v.title, code_length=8, formulas=syn_formulas
+        run,
+        edition,
+        issues,
+        syn_header,
+        syn_body,
+        sheet=ws_v.title,
+        code_length=8,
+        formulas=syn_formulas,
+        low_pressure=low_pressure,
     )
     records = list(RawTariffRecord.objects.filter(run=run, ordinal__in=real_rows))
     last = openpyxl.utils.get_column_letter(len(header))
@@ -189,7 +205,10 @@ def import_swd(
         record.cell_range, record.raw_cells, record.formulas = f"A{n}:{last}{n}", values, formulas
     header_record = RawTariffRecord.objects.get(run=run, ordinal=1)
     header_record.cell_range, header_record.raw_cells = f"A1:{last}1", header
-    RawTariffRecord.objects.bulk_update([*records, header_record], ["cell_range", "raw_cells", "formulas"])
+    if low_pressure:
+        low_pressure_update(RawTariffRecord, [*records, header_record], ["cell_range", "raw_cells", "formulas"])
+    else:
+        RawTariffRecord.objects.bulk_update([*records, header_record], ["cell_range", "raw_cells", "formulas"])
 
     schedule = TaxSchedule.objects.create(
         label=label,
@@ -251,8 +270,12 @@ def import_swd(
                     cell=f"{openpyxl.utils.get_column_letter(index + 1)}{n}",
                 )
             )
-    ScheduleLine.objects.bulk_create(lines, batch_size=2000)
-    ScheduleRate.objects.bulk_create(rates, batch_size=5000)
+    if low_pressure:
+        low_pressure_create(ScheduleLine, lines)
+        low_pressure_create(ScheduleRate, rates)
+    else:
+        ScheduleLine.objects.bulk_create(lines, batch_size=2000)
+        ScheduleRate.objects.bulk_create(rates, batch_size=5000)
 
     unreadable = sum(1 for r in rates if r.raw_value and r.rate is None)
     if unreadable:
@@ -289,3 +312,42 @@ def import_swd(
     }
     schedule.save(update_fields=["counts"])
     return schedule
+
+
+def import_swd(
+    path: Path,
+    *,
+    label: str,
+    title: str,
+    territory: str = "GA",
+    actor=None,
+    publisher_claimed: str = "",
+    provenance_note: str = "",
+    low_pressure: bool = False,
+) -> TaxSchedule:
+    """Preserve atomic production imports; pace only explicit staging demo imports.
+
+    A failed staging batch never gets published as a tariff edition and its
+    tax schedule stays inactive. Partial draft evidence is retained for review.
+    """
+    args = {
+        "label": label,
+        "title": title,
+        "territory": territory,
+        "actor": actor,
+        "publisher_claimed": publisher_claimed,
+        "provenance_note": provenance_note,
+        "low_pressure": low_pressure,
+    }
+    if low_pressure:
+        if not (
+            settings.STAGING_SKIP_ANTIVIRUS
+            and settings.STAGING_SIMPLE_LOGIN
+            and not settings.DEBUG
+            and actor is not None
+            and getattr(actor, "is_reference_manager", False)
+        ):
+            raise ValueError("Low-pressure non-atomic import is restricted to staging demo managers")
+        return _import_swd_impl(path, **args)
+    with transaction.atomic():
+        return _import_swd_impl(path, **args)
