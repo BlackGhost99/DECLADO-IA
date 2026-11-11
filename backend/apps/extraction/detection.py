@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 def detect_document_type(document) -> dict | None:
+    if detection := document.intake_analysis.get("detection"):
+        return detection.copy()
     if document.mime == PDF:
         try:
             import pdfplumber

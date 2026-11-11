@@ -23,7 +23,8 @@ from .schema import Origin, ParsedDocument, Status, Value, warning
 
 INVOICE, TRANSPORT, INSURANCE, FREIGHT = "invoice", "transport", "insurance", "freight"
 PACKING, ORIGIN = "packing", "origin"
-READERS = (INVOICE, TRANSPORT, INSURANCE, FREIGHT, PACKING, ORIGIN)
+PERMIT = "permit"
+READERS = (INVOICE, TRANSPORT, INSURANCE, FREIGHT, PACKING, ORIGIN, PERMIT)
 
 
 @dataclass(frozen=True)
@@ -41,15 +42,15 @@ def _k(name: str, *extra: str) -> tuple[str, ...]:
 DOCUMENT_NUMBER = _k("invoice_number", "n° attestation", "attestation no", "certificat no", "note de debit n°")
 ISSUE_DATE = ("issue date", "date of issue", "date d'emission", "date d emission", "date", "invoice date",
               "date de facture", "shipped on board", "on board date", "date d'embarquement")  # fmt: skip
+CONSIGNEE_LABELS = _k("buyer_name", "receptionnaire", "réceptionnaire")
+RELATED_BL = FieldSpec("related_bl", "Titre de transport cité", labels=_k("related_bl", *_k("transport_number")))
 
 SPECS: dict[str, tuple[FieldSpec, ...]] = {
     TRANSPORT: (
         FieldSpec("transport_number", "N° du titre de transport", labels=_k("transport_number")),
         FieldSpec("issue_date", "Date d'émission", "date", ISSUE_DATE),
         FieldSpec("shipper", "Chargeur", labels=_k("shipper", "exporter", "exportateur")),
-        FieldSpec(
-            "consignee", "Destinataire", labels=("consignee", "destinataire", "receptionnaire", "réceptionnaire")
-        ),
+        FieldSpec("consignee", "Destinataire", labels=CONSIGNEE_LABELS),
         FieldSpec("notify", "Partie à notifier", labels=_k("notify")),
         FieldSpec("vessel", "Navire", labels=_k("vessel", "vessel name", "flight", "vol")),
         FieldSpec("voyage", "Voyage", labels=_k("voyage")),
@@ -73,11 +74,13 @@ SPECS: dict[str, tuple[FieldSpec, ...]] = {
         FieldSpec("currency", "Devise", "currency", _k("currency")),
         FieldSpec("policy_number", "N° de police", labels=_k("policy_number")),
         FieldSpec("insured", "Assuré", labels=("assure", "assuré", "insured", "beneficiaire", "bénéficiaire")),
-        FieldSpec("related_bl", "Titre de transport cité", labels=_k("related_bl")),
+        RELATED_BL,
         FieldSpec("related_invoice", "Facture citée", labels=_k("related_invoice")),
         FieldSpec("vessel", "Navire", labels=_k("vessel")),
         FieldSpec("voyage", "Voyage", labels=_k("voyage")),
         FieldSpec("container", "Conteneur", labels=_k("container")),
+        FieldSpec("packages", "Colis", labels=_k("packages")),
+        FieldSpec("gross_weight", "Poids brut", labels=_k("gross_weight")),
         FieldSpec("insured_value", "Valeur assurée", "amount", _k("insured_value")),
         FieldSpec("premium_total", "Prime totale", "amount"),
     ),
@@ -96,6 +99,11 @@ SPECS: dict[str, tuple[FieldSpec, ...]] = {
     # Liste de colisage et certificat d'origine : références pour le rattachement (n° de facture cité)
     # et informations utiles, jamais une facture ni une ligne de marchandise.
     PACKING: (
+        FieldSpec("consignee", "Destinataire", labels=CONSIGNEE_LABELS),
+        FieldSpec("shipper", "Expéditeur", labels=_k("shipper", "supplier", "fournisseur", "exporter", "exportateur")),
+        FieldSpec("vessel", "Navire", labels=_k("vessel")),
+        FieldSpec("voyage", "Voyage", labels=_k("voyage")),
+        RELATED_BL,
         FieldSpec(
             "document_number",
             "N° de la pièce",
@@ -116,10 +124,19 @@ SPECS: dict[str, tuple[FieldSpec, ...]] = {
             labels=("certificate no", "certificate no.", "certificat n°", "n° certificat", "certificat no", "ref. no"),
         ),
         FieldSpec("issue_date", "Date", "date", ISSUE_DATE),
+        RELATED_BL,
         FieldSpec("related_invoice", "Facture citée", labels=_k("related_invoice")),
         FieldSpec("exporter", "Exportateur", labels=("exporter", "exportateur", "consignor", "expediteur")),
         FieldSpec("consignee", "Destinataire", labels=("consignee", "destinataire", "importateur", "importer")),
         FieldSpec("country_of_origin", "Pays d'origine", labels=_k("country_of_origin")),
+    ),
+    PERMIT: (
+        FieldSpec("document_number", "N° de la pièce", labels=("permit no", "n° autorisation", "n° certificat")),
+        FieldSpec("issue_date", "Date", "date", ISSUE_DATE),
+        FieldSpec("consignee", "Importateur", labels=CONSIGNEE_LABELS),
+        FieldSpec("related_invoice", "Facture citée", labels=_k("related_invoice")),
+        RELATED_BL,
+        FieldSpec("container", "Conteneur", labels=_k("container")),
     ),
 }
 # Champ « total » de chaque lecture : le dernier total imprimé de la pièce.
@@ -151,6 +168,7 @@ TITLES: tuple[tuple[str, str], ...] = (
     ("road_consignment_note", r"\blettre de voiture\b|\bconsignment note\b|\bcmr\b"),
     ("packing_list", r"\bpacking ?list\b|\bliste de colisage\b"),
     ("certificate_of_origin", r"\bcertificat d ?origine\b|\bcertificate of origin\b"),
+    ("sectoral_permit", r"\bprogec\b|\bautorisation(?:s)? d importation\b|\bimport permit\b"),
     ("proforma_invoice", r"\bpro ?forma\b"),
     ("commercial_invoice", r"\bcommercial invoice\b|\bfacture commerciale\b|\bfactura comercial\b|\binvoice\b"
                            r"|\bfacture\b|\bfactura\b"),
@@ -170,6 +188,7 @@ READER_FOR_TYPE = {
     "freight_receipt": FREIGHT,
     "packing_list": PACKING,
     "certificate_of_origin": ORIGIN,
+    "sectoral_permit": PERMIT,
 }
 READER_FOR_USAGE = {
     "invoice": INVOICE,
@@ -272,6 +291,20 @@ def page_text(pages: list[Page]) -> str:
         parts.append(f"[page {page.number}]" if page.number is not None else f"[feuille {page.sheet}]")
         parts.extend(row.text for row in page.rows if row.text.strip())
     return "\n".join(parts)
+
+
+def shipment_fields(pages: list[Page]) -> dict[str, Value]:
+    """Champs de rapprochement du dépôt, y compris sur une facture avec données de transport."""
+    labels = {
+        "shipper": _k("shipper", "supplier", "fournisseur", "exporter", "exportateur"),
+        "vessel": _k("vessel"),
+        "voyage": _k("voyage"),
+        "packages": _k("packages", "total packages", "total colis"),
+        "gross_weight": _k("gross_weight", "total gross weight", "poids brut total"),
+    }
+    found = labelled_values(pages, labels, accept={name: _has_digit for name in MEASURE_FIELDS})
+    reader = _reader(pages, Origin.READ)
+    return {name: reader.value(hit.items, "text", "", text=hit.text) for name, hit in found.items()}
 
 
 def read(pages: list[Page], reader_name: str = INVOICE, *, origin: str = Origin.READ) -> ParsedDocument:

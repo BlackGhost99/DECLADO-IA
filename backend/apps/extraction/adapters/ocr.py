@@ -73,7 +73,7 @@ def _detect_script(image: Image.Image) -> str:
         return ""
 
 
-def ocr_image(image: Image.Image, *, page_number: int, locale_hint: str = "") -> OcrResult:
+def ocr_image(image: Image.Image, *, page_number: int, locale_hint: str = "", timeout: int | None = None) -> OcrResult:
     import pytesseract
 
     image = ImageOps.exif_transpose(image).convert("L")
@@ -86,7 +86,7 @@ def ocr_image(image: Image.Image, *, page_number: int, locale_hint: str = "") ->
             lang=lang,
             config="--psm 6",
             output_type=pytesseract.Output.DICT,
-            timeout=settings.OCR_PAGE_TIMEOUT_SECONDS,
+            timeout=timeout or settings.OCR_PAGE_TIMEOUT_SECONDS,
         )
     except RuntimeError:  # délai dépassé
         return OcrResult(
@@ -123,15 +123,22 @@ def ocr_image(image: Image.Image, *, page_number: int, locale_hint: str = "") ->
     return OcrResult(page, warnings)
 
 
-def ocr_pdf_page(path: Path, number: int) -> OcrResult:
+def ocr_pdf_page(path: Path, number: int, *, timeout: int | None = None) -> OcrResult:
     import pypdfium2 as pdfium
 
     pdf = pdfium.PdfDocument(str(path))
     try:
-        bitmap = pdf[number - 1].render(scale=RENDER_DPI / 72)
-        image = bitmap.to_pil()
+        page = pdf[number - 1]
+        width, height = page.get_size()
+        scale = RENDER_DPI / 72
+        if width * scale > 12000 or height * scale > 12000 or width * height * scale**2 > Image.MAX_IMAGE_PIXELS:
+            raise ExtractionFailure("IMAGE_TOO_LARGE", "Page trop grande pour être lue par OCR.")
+        bitmap = page.render(scale=scale)
+        image = bitmap.to_pil().copy()
     finally:
         pdf.close()
+    if timeout is not None:
+        return ocr_image(image, page_number=number, timeout=timeout)
     return ocr_image(image, page_number=number)
 
 

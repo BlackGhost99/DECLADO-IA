@@ -12,6 +12,7 @@ PATTERNS = (
     ("freight_invoice", r"\b(fret|freight|transport.invoice|facture.transport)\b"),
     ("packing_list", r"\b(packing.list|liste.de.colisage)\b"),
     ("certificate_of_origin", r"\b(certificat.d.origine|certificate.of.origin)\b"),
+    ("sectoral_permit", r"\b(progec|autorisations?.d.importation|import.permit)\b"),
     ("commercial_invoice", r"\b(facture.commerciale|commercial.invoice)\b"),
 )
 

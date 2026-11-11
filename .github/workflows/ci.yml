@@ -2,7 +2,7 @@ name: ClairTransit CI
 
 on:
   push:
-    branches: [main, feature/document-regulatory-referential]
+    branches: [main, feature/document-regulatory-referential, staging/render-mobile-test-20261108]
   pull_request:
 
 jobs:

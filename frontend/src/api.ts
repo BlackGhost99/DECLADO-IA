@@ -457,6 +457,9 @@ export interface IntakePiece {
   type: string;
   party: string;
   read: boolean;
+  reading_status: "native" | "ocr" | "ocr_required" | "ocr_unavailable" | "ocr_failed" | "no_text" | "protected" | "page_limit" | "failed";
+  type_source: string;
+  assignment_issue?: "ambiguous" | "insufficient";
   references: { kind: "invoice" | "bl" | "container"; value: string; role: "own" | "cited" }[];
   already_in?: string[];
 }
@@ -468,6 +471,8 @@ export interface IntakeGroup {
   documents: IntakePiece[];
   reasons: { kind: "invoice" | "bl" | "container"; value: string; documents: number }[];
   warnings: string[];
+  confidence: "high" | "medium" | "review" | "single";
+  context: "" | "container_party" | "cargo_shipper" | "cargo_voyage";
 }
 
 export interface CaseDocument {

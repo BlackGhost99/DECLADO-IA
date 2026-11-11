@@ -105,3 +105,66 @@ def _blank_pdf() -> bytes:
     c.drawString(100, 750, "Note interne sans reference")
     c.save()
     return buffer.getvalue()
+
+
+def test_progec_is_read_as_a_supporting_document(world, session):
+    s = session("declarant@a.test")
+    invoice = deposit(s, "01_facture_commerciale_batipro.pdf")
+    permit = _drop_pdf(
+        s,
+        "6_PROGEC_AUTORISATIONS.pdf",
+        [
+            "PROGEC - AUTORISATION D'IMPORTATION",
+            "Importateur: BatiPro Gabon SARL",
+            "Facture liee: IIC-2026-7784",
+        ],
+    )
+    assert permit["type"] == "sectoral_permit"
+    assert permit["type_source"] == "title"
+    assert permit["reading_status"] == "native"
+    ids = [invoice["document_id"], permit["document_id"]]
+    result = s.post("/api/v1/intake/proposal", {"document_ids": ids}).json()
+    assert [len(group["documents"]) for group in result["groups"]] == [2]
+    assert result["groups"][0]["confidence"] == "high"
+    created = s.post("/api/v1/intake/cases", {"groups": [{"title": "PROGEC", "document_ids": ids}]})
+    assert created.status_code == 201
+    link = CaseDocument.objects.get(document_id=permit["document_id"])
+    assert link.detected_type == "sectoral_permit"
+    assert link.usage == "other"
+    assert ExtractionRun.objects.get(case_document=link).options["reader"] == "permit"
+
+
+def test_text_without_document_type_is_read(world, session):
+    piece = _drop_pdf(session("declarant@a.test"), "note.pdf", ["Une note interne sans document douanier."])
+    assert piece["reading_status"] == "native"
+    assert piece["read"] is True
+    assert not piece["type"]
+
+
+def test_progec_filename_does_not_turn_empty_ocr_into_a_read_document(world, session, monkeypatch):
+    from apps.extraction.adapters.ocr import OcrResult
+
+    monkeypatch.setattr("apps.extraction.adapters.ocr.ocr_pdf_page", lambda *args, **kwargs: OcrResult(None))
+    piece = _drop_pdf(session("declarant@a.test"), "6_PROGEC_AUTORISATIONS.pdf", [])
+    assert piece["type"] == "sectoral_permit"
+    assert piece["type_source"] == "filename"
+    assert piece["reading_status"] == "no_text"
+    assert piece["read"] is False
+    assert piece["references"] == []
+
+
+def _drop_pdf(session, name, lines):
+    import io
+
+    from reportlab.pdfgen import canvas
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer)
+    for index, line in enumerate(lines):
+        pdf.drawString(75, 790 - 25 * index, line)
+    pdf.showPage()
+    pdf.save()
+    upload = SimpleUploadedFile(name, buffer.getvalue(), content_type="application/pdf")
+    response = session.upload("/api/v1/intake/documents", {"file": upload})
+    assert response.status_code == 201, response.content
+    return response.json()
