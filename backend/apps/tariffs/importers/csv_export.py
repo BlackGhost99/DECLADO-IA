@@ -28,7 +28,7 @@ from ..models import (
     ValidationState,
 )
 from ..text import search_normalize
-from .common import IssueCollector, clean_label, finish_run, register_source, source_path
+from .common import IssueCollector, clean_label, finish_run, low_pressure_create, register_source, source_path
 
 IMPORTER_NAME = "csv_export"
 IMPORTER_VERSION = "1.0"
@@ -76,6 +76,7 @@ def load_table(
     sheet: str,
     code_length: int,
     formulas: dict[int, dict[str, str]] | None = None,
+    low_pressure: bool = False,
 ) -> dict:
     """Charge un tableau (en-tête + lignes de textes) : brut, nœuds, parents déduits, observations, anomalies.
 
@@ -83,6 +84,13 @@ def load_table(
     """
     last_col = _col_letter(len(header) - 1)
     formulas = formulas or {}
+
+    def insert(model, items: list, *, batch_size: int):
+        if low_pressure:
+            low_pressure_create(model, items)
+        else:
+            model.objects.bulk_create(items, batch_size=batch_size)
+
     records = [
         RawTariffRecord(
             run=run,
@@ -104,7 +112,7 @@ def load_table(
                 formulas=formulas.get(n, {}),
             )
         )
-    RawTariffRecord.objects.bulk_create(records, batch_size=2000)
+    insert(RawTariffRecord, records, batch_size=2000)
     by_ordinal = {r.ordinal: r for r in RawTariffRecord.objects.filter(run=run)}
 
     value_columns = list(range(2, len(header)))
@@ -191,9 +199,9 @@ def load_table(
         path = " › ".join(p.code_display for p in parents)
         node.full_path_label = f"{path} › {node.label_clean}" if path else node.label_clean
         node.search_text = search_normalize(node.label_clean)
-    TariffNode.objects.bulk_create(sorted(derived.values(), key=lambda n: len(n.code)), batch_size=2000)
-    TariffNode.objects.bulk_create(list(nodes.values()), batch_size=2000)
-    CodeOccurrence.objects.bulk_create(occurrences, batch_size=2000)
+    insert(TariffNode, sorted(derived.values(), key=lambda n: len(n.code)), batch_size=2000)
+    insert(TariffNode, list(nodes.values()), batch_size=2000)
+    insert(CodeOccurrence, occurrences, batch_size=2000)
 
     quality = Counter()
     rate_rows = []
@@ -219,7 +227,7 @@ def load_table(
                 formula=formula,
             )
         )
-    RateObservation.objects.bulk_create(rate_rows, batch_size=5000)
+    insert(RateObservation, rate_rows, batch_size=5000)
 
     for i, values in column_values.items():
         non_empty = {v: c for v, c in values.items() if v}

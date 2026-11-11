@@ -27,3 +27,13 @@ class AntivirusSelfTestView(APIView):
 
     def post(self, request):
         return Response(services.self_test(request.user))
+
+
+class OcrSelfTestView(APIView):
+    permission_classes = [IsPlatformOperator]
+
+    def post(self, request):
+        from apps.accounts.mfa import rate_limit
+
+        rate_limit(request, "ocr-self-test", str(request.user.pk), limit=4, seconds=300)
+        return Response(services.ocr_self_test(request.user))

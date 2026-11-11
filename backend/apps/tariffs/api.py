@@ -422,11 +422,26 @@ class TariffImportView(APIView):
     parser_classes = [MultiPartParser]
 
     def post(self, request):
-        from .uploads import import_upload
+        from .uploads import import_upload, staging_tariff_bypass
 
         upload = request.FILES.get("file")
         if upload is None:
             raise ApiError("VALIDATION_ERROR", "Choisissez un fichier .xlsx ou .csv.", 400)
-        return Response(
-            import_upload(actor=request.user, upload=upload, label=str(request.data.get("label", ""))), status=201
-        )
+        label = str(request.data.get("label", ""))
+        kind = upload.name.rsplit(".", 1)[-1].lower() if "." in upload.name else ""
+        if staging_tariff_bypass(actor=request.user, kind=kind):
+            from .async_jobs import queue_import
+
+            return Response(queue_import(actor=request.user, upload=upload, label=label), status=202)
+        return Response(import_upload(actor=request.user, upload=upload, label=label), status=201)
+
+
+class TariffImportJobView(APIView):
+    """Restricted status of a staged, asynchronous tariff import."""
+
+    permission_classes = [IsReferenceManager]
+
+    def get(self, request, job_id):
+        from .async_jobs import job_for_actor
+
+        return Response(job_for_actor(job_id=job_id, actor=request.user))

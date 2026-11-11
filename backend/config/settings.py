@@ -46,6 +46,10 @@ INSTALLED_APPS = [
     "apps.supervision",
 ]
 
+# Compiled React can be served on the same origin as the authenticated API.
+SERVE_FRONTEND = env.bool("SERVE_FRONTEND", default=False)
+FRONTEND_DIST_DIR = Path(env("FRONTEND_DIST_DIR", default=str(BASE_DIR / "frontend_dist")))
+
 MIDDLEWARE = [
     "apps.core.middleware.RequestIdMiddleware",
     "apps.supervision.recorder.SupervisionMiddleware",
@@ -58,6 +62,10 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+if SERVE_FRONTEND:
+    security_index = MIDDLEWARE.index("django.middleware.security.SecurityMiddleware")
+    MIDDLEWARE.insert(security_index + 1, "whitenoise.middleware.WhiteNoiseMiddleware")
 
 ROOT_URLCONF = "config.urls"
 
@@ -102,6 +110,8 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+if SERVE_FRONTEND:
+    WHITENOISE_ROOT = FRONTEND_DIST_DIR
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Sessions serveur, cookie HttpOnly ; Secure hors développement.
@@ -133,6 +143,10 @@ PUBLIC_APP_URL = env("PUBLIC_APP_URL", default="")
 MFA_ENFORCE = env.bool("MFA_ENFORCE", default=not DEBUG)
 MFA_ENCRYPTION_KEY = env("MFA_ENCRYPTION_KEY", default="")
 AUTH_RATE_LIMIT_ENABLED = env.bool("AUTH_RATE_LIMIT_ENABLED", default=not DEBUG)
+# Explicit, non-production-only test setting. Production remains MFA-protected.
+STAGING_SIMPLE_LOGIN = env("APP_ENV", default="").lower() == "staging" and env.bool(
+    "STAGING_SIMPLE_LOGIN", default=False
+)
 if MFA_ENFORCE and not MFA_ENCRYPTION_KEY:
     raise ImproperlyConfigured("MFA_ENCRYPTION_KEY is required when MFA_ENFORCE is enabled")
 
@@ -148,6 +162,14 @@ CACHES = {
     )
 }
 
+
+# Free staging fallback: retains cross-worker rate-limit counters in PostgreSQL.
+# Production still uses Redis; this does not disable MFA or throttling.
+if env.bool("STAGING_DATABASE_CACHE", default=False) and not DEBUG:
+    CACHES["default"] = {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "clairtransit_staging_cache",
+    }
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -199,12 +221,24 @@ LOGGING = {
 
 # Stockage privé des sources et pièces : jamais servi directement par le serveur web.
 PRIVATE_STORAGE_ROOT = Path(env("PRIVATE_STORAGE_ROOT", default=str(BASE_DIR / "var" / "private")))
+STAGING_PERSISTENT_FILES = env.bool("STAGING_PERSISTENT_FILES", default=False)
 
 # Pièces des dossiers (DOC-01) : limites configurables, à réviser après mesure.
 DOCUMENT_MAX_BYTES = env.int("DOCUMENT_MAX_BYTES", default=50 * 1024 * 1024)
 DOCUMENT_LINK_TTL_SECONDS = env.int("DOCUMENT_LINK_TTL_SECONDS", default=300)
 
-# Security gate for every external document upload. Never bypass the daemon.
+# Exception explicitly opt-in for synthetic demo organizations on public staging only.
+# In production or development this remains False even if the env flag is set.
+STAGING_SKIP_ANTIVIRUS = (
+    env("APP_ENV", default="").lower() == "staging"
+    and STAGING_SIMPLE_LOGIN
+    and env.bool("STAGING_SEED_DEMO", default=False)
+    and not DEBUG
+    and env.bool("STAGING_SKIP_ANTIVIRUS", default=False)
+)
+STAGING_UNSCANNED_MAX_BYTES = 10 * 1024 * 1024
+
+# Default: ClamAV is mandatory for every external document upload.
 CLAMAV_HOST = env("CLAMAV_HOST", default="127.0.0.1")
 CLAMAV_PORT = env.int("CLAMAV_PORT", default=3310)
 CLAMAV_CONNECT_TIMEOUT = env.int("CLAMAV_CONNECT_TIMEOUT", default=5)

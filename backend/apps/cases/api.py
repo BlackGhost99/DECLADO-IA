@@ -1191,7 +1191,7 @@ class IntakeDocumentsView(APIView):
             upload=upload,
             declared_mime=getattr(upload, "content_type", "") or "",
         )
-        return Response({**intake.analyze(document), "already_in": cases}, status=201)
+        return Response({**intake.analyze(document, allow_ocr=True), "already_in": cases}, status=201)
 
 
 class IntakeProposalView(APIView):

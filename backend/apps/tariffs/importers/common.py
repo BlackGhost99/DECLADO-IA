@@ -3,10 +3,12 @@
 import hashlib
 import re
 import shutil
+import time
 from collections import Counter
 from pathlib import Path
 
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 from ..models import ImportIssue, ImportRun, SourceDocument
@@ -104,3 +106,22 @@ def finish_run(run: ImportRun, *, counts: dict, coverage: dict, issues: IssueCol
     run.finished_at = timezone.now()
     run.save()
     return run
+
+
+def low_pressure_create(model, rows: list, *, batch_size: int = 250) -> None:
+    """Commit small, paced batches to protect the 256 MiB PostgreSQL staging instance.
+
+    Only used while an import edition is still a non-public draft. The normal importer
+    retains its all-or-nothing transaction; production never uses this helper.
+    """
+    for start in range(0, len(rows), batch_size):
+        with transaction.atomic():
+            model.objects.bulk_create(rows[start : start + batch_size], batch_size=batch_size)
+        time.sleep(0.025)
+
+
+def low_pressure_update(model, rows: list, fields: list[str], *, batch_size: int = 250) -> None:
+    for start in range(0, len(rows), batch_size):
+        with transaction.atomic():
+            model.objects.bulk_update(rows[start : start + batch_size], fields, batch_size=batch_size)
+        time.sleep(0.025)

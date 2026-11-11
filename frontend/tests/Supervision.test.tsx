@@ -33,6 +33,18 @@ const data = {
     totals: { input_tokens: null, output_tokens: null, cost_estimate: null, average_latency_ms: null, sent_chars: null },
     fields: [], recent: [],
   },
+  runtime: {
+    database: { state: "ok" }, clamav: { state: "ok", blocking_uploads: false },
+    ocr: { state: "unavailable", expected_languages: ["fra", "eng", "spa", "ara"], missing_languages: ["fra", "spa", "ara"] },
+    ai: { state: "disabled" }, tasks: { state: "inline", pending: 0, stale: 0 },
+    documents: { mode: "local", state: "ephemeral" }, staging: true,
+  },
+  operations: {
+    execution: "inline", worker_verified: false, outbox_pending: 0, outbox_stale: 0,
+    outbox_errors: 0, outbox_recent: [],
+    jobs: { queued: 0, running: 0, failed: 1, succeeded: 0 }, recent_jobs: [],
+  },
+  journal: { operational_count: 1, audit_count: 0, events: [{ ...event, source: "operation" }] },
   rejections: [event],
   incidents: { server_errors: 0, refused_actions: 0, events: [], failed_jobs: [] },
   organizations: [{ id: "o1", name: "Transit Alpha", is_demo: false, cases: 3, documents: 12, readings: 9, reading_failures: 1,
@@ -62,9 +74,10 @@ describe("Console > Supervision (T90-T93)", () => {
     });
     render(<Supervision />);
     expect((await screen.findAllByText("Actif, il répond")).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("tab", { name: /Antivirus/ }));
     expect(screen.getByText("ClamAV 1.5.4")).toBeInTheDocument();
     expect(screen.getByText(/27800/)).toBeInTheDocument();
-    expect(screen.getByText(/aucune langue FR, EN, ES ou AR/)).toBeInTheDocument();
+
 
     fireEvent.click(screen.getByRole("button", { name: "Lancer l'essai" }));
     expect(await screen.findByText("Fichier d'essai EICAR détecté et refusé.")).toBeInTheDocument();
@@ -73,6 +86,7 @@ describe("Console > Supervision (T90-T93)", () => {
     expect(screen.getByText(/empreinte : a1b2c3d4e5f6/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: /Lecture des pièces/ }));
+    expect(screen.getAllByText(/aucune langue FR, EN, ES ou AR/).length).toBeGreaterThan(0);
     expect(screen.getByText("DOS-2026-0004")).toBeInTheDocument();
     expect(screen.getByText(/Aucun texte lisible/)).toBeInTheDocument();
 
@@ -85,6 +99,7 @@ describe("Console > Supervision (T90-T93)", () => {
       json(200, { ...data, antivirus: { ...data.antivirus, probe: { state: "unavailable", message: "ClamAV indisponible ou analyse interrompue.", checked_at: "2026-11-02T10:00:00Z" } } }));
     render(<Supervision />);
     expect((await screen.findAllByText("Ne répond pas")).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("tab", { name: /Antivirus/ }));
     expect(screen.getByText("ClamAV indisponible ou analyse interrompue.")).toBeInTheDocument();
   });
 });

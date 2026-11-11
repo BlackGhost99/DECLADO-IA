@@ -9,6 +9,7 @@ import "@fontsource/source-sans-3/700.css";
 import "./styles.css";
 import "./maquette.css";
 import "./onboarding.css";
+import "./mobile-staging.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

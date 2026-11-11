@@ -113,7 +113,7 @@ def test_t91_rejected_pieces_are_kept_with_their_reason_but_never_their_name(wor
     assert malware["details"]["sha256_prefix"] and malware["details"]["bytes"] > 0
     assert by_code["CONTENT_TYPE_MISMATCH"]["category"] == "document"
     assert by_code["CONTENT_TYPE_MISMATCH"]["message"]
-    assert data["antivirus"]["counts"] == {"clean": 1, "malware": 1, "unavailable": 0}
+    assert data["antivirus"]["counts"] == {"clean": 1, "unscanned": 0, "malware": 1, "unavailable": 0}
     org_a = next(o for o in data["organizations"] if o["name"] == "Société A")
     assert org_a["rejected_documents"] == 2 and org_a["documents"] == 1 and org_a["cases"] == 1
 
@@ -214,3 +214,31 @@ def test_tesseract_found_in_the_install_folder_without_the_startup_script_variab
     exe.unlink()
     found, _ = locate_tesseract(backend, {"ProgramFiles": str(program_files)}, no_path)
     assert found == str(program_files / "Tesseract-OCR" / "tesseract.exe")
+
+
+def test_staging_operations_status_and_journal_are_private(world, session, monkeypatch, request):
+    admin = request.getfixturevalue("operator")
+    from apps.core.models import OutboxEvent
+
+    fake_scanner(monkeypatch, clean)
+    OutboxEvent.objects.create(topic="system.ping", payload={})
+    response = admin.get(URL)
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["runtime"]["database"]["state"] == "ok"
+    assert payload["operations"]["outbox_pending"] >= 1
+    assert "events" in payload["journal"]
+    assert "payload" not in str(payload["operations"]["outbox_recent"])
+    assert session("admin@a.test").post(f"{URL}/ocr-test").status_code == 403
+
+
+def test_staging_ocr_self_test_writes_safe_event(world, monkeypatch, request):
+    admin = request.getfixturevalue("operator")
+    import pytesseract
+
+    monkeypatch.setattr(pytesseract, "image_to_string", lambda *args, **kwargs: "DECLADO 2026")
+    response = admin.post(f"{URL}/ocr-test")
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    events = admin.get(URL).json()["journal"]["events"]
+    assert any(e["code"] == "OCR_SELF_TEST_PASSED" and e["source"] == "operation" for e in events)

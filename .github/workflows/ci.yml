@@ -2,12 +2,12 @@ name: ClairTransit CI
 
 on:
   push:
-    branches: [main, feature/document-regulatory-referential]
+    branches: [main, feature/document-regulatory-referential, staging/render-mobile-test-20261108]
   pull_request:
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -68,7 +68,9 @@ jobs:
       - name: Tests (droits, isolation, journal, extraction)
         run: python -m pytest -rs
       - name: Installer Restic et pg_restore
-        run: sudo apt-get install -y --no-install-recommends restic postgresql-client
+        run: |
+          sudo apt-get install -y --no-install-recommends restic postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
       - name: Sauvegarde chiffrée et restauration réelle dans une base de test
         working-directory: .
         env:

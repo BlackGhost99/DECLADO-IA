@@ -35,6 +35,7 @@ class Document(OrganizationOwnedModel):
         choices=[("", "Unknown"), ("fr", "Français"), ("en", "English"), ("es", "Español"), ("ar", "العربية")],
     )
     language_detection = models.JSONField(default=dict, blank=True)
+    intake_analysis = models.JSONField(default=dict, blank=True, editable=False)
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
 
     class Meta:

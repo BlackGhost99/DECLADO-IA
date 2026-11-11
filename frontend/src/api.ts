@@ -27,6 +27,7 @@ export interface Me {
   mfa_enabled: boolean;
   mfa_verified_session: boolean;
   mfa_required_for_access: boolean;
+  staging_av_demo_mode?: boolean;
 }
 
 export interface Importer {
@@ -306,6 +307,20 @@ export interface EditionBrief {
   publication_state: "draft" | "consultation" | "operational" | "withdrawn";
 }
 
+export type TariffImportResult = {
+  edition: EditionBrief;
+  counts: Record<string, number>;
+  taxes: { id: string; label: string; active: boolean } | null;
+};
+export type TariffImportSubmission = TariffImportResult | { job_id: string; state: "queued"; message: string };
+export type TariffImportJob = {
+  job_id: string;
+  state: "queued" | "running" | "succeeded" | "failed";
+  message: string;
+  result?: TariffImportResult;
+  error_code?: string;
+};
+
 export interface Edition extends EditionBrief {
   warning: string | null;
   hs_version?: string;
@@ -442,6 +457,9 @@ export interface IntakePiece {
   type: string;
   party: string;
   read: boolean;
+  reading_status: "native" | "ocr" | "ocr_required" | "ocr_unavailable" | "ocr_failed" | "no_text" | "protected" | "page_limit" | "failed";
+  type_source: string;
+  assignment_issue?: "ambiguous" | "insufficient";
   references: { kind: "invoice" | "bl" | "container"; value: string; role: "own" | "cited" }[];
   already_in?: string[];
 }
@@ -453,6 +471,8 @@ export interface IntakeGroup {
   documents: IntakePiece[];
   reasons: { kind: "invoice" | "bl" | "container"; value: string; documents: number }[];
   warnings: string[];
+  confidence: "high" | "medium" | "review" | "single";
+  context: "" | "container_party" | "cargo_shipper" | "cargo_voyage";
 }
 
 export interface CaseDocument {
@@ -559,8 +579,8 @@ export interface Supervision {
   generated_at: string;
   antivirus: {
     probe: AntivirusProbe;
-    mode: "fail_closed";
-    counts: { clean: number; malware: number; unavailable: number };
+    mode: "fail_closed" | "staging_demo_bypass";
+    counts: { clean: number; unscanned?: number; malware: number; unavailable: number };
     last_clean_at: string | null;
     last_test: SupervisionEvent | null;
     events: SupervisionEvent[];
@@ -612,6 +632,27 @@ export interface Supervision {
       id: string; at: string; organization: string | null; kind: string; phase: string; attempts: number;
       error_code: string; error_message: string;
     }[];
+  };
+  runtime: {
+    database: { state: string };
+    clamav: { state: string; scanner_state?: string; demo_bypass?: boolean; blocking_uploads: boolean };
+    ocr: { state: string; expected_languages: string[]; missing_languages: string[] };
+    ai: { state: string };
+    tasks: { state: string; pending: number; stale: number };
+    documents: { mode: string; state: string };
+    staging: boolean;
+  };
+  operations: {
+    execution: string; worker_verified: boolean; outbox_pending: number; outbox_stale: number;
+    outbox_errors: number;
+    outbox_recent: { at: string; topic: string; attempts: number; error: string }[];
+    jobs: { queued: number; running: number; failed: number; succeeded: number };
+    recent_jobs: { at: string; organization: string | null; kind: string; state: string;
+      phase: string; attempts: number; error_code: string; error_message: string }[];
+  };
+  journal: {
+    operational_count: number; audit_count: number;
+    events: (Omit<SupervisionEvent, "category"> & { source: "operation" | "audit"; category: string })[];
   };
   organizations: {
     id: string; name: string; is_demo: boolean; cases: number; documents: number; readings: number;
@@ -1381,6 +1422,9 @@ export const api = {
   platformAISettings: () => request<PlatformAISettings>("GET", "/platform/ai-settings"),
   supervision: (days: 1 | 7 | 30) => request<Supervision>("GET", `/platform/supervision?days=${days}`),
   antivirusSelfTest: () => request<AntivirusSelfTest>("POST", "/platform/supervision/antivirus-test"),
+  ocrSelfTest: () => request<{ ok: boolean; steps: { ok: boolean; message: string }[]; at: string }>(
+    "POST", "/platform/supervision/ocr-test",
+  ),
   savePlatformAIQuota: (id: string, data: { monthly_cap: number; row_version: number }) =>
     request<PlatformAIOrganization>("PUT", `/platform/organizations/${id}/ai-quota`, data),
   aiSettings: () => request<AISettings>("GET", "/organization/ai-settings"),
@@ -1445,11 +1489,9 @@ export const api = {
     const form = new FormData();
     form.append("file", file);
     form.append("label", label);
-    return upload<{ edition: EditionBrief; counts: Record<string, number>; taxes: { id: string; label: string; active: boolean } | null }>(
-      "/tariffs/imports",
-      form,
-    );
+    return upload<TariffImportSubmission>("/tariffs/imports", form);
   },
+  tariffImportJob: (id: string) => request<TariffImportJob>("GET", `/tariffs/imports/jobs/${id}`),
   taxOverview: () => request<TaxOverview>("GET", "/fiscal/taxes"),
   taxReview: (kind: string, page = 1) =>
     request<{ count: number; page: number; results: ScheduleLineInfo[] }>("GET", `/fiscal/taxes/review/${kind}?page=${page}`),

@@ -13,9 +13,17 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import openpyxl
+from django.conf import settings
 from django.db import transaction
 
-from apps.tariffs.importers.common import IssueCollector, finish_run, register_source, source_path
+from apps.tariffs.importers.common import (
+    IssueCollector,
+    finish_run,
+    low_pressure_create,
+    low_pressure_update,
+    register_source,
+    source_path,
+)
 from apps.tariffs.importers.csv_export import load_table
 from apps.tariffs.importers.xlsx import cell_text
 from apps.tariffs.models import ImportIssue, ImportRun, RawTariffRecord, SourceKind, TariffEdition
@@ -80,7 +88,7 @@ def _tec_reference(wb) -> tuple[str, dict[str, dict]]:
         return "", {}
     col = {h: i for i, h in enumerate(header)}
     out: dict[str, dict] = {}
-    for row in ws.iter_rows(min_row=2):
+    for n, row in enumerate(ws.iter_rows(min_row=2), start=2):
         code = cell_text(row[col["Code SH"]].value).replace(".", "").strip()
         sp = _digits(cell_text(row[col["SP"]].value), 2) if "SP" in col else "00"
         if len(code) != 6 or not code.isdigit() or len(sp) != 2:
@@ -94,7 +102,7 @@ def _tec_reference(wb) -> tuple[str, dict[str, dict]]:
         out.setdefault(
             code + sp,
             {
-                "row": row[0].row,
+                "row": n,
                 "dd_raw": dd_raw,
                 "dd_percent": format(dd, "f") if dd is not None else None,
                 "tva_raw": cell_text(row[col["TVA"]].value).strip() if "TVA" in col else "",
@@ -104,8 +112,7 @@ def _tec_reference(wb) -> tuple[str, dict[str, dict]]:
     return ws.title, out
 
 
-@transaction.atomic
-def import_swd(
+def _import_swd_impl(
     path: Path,
     *,
     label: str,
@@ -114,6 +121,7 @@ def import_swd(
     actor=None,
     publisher_claimed: str = "",
     provenance_note: str = "",
+    low_pressure: bool = False,
 ) -> TaxSchedule:
     source = register_source(
         path,
@@ -126,8 +134,9 @@ def import_swd(
         provenance_note=provenance_note,
     )
     data = source_path(source).read_bytes()
-    wb_f = openpyxl.load_workbook(io.BytesIO(data), data_only=False)
-    wb_v = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
+    # Streaming avoids materializing two complete Excel cell graphs on the 512 MiB demo server.
+    wb_f = openpyxl.load_workbook(io.BytesIO(data), data_only=False, read_only=True, keep_links=False)
+    wb_v = openpyxl.load_workbook(io.BytesIO(data), data_only=True, read_only=True, keep_links=False)
     ws_f, ws_v = wb_f.worksheets[0], wb_v.worksheets[0]
     header = _header(ws_v)
     missing = [h for h in REQUIRED if h not in header]
@@ -143,12 +152,11 @@ def import_swd(
     reference_sheet, tec = _tec_reference(wb_v)
 
     rows = []  # (numéro de ligne, code 8, sous-position nationale, valeurs texte, formules)
-    for row_f, row_v in zip(ws_f.iter_rows(min_row=2), ws_v.iter_rows(min_row=2), strict=True):
-        n = row_v[0].row
+    for n, (row_f, row_v) in enumerate(zip(ws_f.iter_rows(min_row=2), ws_v.iter_rows(min_row=2), strict=True), start=2):
         values = [cell_text(c.value) for c in row_v]
         if not any(v.strip() for v in values):
             continue
-        formulas = {c.column_letter: str(c.value) for c in row_f if c.data_type == "f"}
+        formulas = {openpyxl.utils.get_column_letter(c.column): str(c.value) for c in row_f if c.data_type == "f"}
         code = _digits(values[col["Code SH"]], 6) + _digits(values[col["Sous position CEMAC"]], 2)
         national = _digits(values[col["Sous position nationale"]], 3)
         if len(code) != 8 or not code.isdigit():
@@ -180,7 +188,15 @@ def import_swd(
             syn_formulas[ordinal] = {"L": formulas["P"]}
         real_rows[ordinal] = item
     table_counts = load_table(
-        run, edition, issues, syn_header, syn_body, sheet=ws_v.title, code_length=8, formulas=syn_formulas
+        run,
+        edition,
+        issues,
+        syn_header,
+        syn_body,
+        sheet=ws_v.title,
+        code_length=8,
+        formulas=syn_formulas,
+        low_pressure=low_pressure,
     )
     records = list(RawTariffRecord.objects.filter(run=run, ordinal__in=real_rows))
     last = openpyxl.utils.get_column_letter(len(header))
@@ -189,7 +205,10 @@ def import_swd(
         record.cell_range, record.raw_cells, record.formulas = f"A{n}:{last}{n}", values, formulas
     header_record = RawTariffRecord.objects.get(run=run, ordinal=1)
     header_record.cell_range, header_record.raw_cells = f"A1:{last}1", header
-    RawTariffRecord.objects.bulk_update([*records, header_record], ["cell_range", "raw_cells", "formulas"])
+    if low_pressure:
+        low_pressure_update(RawTariffRecord, [*records, header_record], ["cell_range", "raw_cells", "formulas"])
+    else:
+        RawTariffRecord.objects.bulk_update([*records, header_record], ["cell_range", "raw_cells", "formulas"])
 
     schedule = TaxSchedule.objects.create(
         label=label,
@@ -251,8 +270,12 @@ def import_swd(
                     cell=f"{openpyxl.utils.get_column_letter(index + 1)}{n}",
                 )
             )
-    ScheduleLine.objects.bulk_create(lines, batch_size=2000)
-    ScheduleRate.objects.bulk_create(rates, batch_size=5000)
+    if low_pressure:
+        low_pressure_create(ScheduleLine, lines)
+        low_pressure_create(ScheduleRate, rates)
+    else:
+        ScheduleLine.objects.bulk_create(lines, batch_size=2000)
+        ScheduleRate.objects.bulk_create(rates, batch_size=5000)
 
     unreadable = sum(1 for r in rates if r.raw_value and r.rate is None)
     if unreadable:
@@ -278,7 +301,7 @@ def import_swd(
         "schedule_lines": len(lines),
         "codes": len(by_code),
     }
-    finish_run(run, counts=counts, coverage={"dimensions": ws_v.dimensions}, issues=issues)
+    finish_run(run, counts=counts, coverage={"dimensions": ws_v.calculate_dimension()}, issues=issues)
     schedule.counts = {
         "lines": len(lines),
         "codes": len(by_code),
@@ -289,3 +312,42 @@ def import_swd(
     }
     schedule.save(update_fields=["counts"])
     return schedule
+
+
+def import_swd(
+    path: Path,
+    *,
+    label: str,
+    title: str,
+    territory: str = "GA",
+    actor=None,
+    publisher_claimed: str = "",
+    provenance_note: str = "",
+    low_pressure: bool = False,
+) -> TaxSchedule:
+    """Preserve atomic production imports; pace only explicit staging demo imports.
+
+    A failed staging batch never gets published as a tariff edition and its
+    tax schedule stays inactive. Partial draft evidence is retained for review.
+    """
+    args = {
+        "label": label,
+        "title": title,
+        "territory": territory,
+        "actor": actor,
+        "publisher_claimed": publisher_claimed,
+        "provenance_note": provenance_note,
+        "low_pressure": low_pressure,
+    }
+    if low_pressure:
+        if not (
+            settings.STAGING_SKIP_ANTIVIRUS
+            and settings.STAGING_SIMPLE_LOGIN
+            and not settings.DEBUG
+            and actor is not None
+            and getattr(actor, "is_reference_manager", False)
+        ):
+            raise ValueError("Low-pressure non-atomic import is restricted to staging demo managers")
+        return _import_swd_impl(path, **args)
+    with transaction.atomic():
+        return _import_swd_impl(path, **args)

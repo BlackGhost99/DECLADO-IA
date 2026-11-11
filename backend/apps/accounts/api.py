@@ -43,9 +43,11 @@ def me_payload(request) -> dict:
         "interface_locale": user.interface_locale,
         "is_reference_manager": user.is_reference_manager,
         "is_platform_operator": user.is_platform_operator,
+        "staging_av_demo_mode": bool(settings.STAGING_SKIP_ANTIVIRUS and active and active.organization.is_demo),
         "mfa_enabled": TotpDevice.objects.filter(user=user, confirmed_at__isnull=False).exists(),
         "mfa_verified_session": bool(request.session.get("mfa_passed")),
-        "mfa_required_for_access": settings.MFA_ENFORCE or user.is_platform_operator,
+        "mfa_required_for_access": settings.MFA_ENFORCE
+        or (user.is_platform_operator and not settings.STAGING_SIMPLE_LOGIN),
         "memberships": [
             {
                 "organization": {
@@ -93,7 +95,10 @@ class LoginView(APIView):
         if user is None:
             # Message unique : ne révèle pas si le compte existe ou est désactivé.
             raise ApiError("INVALID_CREDENTIALS", "Identifiants incorrects.", 400)
-        if TotpDevice.objects.filter(user=user, confirmed_at__isnull=False).exists():
+        if (
+            not settings.STAGING_SIMPLE_LOGIN
+            and TotpDevice.objects.filter(user=user, confirmed_at__isnull=False).exists()
+        ):
             # Two-step login: no authenticated session before valid second factor.
             request.session.flush()
             request.session["mfa_pending_uid"] = str(user.pk)

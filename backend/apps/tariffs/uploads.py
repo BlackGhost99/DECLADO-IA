@@ -7,8 +7,11 @@ présentée comme vérifiée officiellement.
 """
 
 import logging
+import os
 import zipfile
 from pathlib import Path
+
+from django.conf import settings
 
 from apps.core.exceptions import ApiError
 from apps.documents import antivirus, quarantine
@@ -20,13 +23,41 @@ from .models import PublicationState
 logger = logging.getLogger(__name__)
 
 MAX_BYTES = 40 * 1024 * 1024
+STAGING_UNSCANNED_TARIFF_MAX_BYTES = 5 * 1024 * 1024
+STAGING_UNSCANNED_TARIFF_MAX_UNPACKED_BYTES = 32 * 1024 * 1024
 
 
-def _stage(upload):
+def staging_tariff_bypass(*, actor, kind: str) -> bool:
+    """Allow only a reference manager to import a test workbook on non-debug staging."""
+    return bool(
+        kind == "xlsx"
+        and actor is not None
+        and actor.is_authenticated
+        and actor.is_reference_manager
+        and settings.STAGING_SKIP_ANTIVIRUS
+        and settings.STAGING_SIMPLE_LOGIN
+        and not settings.DEBUG
+        and os.environ.get("APP_ENV", "").lower() == "staging"
+    )
+
+
+def _stage(upload, *, actor, kind: str):
+    bypass = staging_tariff_bypass(actor=actor, kind=kind)
     try:
-        with antivirus.open_stream() as scanner:
-            staged = quarantine.stage(upload, MAX_BYTES, on_chunk=scanner.feed)
-            scanner.verdict()
+        if bypass:
+            staged = quarantine.stage(upload, STAGING_UNSCANNED_TARIFF_MAX_BYTES)
+            recorder.note(
+                category="antivirus",
+                level="warning",
+                code="STAGING_TARIFF_SCAN_BYPASSED",
+                message="Import de tarif de test sans analyse antivirus (gestionnaire uniquement).",
+                actor=actor,
+                details={"context": "tariff_import", "bytes": staged.size, "sha256_prefix": staged.sha256[:12]},
+            )
+        else:
+            with antivirus.open_stream() as scanner:
+                staged = quarantine.stage(upload, MAX_BYTES, on_chunk=scanner.feed)
+                scanner.verdict()
     except antivirus.MalwareDetected:
         recorder.note(category="antivirus", level="error", code="MALWARE_DETECTED",
                       message="Signature malveillante détectée par ClamAV dans un tarif importé.",
@@ -48,12 +79,26 @@ def import_upload(*, actor, upload, label: str = "") -> dict:
     kind = name.rsplit(".", 1)[-1].lower() if "." in name else ""
     if kind not in ("xlsx", "csv"):
         raise ApiError("UNSUPPORTED_FORMAT", "Format non pris en charge : un classeur .xlsx ou un fichier .csv.", 400)
-    staged = _stage(upload)
+    staged = _stage(upload, actor=actor, kind=kind)
     # openpyxl reconnaît un classeur à son extension : le fichier en quarantaine n'en a pas.
     path = staged.path.rename(staged.path.with_suffix(f".{kind}"))
     try:
-        if kind == "xlsx" and not zipfile.is_zipfile(path):
-            raise ApiError("UNSUPPORTED_FORMAT", "Ce fichier n'est pas un classeur Excel .xlsx valide.", 400)
+        if kind == "xlsx":
+            if not zipfile.is_zipfile(path):
+                raise ApiError("UNSUPPORTED_FORMAT", "Ce fichier n'est pas un classeur Excel .xlsx valide.", 400)
+            if staging_tariff_bypass(actor=actor, kind=kind):
+                # Reject malformed or decompression-bomb archives before openpyxl parses them.
+                with zipfile.ZipFile(path) as archive:
+                    entries = archive.infolist()
+                    total = sum(entry.file_size for entry in entries)
+                    if total > STAGING_UNSCANNED_TARIFF_MAX_UNPACKED_BYTES or len(entries) > 250:
+                        raise ApiError("UNSAFE_ARCHIVE", "Classeur de test trop volumineux une fois décompressé.", 413)
+                    if any(
+                        entry.file_size > 0 and entry.file_size / max(entry.compress_size, 1) > 150 for entry in entries
+                    ):
+                        raise ApiError("UNSAFE_ARCHIVE", "Archive de test anormalement compressée.", 422)
+                    if archive.testzip() is not None:
+                        raise ApiError("INVALID_FILE", "Archive Excel endommagée.", 422)
         label = (label or "").strip()[:120] or Path(name).stem
         schedule = None
         if kind == "xlsx":
@@ -62,7 +107,13 @@ def import_upload(*, actor, upload, label: str = "") -> dict:
 
             if is_swd_workbook(path):
                 try:
-                    schedule = import_swd(path, label=label, title=name, actor=actor)
+                    schedule = import_swd(
+                        path,
+                        label=label,
+                        title=name,
+                        actor=actor,
+                        low_pressure=staging_tariff_bypass(actor=actor, kind=kind),
+                    )
                 except LayoutError as exc:
                     raise ApiError("INVALID_LAYOUT", str(exc), 400) from exc
                 activate_schedule(schedule=schedule)

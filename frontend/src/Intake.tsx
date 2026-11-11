@@ -1,7 +1,7 @@
 // Écran « Dépôt groupé » : les pièces de plusieurs envois sont déposées ensemble, ClairTransit propose
 // un dossier par envoi d'après les références qu'elles partagent ; rien n'est créé avant la confirmation.
 import { useEffect, useState } from "react";
-import { api, type IntakePiece } from "./api";
+import { api, type IntakeGroup, type IntakePiece } from "./api";
 import { Icon } from "./Icon";
 import { tr } from "./i18n";
 import { typeLabel } from "./pieceTypes";
@@ -15,8 +15,10 @@ interface Deposit {
   error?: string;
 }
 
-type Reason = { kind: "invoice" | "bl" | "container"; value: string; documents: number };
-type Group = { id: string; title: string; parties: string[]; reasons: Reason[] };
+type Group = Pick<IntakeGroup, "title" | "reasons" | "context"> & {
+  id: string;
+  confidence: IntakeGroup["confidence"] | "manual";
+};
 
 const SORT = "sort";
 
@@ -25,6 +27,7 @@ export function IntakePage() {
   const [drag, setDrag] = useState(false);
   const [groups, setGroups] = useState<Group[] | null>(null);
   const [placement, setPlacement] = useState<Record<string, string>>({});
+  const [issues, setIssues] = useState<Record<string, IntakePiece["assignment_issue"]>>({});
   const [types, setTypes] = useState<Record<string, { code: string; label_fr: string; label_en: string }>>({});
   const [created, setCreated] = useState<{ id: string; reference: string; title: string; documents: number }[] | null>(null);
   const [error, setError] = useState("");
@@ -36,7 +39,11 @@ export function IntakePage() {
 
   const pieces = Object.fromEntries(deposits.filter((d) => d.piece).map((d) => [d.piece!.document_id, d.piece!]));
   const pending = deposits.some((d) => d.status === "sending");
-  const typeName = (code: string) => (code ? typeLabel(types[code] ?? { code }) : tr("intake.notRead"));
+  function typeName(piece: IntakePiece) {
+    if (!piece.type) return piece.read ? tr("intake.typeUnknown") : "";
+    const label = typeLabel(types[piece.type] ?? { code: piece.type });
+    return piece.type_source === "filename" ? tr("intake.typeFromName", { type: label }) : label;
+  }
 
   async function addFiles(list: FileList | null) {
     if (!list) return;
@@ -59,12 +66,15 @@ export function IntakePage() {
     try {
       const ids = [...new Set(Object.keys(pieces))];
       const r = await api.intakeProposal(ids);
-      const next = r.groups.map((g, i) => ({ id: `g${i}`, title: g.title, parties: g.parties, reasons: g.reasons }));
+      const next = r.groups.map(({ title, reasons, confidence, context }, i) => ({
+        id: `g${i}`, title, reasons, confidence, context,
+      }));
       const place: Record<string, string> = {};
       r.groups.forEach((g, i) => g.documents.forEach((d) => (place[d.document_id] = `g${i}`)));
       r.unassigned.forEach((d) => (place[d.document_id] = SORT));
       setGroups(next);
       setPlacement(place);
+      setIssues(Object.fromEntries(r.unassigned.map((d) => [d.document_id, d.assignment_issue])));
     } catch (err) {
       setError(errorText(err, tr("saveError")));
     } finally {
@@ -73,12 +83,19 @@ export function IntakePage() {
   }
 
   function move(docId: string, target: string) {
-    if (target === "new" && groups) {
-      const id = `g${Date.now()}`;
-      setGroups([...groups, { id, title: pieces[docId]?.party || pieces[docId]?.name || tr("intake.newGroup"), parties: [], reasons: [] }]);
-      setPlacement({ ...placement, [docId]: id });
-      return;
+    if (!groups) return;
+    const next = groups.map((g): Group => g.id === placement[docId] || g.id === target
+      ? { ...g, confidence: "manual", reasons: [], context: "" }
+      : g);
+    if (target === "new") {
+      target = `g${Date.now()}`;
+      next.push({
+        id: target, title: pieces[docId]?.party || pieces[docId]?.name || tr("intake.newGroup"),
+        confidence: "manual", reasons: [], context: "",
+      });
     }
+    setGroups(next);
+    setIssues({ ...issues, [docId]: undefined });
     setPlacement({ ...placement, [docId]: target });
   }
 
@@ -139,7 +156,8 @@ export function IntakePage() {
       <tr key={docId}>
         <td>
           <strong>{p.name}</strong>
-          <div className="muted small">{typeName(p.type)}{p.party ? ` · ${tr("intake.party", { party: p.party })}` : ""}</div>
+          <div className="muted small">{[typeName(p), p.party].filter(Boolean).join(" · ")}</div>
+          {issues[docId] && <p className="note-amber small">{tr(`intake.issue.${issues[docId]}`)}</p>}
         </td>
         <td>
           <select aria-label={tr("intake.moveTo")} value={placement[docId]} onChange={(e) => move(docId, e.target.value)}>
@@ -180,7 +198,7 @@ export function IntakePage() {
                     <td>
                       <strong>{d.name}</strong>
                       <div className="muted small">
-                        {d.piece ? typeName(d.piece.type) : d.error ?? ""}
+                        {d.piece ? typeName(d.piece) : d.error ?? ""}
                         {d.piece?.already_in?.length ? ` · ${tr("intake.already", { refs: d.piece.already_in.join(", ") })}` : ""}
                       </div>
                     </td>
@@ -189,10 +207,10 @@ export function IntakePage() {
                         <Chip tone="gray" icon="clock">{tr("intake.sending")}</Chip>
                       ) : d.status === "failed" ? (
                         <Chip tone="red" icon="alert">{tr("intake.failed")}</Chip>
-                      ) : d.piece?.read ? (
-                        <Chip tone="green" icon="checkCircle">{tr("intake.read")}</Chip>
-                      ) : (
-                        <Chip tone="amber" icon="info">{tr("intake.notRead")}</Chip>
+                      ) : d.piece && (
+                        <Chip tone={d.piece.read ? "green" : "amber"} icon={d.piece.read ? "checkCircle" : "info"}>
+                          {tr(`intake.status.${d.piece.reading_status}`)}
+                        </Chip>
                       )}
                     </td>
                   </tr>
@@ -223,13 +241,17 @@ export function IntakePage() {
                       <input value={g.title} onChange={(e) => setGroups(groups.map((x) => (x.id === g.id ? { ...x, title: e.target.value } : x)))} />
                     </label>
                     <div className="actions-row">
+                      <Chip tone={g.confidence === "high" ? "green" : g.confidence === "manual" ? "gray" : "amber"} icon="info">
+                        {tr(`intake.confidence.${g.confidence}`)}
+                      </Chip>
                       {g.reasons.map((r) => (
                         <Chip key={`${r.kind}-${r.value}`} tone="blue" icon="check">
                           {tr(`intake.kind.${r.kind}`, { value: r.value })} · {tr("intake.shared", { n: r.documents })}
                         </Chip>
                       ))}
                     </div>
-                    {g.parties.length > 1 && <p className="note-amber small">{tr("intake.namesDiffer", { names: g.parties.join(" ; ") })}</p>}
+                    {g.context && <p className="muted small">{tr(`intake.context.${g.context}`)}</p>}
+                    {g.confidence === "review" && <p className="note-amber small">{tr("intake.issue.ambiguous")}</p>}
                     <table className="data">
                       <tbody>{docs.map((id) => pieceRow(id, groups.map((x) => ({ id: x.id, title: x.title }))))}</tbody>
                     </table>
