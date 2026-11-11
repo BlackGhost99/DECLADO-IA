@@ -36,14 +36,10 @@ def _facts(piece):
 
 
 def _conflict(a, b):
-    party, refs, shipment = a
-    other_party, other_refs, other_shipment = b
-    return (
-        bool(party and other_party and party != other_party)
-        or any(refs[k] and other_refs[k] and refs[k].isdisjoint(other_refs[k]) for k in ("invoice", "bl"))
-        or any(
-            shipment.get(k) and other_shipment.get(k) and shipment[k] != other_shipment[k] for k in ("vessel", "voyage")
-        )
+    party, refs, _ = a
+    other_party, other_refs, _ = b
+    return bool(party and other_party and party != other_party) or any(
+        refs[k] and other_refs[k] and refs[k].isdisjoint(other_refs[k]) for k in ("invoice", "bl")
     )
 
 
