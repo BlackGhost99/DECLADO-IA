@@ -14,7 +14,7 @@ pdfplumber==0.11.10
 pytesseract==0.3.13
 
 # Encrypted TOTP secrets at rest (cryptography/Fernet).
-cryptography==46.0.3
+cryptography==50.0.2
 # IA en ligne facultative (apps/extraction/ai_providers.py) : Claude pour l'usage réel, Gemini pour les essais.
 anthropic==2.3.0
 google-genai==2.33.0
